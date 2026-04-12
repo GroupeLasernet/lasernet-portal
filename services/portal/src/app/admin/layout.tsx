@@ -40,7 +40,7 @@ const adminLinks = [
     ),
   },
   {
-    label: 'Jobs',
+    label: 'Stations',
     href: '/admin/jobs',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -5,19 +5,15 @@ import { type QBClient, type ManagedClient, type ContactPerson } from '@/lib/moc
 import Avatar from '@/components/Avatar';
 import StreetView from '@/components/StreetView';
 
-// Chevron icon for collapsible sections
 const ChevronIcon = ({ open }: { open: boolean }) => (
   <svg
     className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
+    fill="none" viewBox="0 0 24 24" stroke="currentColor"
   >
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
   </svg>
 );
 
-// Invoice type
 interface QBInvoice {
   id: string;
   invoiceNumber: string;
@@ -49,19 +45,13 @@ export default function AdminClientsPage() {
   const [contactFormType, setContactFormType] = useState<'responsible' | 'employee'>('responsible');
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState<Omit<ContactPerson, 'id'>>({
-    photo: null,
-    name: '',
-    email: '',
-    phone: '',
-    role: '',
+    photo: null, name: '', email: '', phone: '', role: '',
   });
 
-  // Collapsible section states
   const [streetViewOpen, setStreetViewOpen] = useState(true);
   const [mainContactOpen, setMainContactOpen] = useState(true);
   const [staffOpen, setStaffOpen] = useState(true);
 
-  // QuickBooks invoices for selected client
   const [clientInvoices, setClientInvoices] = useState<QBInvoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [invoicesSource, setInvoicesSource] = useState<string>('');
@@ -80,17 +70,12 @@ export default function AdminClientsPage() {
         let hasActive = false;
         for (const [email, expiry] of Object.entries(resetLockouts)) {
           const remaining = Math.ceil((expiry - now) / 1000);
-          if (remaining > 0) {
-            updated[email] = remaining;
-            hasActive = true;
-          }
+          if (remaining > 0) { updated[email] = remaining; hasActive = true; }
         }
         return hasActive ? updated : {};
       });
     }, 1000);
-    return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    };
+    return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
   }, [resetLockouts]);
 
   const handleResetPassword = async (email: string, name: string) => {
@@ -99,76 +84,48 @@ export default function AdminClientsPage() {
     setResetMessage(null);
     try {
       const response = await fetch('/api/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, name }),
       });
       const data = await response.json();
-      if (data.emailSent) {
-        setResetMessage(`Reset email sent to ${email}`);
-      } else {
-        setResetMessage(data.message || 'Reset link generated (email not configured)');
-      }
+      setResetMessage(data.emailSent ? `Reset email sent to ${email}` : (data.message || 'Reset link generated (email not configured)'));
       setResetLockouts((prev) => ({ ...prev, [email]: Date.now() + 120000 }));
-    } catch {
-      setResetMessage('Failed to send reset email');
-    }
+    } catch { setResetMessage('Failed to send reset email'); }
     setResetSending(false);
   };
 
   useEffect(() => {
-    fetch('/api/managed-clients')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.clients) setManagedClients(data.clients);
-        setHasLoaded(true);
-      })
-      .catch(() => setHasLoaded(true));
+    fetch('/api/managed-clients').then(r => r.json()).then(data => {
+      if (data.clients) setManagedClients(data.clients);
+      setHasLoaded(true);
+    }).catch(() => setHasLoaded(true));
   }, []);
 
   useEffect(() => {
-    fetch('/api/quickbooks/status')
-      .then(res => res.json())
-      .then(data => {
-        setQbConnected(data.connected);
-        setCredentialsConfigured(data.credentialsConfigured !== false);
-      })
-      .catch(() => {});
-    fetch('/api/quickbooks/customers')
-      .then(res => res.json())
-      .then(data => {
-        setQbClients(data.customers || []);
-        setDataSource(data.source || 'mock');
-        setQbLoading(false);
-      })
-      .catch(() => setQbLoading(false));
+    fetch('/api/quickbooks/status').then(r => r.json()).then(data => {
+      setQbConnected(data.connected);
+      setCredentialsConfigured(data.credentialsConfigured !== false);
+    }).catch(() => {});
+    fetch('/api/quickbooks/customers').then(r => r.json()).then(data => {
+      setQbClients(data.customers || []);
+      setDataSource(data.source || 'mock');
+      setQbLoading(false);
+    }).catch(() => setQbLoading(false));
   }, []);
 
-  // Load invoices when selected client changes
   useEffect(() => {
-    if (!selectedClientId) {
-      setClientInvoices([]);
-      return;
-    }
+    if (!selectedClientId) { setClientInvoices([]); return; }
     const client = managedClients.find((mc) => mc.id === selectedClientId);
     if (!client) return;
     const qbId = client.qbClient.id;
     setInvoicesLoading(true);
-    fetch(`/api/quickbooks/invoices?customerId=${qbId}`)
-      .then(res => res.json())
-      .then(data => {
-        const allInvoices: QBInvoice[] = data.invoices || [];
-        const filtered = allInvoices.filter(
-          (inv) => inv.clientId === qbId || inv.clientName === client.qbClient.displayName
-        );
-        setClientInvoices(filtered.length > 0 ? filtered : allInvoices);
-        setInvoicesSource(data.source || 'mock');
-        setInvoicesLoading(false);
-      })
-      .catch(() => {
-        setClientInvoices([]);
-        setInvoicesLoading(false);
-      });
+    fetch(`/api/quickbooks/invoices?customerId=${qbId}`).then(r => r.json()).then(data => {
+      const allInvoices: QBInvoice[] = data.invoices || [];
+      const filtered = allInvoices.filter(inv => inv.clientId === qbId || inv.clientName === client.qbClient.displayName);
+      setClientInvoices(filtered.length > 0 ? filtered : allInvoices);
+      setInvoicesSource(data.source || 'mock');
+      setInvoicesLoading(false);
+    }).catch(() => { setClientInvoices([]); setInvoicesLoading(false); });
   }, [selectedClientId, managedClients]);
 
   const handleConnectQB = async () => {
@@ -176,39 +133,32 @@ export default function AdminClientsPage() {
     try {
       const res = await fetch('/api/quickbooks/connect');
       const data = await res.json();
-      if (data.authUrl) {
-        window.location.href = data.authUrl;
-      } else {
-        setConnectError(data.details || data.error || 'Could not generate QuickBooks auth URL.');
-      }
-    } catch {
-      setConnectError('Failed to connect to QuickBooks. The server may be unreachable.');
-    }
+      if (data.authUrl) { window.location.href = data.authUrl; }
+      else { setConnectError(data.details || data.error || 'Could not generate QuickBooks auth URL.'); }
+    } catch { setConnectError('Failed to connect to QuickBooks. The server may be unreachable.'); }
   };
 
   const addedQbIds = new Set(managedClients.map((mc) => mc.qbClient.id));
-  const filteredQBClients = qbClients.filter(
-    (c) =>
-      !addedQbIds.has(c.id) &&
-      (c.displayName.toLowerCase().includes(qbSearch.toLowerCase()) ||
-        c.companyName.toLowerCase().includes(qbSearch.toLowerCase()))
+  const filteredQBClients = qbClients.filter(c =>
+    !addedQbIds.has(c.id) &&
+    qbSearch.trim().length > 0 &&
+    (c.displayName.toLowerCase().includes(qbSearch.toLowerCase()) ||
+      c.companyName.toLowerCase().includes(qbSearch.toLowerCase()))
   );
 
   const handleAddClient = async (qbClient: QBClient) => {
     try {
       const res = await fetch('/api/managed-clients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ qbClient }),
       });
       const data = await res.json();
       if (data.client) {
         setManagedClients([...managedClients, data.client]);
         setSelectedClientId(data.client.id);
+        setQbSearch('');
       }
-    } catch (error) {
-      console.error('Error adding client:', error);
-    }
+    } catch (error) { console.error('Error adding client:', error); }
   };
 
   const handleRemoveClient = async (clientId: string) => {
@@ -216,121 +166,73 @@ export default function AdminClientsPage() {
       await fetch(`/api/managed-clients/${clientId}`, { method: 'DELETE' });
       setManagedClients(managedClients.filter((mc) => mc.id !== clientId));
       if (selectedClientId === clientId) setSelectedClientId(null);
-    } catch (error) {
-      console.error('Error removing client:', error);
-    }
+    } catch (error) { console.error('Error removing client:', error); }
   };
 
   const selectedClient = managedClients.find((mc) => mc.id === selectedClientId) || null;
 
   const openContactForm = (type: 'responsible' | 'employee') => {
-    setContactFormType(type);
-    setEditingContactId(null);
+    setContactFormType(type); setEditingContactId(null);
     setContactForm({ photo: null, name: '', email: '', phone: '', role: '' });
     setShowContactForm(true);
   };
 
   const openEditForm = (type: 'responsible' | 'employee', contact: ContactPerson) => {
-    setContactFormType(type);
-    setEditingContactId(contact.id);
-    setContactForm({
-      photo: contact.photo,
-      name: contact.name,
-      email: contact.email,
-      phone: contact.phone,
-      role: contact.role,
-    });
-    setResetMessage(null);
-    setShowContactForm(true);
+    setContactFormType(type); setEditingContactId(contact.id);
+    setContactForm({ photo: contact.photo, name: contact.name, email: contact.email, phone: contact.phone, role: contact.role });
+    setResetMessage(null); setShowContactForm(true);
   };
 
   const handleSaveContact = async () => {
     if (!selectedClient || !contactForm.name.trim() || !contactForm.email.trim()) return;
     if (editingContactId) {
       try {
-        const res = await fetch(
-          `/api/managed-clients/${selectedClient.id}/contacts/${editingContactId}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(contactForm),
-          }
-        );
+        const res = await fetch(`/api/managed-clients/${selectedClient.id}/contacts/${editingContactId}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contactForm),
+        });
         const data = await res.json();
         if (data.contact) {
-          setManagedClients(
-            managedClients.map((mc) => {
-              if (mc.id !== selectedClient.id) return mc;
-              if (contactFormType === 'responsible' && mc.responsiblePerson?.id === editingContactId) {
-                return { ...mc, responsiblePerson: { ...data.contact, id: editingContactId } };
-              }
-              return {
-                ...mc,
-                subEmployees: mc.subEmployees.map((e) =>
-                  e.id === editingContactId ? { ...data.contact, id: editingContactId } : e
-                ),
-              };
-            })
-          );
+          setManagedClients(managedClients.map((mc) => {
+            if (mc.id !== selectedClient.id) return mc;
+            if (contactFormType === 'responsible' && mc.responsiblePerson?.id === editingContactId) return { ...mc, responsiblePerson: { ...data.contact, id: editingContactId } };
+            return { ...mc, subEmployees: mc.subEmployees.map(e => e.id === editingContactId ? { ...data.contact, id: editingContactId } : e) };
+          }));
         }
-      } catch (error) {
-        console.error('Error updating contact:', error);
-      }
-      setShowContactForm(false);
-      setEditingContactId(null);
+      } catch (error) { console.error('Error updating contact:', error); }
+      setShowContactForm(false); setEditingContactId(null);
     } else {
       try {
         const res = await fetch(`/api/managed-clients/${selectedClient.id}/contacts`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...contactForm, type: contactFormType }),
         });
         const data = await res.json();
         if (data.contact) {
-          setManagedClients(
-            managedClients.map((mc) => {
-              if (mc.id !== selectedClient.id) return mc;
-              if (contactFormType === 'responsible') {
-                return { ...mc, responsiblePerson: data.contact };
-              }
-              return { ...mc, subEmployees: [...mc.subEmployees, data.contact] };
-            })
-          );
+          setManagedClients(managedClients.map((mc) => {
+            if (mc.id !== selectedClient.id) return mc;
+            if (contactFormType === 'responsible') return { ...mc, responsiblePerson: data.contact };
+            return { ...mc, subEmployees: [...mc.subEmployees, data.contact] };
+          }));
         }
-      } catch (error) {
-        console.error('Error adding contact:', error);
-      }
+      } catch (error) { console.error('Error adding contact:', error); }
       try {
         await fetch('/api/invite', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: contactForm.email,
-            name: contactForm.name,
-            role: contactForm.role || 'Staff Member',
-            companyName: selectedClient.qbClient.companyName,
-          }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: contactForm.email, name: contactForm.name, role: contactForm.role || 'Staff Member', companyName: selectedClient.qbClient.companyName }),
         });
-      } catch (error) {
-        console.error('Error sending invitation:', error);
-      }
-      setShowContactForm(false);
-      setEditingContactId(null);
+      } catch (error) { console.error('Error sending invitation:', error); }
+      setShowContactForm(false); setEditingContactId(null);
     }
   };
 
   const handleRemoveEmployee = async (clientId: string, employeeId: string) => {
     try {
       await fetch(`/api/managed-clients/${clientId}/contacts/${employeeId}`, { method: 'DELETE' });
-      setManagedClients(
-        managedClients.map((mc) => {
-          if (mc.id !== clientId) return mc;
-          return { ...mc, subEmployees: mc.subEmployees.filter((e) => e.id !== employeeId) };
-        })
-      );
-    } catch (error) {
-      console.error('Error removing staff member:', error);
-    }
+      setManagedClients(managedClients.map((mc) => {
+        if (mc.id !== clientId) return mc;
+        return { ...mc, subEmployees: mc.subEmployees.filter(e => e.id !== employeeId) };
+      }));
+    } catch (error) { console.error('Error removing staff member:', error); }
   };
 
   const handleRemoveResponsible = async (clientId: string) => {
@@ -338,15 +240,11 @@ export default function AdminClientsPage() {
     if (!client?.responsiblePerson) return;
     try {
       await fetch(`/api/managed-clients/${clientId}/contacts/${client.responsiblePerson.id}`, { method: 'DELETE' });
-      setManagedClients(
-        managedClients.map((mc) => {
-          if (mc.id !== clientId) return mc;
-          return { ...mc, responsiblePerson: null };
-        })
-      );
-    } catch (error) {
-      console.error('Error removing main contact:', error);
-    }
+      setManagedClients(managedClients.map((mc) => {
+        if (mc.id !== clientId) return mc;
+        return { ...mc, responsiblePerson: null };
+      }));
+    } catch (error) { console.error('Error removing main contact:', error); }
   };
 
   const EditIcon = () => (
@@ -361,15 +259,8 @@ export default function AdminClientsPage() {
     </svg>
   );
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(amount);
-  };
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '\u2014';
-    return new Date(dateStr).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' });
-  };
-
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(amount);
+  const formatDate = (dateStr: string) => { if (!dateStr) return '\u2014'; return new Date(dateStr).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' }); };
   const statusColor = (status: string) => {
     switch (status) {
       case 'paid': return 'bg-green-100 text-green-700';
@@ -387,10 +278,13 @@ export default function AdminClientsPage() {
       </div>
 
       <div className="flex gap-6 h-[calc(100vh-180px)]">
-        {/* LEFT PANEL: QuickBooks Clients */}
-        <div className="w-80 flex-shrink-0 flex flex-col">
-          <div className="card flex-1 flex flex-col !p-0 overflow-hidden">
-            <div className="p-4 border-b border-gray-100">
+        {/* ============================================================ */}
+        {/* LEFT PANEL: QuickBooks Search + Enrolment List */}
+        {/* ============================================================ */}
+        <div className="w-80 flex-shrink-0 flex flex-col gap-4">
+          {/* QuickBooks Search Section */}
+          <div className="card !p-0 flex-shrink-0">
+            <div className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className={`w-6 h-6 ${qbConnected && dataSource === 'quickbooks' ? 'bg-green-100' : 'bg-yellow-100'} rounded flex items-center justify-center`}>
@@ -406,7 +300,7 @@ export default function AdminClientsPage() {
               </div>
               {!credentialsConfigured && (
                 <p className="text-[10px] text-red-600 bg-red-50 px-2 py-1 rounded mb-2">
-                  QuickBooks credentials are missing on the server. Add QUICKBOOKS_CLIENT_ID and QUICKBOOKS_CLIENT_SECRET in Vercel &rarr; Settings &rarr; Environment Variables, then redeploy.
+                  QuickBooks credentials are missing. Add QUICKBOOKS_CLIENT_ID and QUICKBOOKS_CLIENT_SECRET in Vercel, then redeploy.
                 </p>
               )}
               {connectError && (
@@ -414,58 +308,52 @@ export default function AdminClientsPage() {
               )}
               {dataSource === 'mock' && credentialsConfigured && (
                 <p className="text-[10px] text-yellow-600 bg-yellow-50 px-2 py-1 rounded mb-2">
-                  {qbConnected
-                    ? 'QuickBooks session expired \u2014 click Reconnect to restore your real clients'
-                    : 'Showing demo data \u2014 connect QuickBooks for real clients'}
+                  {qbConnected ? 'QuickBooks session expired \u2014 click Reconnect' : 'Showing demo data \u2014 connect QuickBooks for real clients'}
                 </p>
               )}
               {dataSource === 'quickbooks' && (
                 <p className="text-[10px] text-green-600 bg-green-50 px-2 py-1 rounded mb-2">Connected \u2014 showing live QuickBooks data</p>
               )}
-              <input type="text" placeholder="Search clients..." value={qbSearch} onChange={(e) => setQbSearch(e.target.value)} className="input-field text-sm !py-2" />
+              <input
+                type="text"
+                placeholder="Search QuickBooks clients..."
+                value={qbSearch}
+                onChange={(e) => setQbSearch(e.target.value)}
+                className="input-field text-sm !py-2"
+              />
             </div>
-            <div className="flex-1 overflow-y-auto">
-              {dataSource === 'quickbooks' && filteredQBClients.length > 0 ? (
-                filteredQBClients.map((client) => (
-                  <div key={client.id} className="flex items-center justify-between px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <Avatar photo={null} name={client.displayName} size="sm" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{client.displayName}</p>
-                        <p className="text-xs text-gray-500 truncate">{client.companyName}</p>
-                      </div>
-                    </div>
-                    <button onClick={() => handleAddClient(client)} className="flex-shrink-0 ml-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">Add</button>
-                  </div>
-                ))
-              ) : dataSource === 'quickbooks' ? (
-                <div className="p-4 text-center text-sm text-gray-400">{qbSearch ? 'No matching clients' : 'All clients have been added'}</div>
-              ) : (
-                <div className="p-6 text-center">
-                  <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  <p className="text-sm text-gray-400">Connect QuickBooks to see your clients</p>
-                </div>
-              )}
-            </div>
-            <div className="p-3 border-t border-gray-100 bg-gray-50">
-              <p className="text-xs text-gray-500 text-center">
-                {dataSource === 'quickbooks' ? `${filteredQBClients.length} client${filteredQBClients.length !== 1 ? 's' : ''} available` : 'Not connected'}
-              </p>
-            </div>
-          </div>
-        </div>
 
-        {/* MIDDLE PANEL: My Clients */}
-        <div className="w-72 flex-shrink-0 flex flex-col">
+            {/* Search results — only show when typing */}
+            {qbSearch.trim().length > 0 && (
+              <div className="border-t border-gray-100 max-h-[200px] overflow-y-auto">
+                {filteredQBClients.length > 0 ? (
+                  filteredQBClients.map((client) => (
+                    <div key={client.id} className="flex items-center justify-between px-4 py-2.5 border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Avatar photo={null} name={client.displayName} size="sm" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{client.displayName}</p>
+                          <p className="text-xs text-gray-500 truncate">{client.companyName}</p>
+                        </div>
+                      </div>
+                      <button onClick={() => handleAddClient(client)} className="flex-shrink-0 ml-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">Add</button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-3 text-center text-sm text-gray-400">No matching clients</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Enrolment List */}
           <div className="card flex-1 flex flex-col !p-0 overflow-hidden">
             <div className="p-4 border-b border-gray-100">
               <h2 className="font-semibold text-sm flex items-center gap-2">
                 <svg className="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
-                My Clients
+                Enrolment
               </h2>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -487,9 +375,7 @@ export default function AdminClientsPage() {
                           <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">Main Contact set</span>
                         )}
                         {mc.subEmployees.length > 0 && (
-                          <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                            {mc.subEmployees.length} staff
-                          </span>
+                          <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">{mc.subEmployees.length} staff</span>
                         )}
                       </div>
                     </div>
@@ -500,24 +386,25 @@ export default function AdminClientsPage() {
                   <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  <p className="text-sm text-gray-400">No clients added yet</p>
-                  <p className="text-xs text-gray-400 mt-1">Click &quot;Add&quot; on a QuickBooks client</p>
+                  <p className="text-sm text-gray-400">No clients enrolled yet</p>
+                  <p className="text-xs text-gray-400 mt-1">Search QuickBooks above to add clients</p>
                 </div>
               )}
             </div>
             <div className="p-3 border-t border-gray-100 bg-gray-50">
               <p className="text-xs text-gray-500 text-center">
-                {managedClients.length} client{managedClients.length !== 1 ? 's' : ''} managed
+                {managedClients.length} client{managedClients.length !== 1 ? 's' : ''} enrolled
               </p>
             </div>
           </div>
         </div>
 
+        {/* ============================================================ */}
         {/* RIGHT PANEL: Client Detail + Invoices */}
+        {/* ============================================================ */}
         <div className="flex-1 flex flex-col min-w-0 gap-4 overflow-y-auto">
           {selectedClient ? (
             <>
-              {/* Client Detail Card */}
               <div className="card !p-0">
                 {/* Client Header */}
                 <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-brand-50 to-white">
@@ -607,9 +494,7 @@ export default function AdminClientsPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                       <span className="text-sm font-semibold text-gray-900">Staff</span>
-                      {selectedClient.subEmployees.length > 0 && (
-                        <span className="text-xs text-gray-400 ml-1">({selectedClient.subEmployees.length})</span>
-                      )}
+                      {selectedClient.subEmployees.length > 0 && <span className="text-xs text-gray-400 ml-1">({selectedClient.subEmployees.length})</span>}
                     </button>
                     {staffOpen && (
                       <button onClick={() => openContactForm('employee')} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ Add Staff</button>
@@ -626,8 +511,7 @@ export default function AdminClientsPage() {
                                 <p className="font-medium text-sm">{emp.name}</p>
                                 <p className="text-xs text-gray-500">{emp.role}</p>
                                 <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
-                                  <span>{emp.email}</span>
-                                  <span>{emp.phone}</span>
+                                  <span>{emp.email}</span><span>{emp.phone}</span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">
@@ -679,7 +563,7 @@ export default function AdminClientsPage() {
                       </thead>
                       <tbody>
                         {clientInvoices.map((inv) => (
-                          <tr key={inv.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                          <tr key={inv.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer">
                             <td className="px-4 py-3 font-medium">{inv.invoiceNumber}</td>
                             <td className="px-4 py-3 text-gray-500">{formatDate(inv.date)}</td>
                             <td className="px-4 py-3 text-gray-500">{formatDate(inv.dueDate)}</td>
@@ -717,7 +601,7 @@ export default function AdminClientsPage() {
                 <svg className="w-16 h-16 text-gray-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                <p className="text-gray-400 text-sm">Select a client from &quot;My Clients&quot; to manage</p>
+                <p className="text-gray-400 text-sm">Select a client from Enrolment to manage</p>
               </div>
             </div>
           )}
@@ -732,13 +616,10 @@ export default function AdminClientsPage() {
               <h2 className="text-lg font-semibold">
                 {editingContactId
                   ? (contactFormType === 'responsible' ? 'Edit Main Contact' : 'Edit Staff Member')
-                  : (contactFormType === 'responsible' ? 'Set Main Contact' : 'Add Staff Member')
-                }
+                  : (contactFormType === 'responsible' ? 'Set Main Contact' : 'Add Staff Member')}
               </h2>
               <p className="text-sm text-gray-500 mt-1">
-                {contactFormType === 'responsible'
-                  ? 'The main contact person for this client'
-                  : 'A staff member at this client\'s company'}
+                {contactFormType === 'responsible' ? 'The main contact person for this client' : 'A staff member at this client\'s company'}
               </p>
             </div>
             <div className="p-6 space-y-4">
@@ -773,21 +654,16 @@ export default function AdminClientsPage() {
                       <p className="text-sm font-medium text-gray-700">Password</p>
                       <p className="text-xs text-gray-400">Send a password reset email to this contact</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleResetPassword(contactForm.email, contactForm.name)}
+                    <button type="button" onClick={() => handleResetPassword(contactForm.email, contactForm.name)}
                       disabled={resetSending || (!!resetCountdowns[contactForm.email] && resetCountdowns[contactForm.email] > 0)}
-                      className="text-xs bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-                    >
+                      className="text-xs bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                       </svg>
                       {resetSending ? 'Sending...' : resetCountdowns[contactForm.email] && resetCountdowns[contactForm.email] > 0 ? `Wait ${resetCountdowns[contactForm.email]}s` : 'Reset Password'}
                     </button>
                   </div>
-                  {resetMessage && (
-                    <p className={`text-xs mt-2 ${resetMessage.includes('sent') ? 'text-green-600' : 'text-yellow-600'}`}>{resetMessage}</p>
-                  )}
+                  {resetMessage && <p className={`text-xs mt-2 ${resetMessage.includes('sent') ? 'text-green-600' : 'text-yellow-600'}`}>{resetMessage}</p>}
                 </div>
               )}
             </div>
