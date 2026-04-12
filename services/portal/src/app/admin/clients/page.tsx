@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { type QBClient, type ManagedClient, type ContactPerson } from '@/lib/mock-data';
 import Avatar from '@/components/Avatar';
 import StreetView from '@/components/StreetView';
@@ -72,6 +72,11 @@ export default function AdminClientsPage() {
   const [stationName, setStationName] = useState('');
   const [clientStations, setClientStations] = useState<Station[]>([]);
   const [stationsOpen, setStationsOpen] = useState(true);
+  // Station assignment: 'new' | 'existing'
+  const [stationMode, setStationMode] = useState<'new' | 'existing'>('new');
+  const [selectedExistingStationId, setSelectedExistingStationId] = useState<string | null>(null);
+  // Quantity split: for multi-unit items, how many stations to create
+  const [itemQuantities, setItemQuantities] = useState<Record<number, number>>({});
 
   const [resetLockouts, setResetLockouts] = useState<Record<string, number>>({});
   const [resetCountdowns, setResetCountdowns] = useState<Record<string, number>>({});
@@ -281,6 +286,9 @@ export default function AdminClientsPage() {
     setPreviewInvoice(invoice);
     setSelectedItems(new Set());
     setStationName('');
+    setStationMode(clientStations.length > 0 ? 'existing' : 'new');
+    setSelectedExistingStationId(clientStations.length > 0 ? clientStations[0].id : null);
+    setItemQuantities({});
   };
 
   const toggleItem = (index: number) => {
@@ -301,45 +309,33 @@ export default function AdminClientsPage() {
     }
   };
 
-  const selectedTotal = previewInvoice
-    ? previewInvoice.items.filter((_, i) => selectedItems.has(i)).reduce((sum, item) => sum + item.amount, 0)
-    : 0;
-
   const handleCreateStation = async () => {
     if (!previewInvoice || selectedItems.size === 0 || !selectedClient) return;
-    const items = previewInvoice.items.filter((_, i) => selectedItems.has(i));
-    const name = stationName.trim() || `Station — ${previewInvoice.invoiceNumber}`;
+    const items = previewInvoice.items
+      .filter((_, i) => selectedItems.has(i))
+      .map((item, _idx) => {
+        const originalIndex = Array.from(selectedItems).sort()[Array.from(selectedItems).sort().indexOf(
+          [...selectedItems].find((si) => previewInvoice.items[si] === item) ?? 0
+        )];
+        const qty = itemQuantities[originalIndex] || item.quantity;
+        return { ...item, quantity: qty };
+      });
 
-    try {
-      const res = await fetch('/api/stations', {
+    if (stationMode === 'existing' && selectedExistingStationId) {
+      // Add items to existing station
+      setClientStations(prev => prev.map(s => {
+        if (s.id !== selectedExistingStationId) return s;
+        return { ...s, items: [...s.items, ...items] };
+      }));
+      // Also try API
+      fetch(`/api/stations/${selectedExistingStationId}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: selectedClient.id,
-          invoiceId: previewInvoice.id,
-          invoiceNumber: previewInvoice.invoiceNumber,
-          name,
-          items,
-        }),
-      });
-      const data = await res.json();
-      if (data.station) {
-        setClientStations(prev => [...prev, data.station]);
-      } else {
-        // If API not ready yet, create locally
-        const localStation: Station = {
-          id: `local-${Date.now()}`,
-          name,
-          invoiceId: previewInvoice.id,
-          invoiceNumber: previewInvoice.invoiceNumber,
-          items,
-          status: 'pending',
-          createdAt: new Date().toISOString(),
-        };
-        setClientStations(prev => [...prev, localStation]);
-      }
-    } catch {
-      // API not available — create locally
+        body: JSON.stringify({ items }),
+      }).catch(() => {});
+    } else {
+      // Create new station
+      const name = stationName.trim() || `Station — ${previewInvoice.invoiceNumber}`;
       const localStation: Station = {
         id: `local-${Date.now()}`,
         name,
@@ -349,11 +345,29 @@ export default function AdminClientsPage() {
         status: 'pending',
         createdAt: new Date().toISOString(),
       };
-      setClientStations(prev => [...prev, localStation]);
+
+      try {
+        const res = await fetch('/api/stations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId: selectedClient.id,
+            invoiceId: previewInvoice.id,
+            invoiceNumber: previewInvoice.invoiceNumber,
+            name,
+            items,
+          }),
+        });
+        const data = await res.json();
+        setClientStations(prev => [...prev, data.station || localStation]);
+      } catch {
+        setClientStations(prev => [...prev, localStation]);
+      }
     }
 
     setSelectedItems(new Set());
     setStationName('');
+    setItemQuantities({});
     setPreviewInvoice(null);
   };
 
@@ -375,16 +389,7 @@ export default function AdminClientsPage() {
     </svg>
   );
 
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(amount);
   const formatDate = (dateStr: string) => { if (!dateStr) return '\u2014'; return new Date(dateStr).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' }); };
-  const statusColor = (status: string) => {
-    switch (status) {
-      case 'paid': return 'bg-green-100 text-green-700';
-      case 'overdue': return 'bg-red-100 text-red-700';
-      case 'unpaid': return 'bg-yellow-100 text-yellow-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
   const stationStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-700';
@@ -683,9 +688,7 @@ export default function AdminClientsPage() {
                           <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
                           <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                           <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Due</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Amount</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Balance</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Status</th>
+                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Items</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -694,13 +697,7 @@ export default function AdminClientsPage() {
                             <td className="px-4 py-3 font-medium group-hover:text-purple-700">{inv.invoiceNumber}</td>
                             <td className="px-4 py-3 text-gray-500">{formatDate(inv.date)}</td>
                             <td className="px-4 py-3 text-gray-500">{formatDate(inv.dueDate)}</td>
-                            <td className="px-4 py-3 text-right font-medium">{formatCurrency(inv.amount)}</td>
-                            <td className="px-4 py-3 text-right text-gray-500">{formatCurrency(inv.balance)}</td>
-                            <td className="px-4 py-3 text-center">
-                              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColor(inv.status)}`}>
-                                {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
-                              </span>
-                            </td>
+                            <td className="px-4 py-3 text-right text-gray-500">{inv.items?.length || 0}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -715,9 +712,8 @@ export default function AdminClientsPage() {
                   )}
                 </div>
                 {clientInvoices.length > 0 && (
-                  <div className="p-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-                    <p className="text-xs text-gray-500">{clientInvoices.length} invoice{clientInvoices.length !== 1 ? 's' : ''}</p>
-                    <p className="text-xs font-medium text-gray-700">Total: {formatCurrency(clientInvoices.reduce((sum, inv) => sum + inv.amount, 0))}</p>
+                  <div className="p-3 border-t border-gray-100 bg-gray-50">
+                    <p className="text-xs text-gray-500 text-center">{clientInvoices.length} invoice{clientInvoices.length !== 1 ? 's' : ''}</p>
                   </div>
                 )}
               </div>
@@ -755,7 +751,7 @@ export default function AdminClientsPage() {
                                   {station.items.map((item, i) => (
                                     <div key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1">
                                       <span className="text-gray-600">{item.description}</span>
-                                      <span className="text-gray-500 font-medium">{formatCurrency(item.amount)}</span>
+                                      <span className="text-gray-500 font-medium">Qty: {item.quantity}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -818,10 +814,7 @@ export default function AdminClientsPage() {
               <div className="flex items-center gap-6 mt-3 text-sm">
                 <div><span className="text-gray-400">Date:</span> <span className="font-medium">{formatDate(previewInvoice.date)}</span></div>
                 <div><span className="text-gray-400">Due:</span> <span className="font-medium">{formatDate(previewInvoice.dueDate)}</span></div>
-                <div><span className="text-gray-400">Amount:</span> <span className="font-bold">{formatCurrency(previewInvoice.amount)}</span></div>
-                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColor(previewInvoice.status)}`}>
-                  {previewInvoice.status.charAt(0).toUpperCase() + previewInvoice.status.slice(1)}
-                </span>
+                <div><span className="text-gray-400">Items:</span> <span className="font-medium">{previewInvoice.items?.length || 0}</span></div>
               </div>
             </div>
 
@@ -833,30 +826,46 @@ export default function AdminClientsPage() {
                   {selectedItems.size === previewInvoice.items.length ? 'Deselect All' : 'Select All'}
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mb-4">Select the items you want to group into a Station</p>
+              <p className="text-xs text-gray-400 mb-4">Select the items you want to assign to a Station</p>
 
               <div className="space-y-2">
                 {previewInvoice.items.map((item, index) => (
-                  <label
+                  <div
                     key={index}
-                    className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    className={`p-4 rounded-xl border-2 transition-all ${
                       selectedItems.has(index)
                         ? 'border-purple-400 bg-purple-50'
                         : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.has(index)}
-                      onChange={() => toggleItem(index)}
-                      className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">{item.description}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Qty: {item.quantity} × {formatCurrency(item.rate)}</p>
-                    </div>
-                    <p className="text-sm font-bold text-gray-700">{formatCurrency(item.amount)}</p>
-                  </label>
+                    <label className="flex items-center gap-4 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.has(index)}
+                        onChange={() => toggleItem(index)}
+                        className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900">{item.description}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Qty: {item.quantity}</p>
+                      </div>
+                    </label>
+                    {/* Quantity selector for multi-unit items */}
+                    {selectedItems.has(index) && item.quantity > 1 && (
+                      <div className="mt-3 ml-8 flex items-center gap-3 bg-white rounded-lg p-2 border border-purple-200">
+                        <span className="text-xs text-gray-500">How many stations for this item?</span>
+                        <select
+                          value={itemQuantities[index] || 1}
+                          onChange={(e) => setItemQuantities(prev => ({ ...prev, [index]: parseInt(e.target.value) }))}
+                          className="text-sm border border-gray-200 rounded px-2 py-1 focus:ring-purple-500 focus:border-purple-500"
+                        >
+                          {Array.from({ length: item.quantity }, (_, i) => i + 1).map(n => (
+                            <option key={n} value={n}>{n} station{n > 1 ? 's' : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -864,22 +873,59 @@ export default function AdminClientsPage() {
             {/* Create Station Footer */}
             <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex-shrink-0">
               {selectedItems.size > 0 ? (
-                <div>
-                  <div className="flex items-center gap-3 mb-3">
+                <div className="space-y-3">
+                  {/* Choose: add to existing or create new */}
+                  {clientStations.length > 0 && (
+                    <div className="flex items-center gap-4 mb-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="stationMode"
+                          checked={stationMode === 'existing'}
+                          onChange={() => setStationMode('existing')}
+                          className="text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-sm text-gray-700">Add to existing station</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="stationMode"
+                          checked={stationMode === 'new'}
+                          onChange={() => setStationMode('new')}
+                          className="text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-sm text-gray-700">Create new station</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Existing station selector */}
+                  {stationMode === 'existing' && clientStations.length > 0 && (
+                    <select
+                      value={selectedExistingStationId || ''}
+                      onChange={(e) => setSelectedExistingStationId(e.target.value)}
+                      className="input-field text-sm !py-2 w-full"
+                    >
+                      {clientStations.map(s => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.items.length} item{s.items.length !== 1 ? 's' : ''})</option>
+                      ))}
+                    </select>
+                  )}
+
+                  {/* New station name */}
+                  {stationMode === 'new' && (
                     <input
                       type="text"
                       placeholder={`Station name (default: Station — ${previewInvoice.invoiceNumber})`}
                       value={stationName}
                       onChange={(e) => setStationName(e.target.value)}
-                      className="input-field flex-1 text-sm !py-2"
+                      className="input-field text-sm !py-2 w-full"
                     />
-                  </div>
+                  )}
+
                   <div className="flex items-center justify-between">
-                    <div className="text-sm">
-                      <span className="text-gray-500">{selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected</span>
-                      <span className="mx-2 text-gray-300">|</span>
-                      <span className="font-bold text-purple-700">{formatCurrency(selectedTotal)}</span>
-                    </div>
+                    <span className="text-sm text-gray-500">{selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected</span>
                     <button
                       onClick={handleCreateStation}
                       className="bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors flex items-center gap-2"
@@ -887,7 +933,7 @@ export default function AdminClientsPage() {
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
-                      Create Station
+                      {stationMode === 'existing' ? 'Add to Station' : 'Create Station'}
                     </button>
                   </div>
                 </div>
