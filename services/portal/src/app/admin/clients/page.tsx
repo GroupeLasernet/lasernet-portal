@@ -27,6 +27,16 @@ interface QBInvoice {
   items: { description: string; quantity: number; rate: number; amount: number }[];
 }
 
+interface Station {
+  id: string;
+  name: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  items: { description: string; quantity: number; rate: number; amount: number }[];
+  status: 'pending' | 'in_progress' | 'completed';
+  createdAt: string;
+}
+
 export default function AdminClientsPage() {
   const [qbClients, setQbClients] = useState<QBClient[]>([]);
   const [qbSearch, setQbSearch] = useState('');
@@ -55,6 +65,13 @@ export default function AdminClientsPage() {
   const [clientInvoices, setClientInvoices] = useState<QBInvoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [invoicesSource, setInvoicesSource] = useState<string>('');
+
+  // Invoice preview & Station creation state
+  const [previewInvoice, setPreviewInvoice] = useState<QBInvoice | null>(null);
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+  const [stationName, setStationName] = useState('');
+  const [clientStations, setClientStations] = useState<Station[]>([]);
+  const [stationsOpen, setStationsOpen] = useState(true);
 
   const [resetLockouts, setResetLockouts] = useState<Record<string, number>>({});
   const [resetCountdowns, setResetCountdowns] = useState<Record<string, number>>({});
@@ -114,7 +131,7 @@ export default function AdminClientsPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedClientId) { setClientInvoices([]); return; }
+    if (!selectedClientId) { setClientInvoices([]); setClientStations([]); return; }
     const client = managedClients.find((mc) => mc.id === selectedClientId);
     if (!client) return;
     const qbId = client.qbClient.id;
@@ -126,6 +143,11 @@ export default function AdminClientsPage() {
       setInvoicesSource(data.source || 'mock');
       setInvoicesLoading(false);
     }).catch(() => { setClientInvoices([]); setInvoicesLoading(false); });
+
+    // Load stations for this client
+    fetch(`/api/stations?clientId=${selectedClientId}`).then(r => r.json()).then(data => {
+      setClientStations(data.stations || []);
+    }).catch(() => setClientStations([]));
   }, [selectedClientId, managedClients]);
 
   const handleConnectQB = async () => {
@@ -247,6 +269,93 @@ export default function AdminClientsPage() {
     } catch (error) { console.error('Error removing main contact:', error); }
   };
 
+  // Invoice preview handlers
+  const openInvoicePreview = (invoice: QBInvoice) => {
+    setPreviewInvoice(invoice);
+    setSelectedItems(new Set());
+    setStationName('');
+  };
+
+  const toggleItem = (index: number) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
+  const toggleAllItems = () => {
+    if (!previewInvoice) return;
+    if (selectedItems.size === previewInvoice.items.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(previewInvoice.items.map((_, i) => i)));
+    }
+  };
+
+  const selectedTotal = previewInvoice
+    ? previewInvoice.items.filter((_, i) => selectedItems.has(i)).reduce((sum, item) => sum + item.amount, 0)
+    : 0;
+
+  const handleCreateStation = async () => {
+    if (!previewInvoice || selectedItems.size === 0 || !selectedClient) return;
+    const items = previewInvoice.items.filter((_, i) => selectedItems.has(i));
+    const name = stationName.trim() || `Station — ${previewInvoice.invoiceNumber}`;
+
+    try {
+      const res = await fetch('/api/stations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: selectedClient.id,
+          invoiceId: previewInvoice.id,
+          invoiceNumber: previewInvoice.invoiceNumber,
+          name,
+          items,
+        }),
+      });
+      const data = await res.json();
+      if (data.station) {
+        setClientStations(prev => [...prev, data.station]);
+      } else {
+        // If API not ready yet, create locally
+        const localStation: Station = {
+          id: `local-${Date.now()}`,
+          name,
+          invoiceId: previewInvoice.id,
+          invoiceNumber: previewInvoice.invoiceNumber,
+          items,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+        };
+        setClientStations(prev => [...prev, localStation]);
+      }
+    } catch {
+      // API not available — create locally
+      const localStation: Station = {
+        id: `local-${Date.now()}`,
+        name,
+        invoiceId: previewInvoice.id,
+        invoiceNumber: previewInvoice.invoiceNumber,
+        items,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      };
+      setClientStations(prev => [...prev, localStation]);
+    }
+
+    setSelectedItems(new Set());
+    setStationName('');
+    setPreviewInvoice(null);
+  };
+
+  const handleDeleteStation = (stationId: string) => {
+    setClientStations(prev => prev.filter(s => s.id !== stationId));
+    // Also try to delete from API
+    fetch(`/api/stations/${stationId}`, { method: 'DELETE' }).catch(() => {});
+  };
+
   const EditIcon = () => (
     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -266,6 +375,14 @@ export default function AdminClientsPage() {
       case 'paid': return 'bg-green-100 text-green-700';
       case 'overdue': return 'bg-red-100 text-red-700';
       case 'unpaid': return 'bg-yellow-100 text-yellow-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+  const stationStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-700';
+      case 'in_progress': return 'bg-blue-100 text-blue-700';
+      case 'pending': return 'bg-yellow-100 text-yellow-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
@@ -400,7 +517,7 @@ export default function AdminClientsPage() {
         </div>
 
         {/* ============================================================ */}
-        {/* RIGHT PANEL: Client Detail + Invoices */}
+        {/* RIGHT PANEL: Client Detail + Invoices + Stations */}
         {/* ============================================================ */}
         <div className="flex-1 flex flex-col min-w-0 gap-4 overflow-y-auto">
           {selectedClient ? (
@@ -540,7 +657,10 @@ export default function AdminClientsPage() {
                       Invoices
                       {clientInvoices.length > 0 && <span className="text-xs text-gray-400 font-normal">({clientInvoices.length})</span>}
                     </h3>
-                    {invoicesSource === 'mock' && <span className="text-[10px] text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded">Demo data</span>}
+                    <div className="flex items-center gap-2">
+                      {invoicesSource === 'mock' && <span className="text-[10px] text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded">Demo data</span>}
+                      <span className="text-[10px] text-purple-500">Click an invoice to create Stations</span>
+                    </div>
                   </div>
                 </div>
                 <div className="max-h-[400px] overflow-y-auto">
@@ -563,8 +683,8 @@ export default function AdminClientsPage() {
                       </thead>
                       <tbody>
                         {clientInvoices.map((inv) => (
-                          <tr key={inv.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer">
-                            <td className="px-4 py-3 font-medium">{inv.invoiceNumber}</td>
+                          <tr key={inv.id} onClick={() => openInvoicePreview(inv)} className="border-b border-gray-50 hover:bg-purple-50 transition-colors cursor-pointer group">
+                            <td className="px-4 py-3 font-medium group-hover:text-purple-700">{inv.invoiceNumber}</td>
                             <td className="px-4 py-3 text-gray-500">{formatDate(inv.date)}</td>
                             <td className="px-4 py-3 text-gray-500">{formatDate(inv.dueDate)}</td>
                             <td className="px-4 py-3 text-right font-medium">{formatCurrency(inv.amount)}</td>
@@ -594,6 +714,64 @@ export default function AdminClientsPage() {
                   </div>
                 )}
               </div>
+
+              {/* STATIONS BOX */}
+              <div className="card !p-0">
+                <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-white">
+                  <button onClick={() => setStationsOpen(!stationsOpen)} className="w-full flex items-center justify-between">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                      </svg>
+                      Stations
+                      {clientStations.length > 0 && <span className="text-xs text-gray-400 font-normal">({clientStations.length})</span>}
+                    </h3>
+                    <ChevronIcon open={stationsOpen} />
+                  </button>
+                </div>
+                {stationsOpen && (
+                  <div>
+                    {clientStations.length > 0 ? (
+                      <div className="divide-y divide-gray-50">
+                        {clientStations.map((station) => (
+                          <div key={station.id} className="p-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-sm">{station.name}</p>
+                                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${stationStatusColor(station.status)}`}>
+                                    {station.status.replace('_', ' ').charAt(0).toUpperCase() + station.status.replace('_', ' ').slice(1)}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-0.5">From invoice {station.invoiceNumber} — {formatDate(station.createdAt)}</p>
+                                <div className="mt-2 space-y-1">
+                                  {station.items.map((item, i) => (
+                                    <div key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1">
+                                      <span className="text-gray-600">{item.description}</span>
+                                      <span className="text-gray-500 font-medium">{formatCurrency(item.amount)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <button onClick={() => handleDeleteStation(station.id)} className="text-gray-300 hover:text-red-500 transition-colors p-1 ml-3" title="Delete station">
+                                <TrashIcon size="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center">
+                        <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
+                        <p className="text-sm text-gray-400">No stations created yet</p>
+                        <p className="text-xs text-gray-400 mt-1">Click an invoice above to select line items and create stations</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <div className="card flex-1 flex items-center justify-center">
@@ -607,6 +785,112 @@ export default function AdminClientsPage() {
           )}
         </div>
       </div>
+
+      {/* INVOICE PREVIEW MODAL */}
+      {previewInvoice && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Invoice {previewInvoice.invoiceNumber}
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">{previewInvoice.clientName}</p>
+                </div>
+                <button onClick={() => setPreviewInvoice(null)} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex items-center gap-6 mt-3 text-sm">
+                <div><span className="text-gray-400">Date:</span> <span className="font-medium">{formatDate(previewInvoice.date)}</span></div>
+                <div><span className="text-gray-400">Due:</span> <span className="font-medium">{formatDate(previewInvoice.dueDate)}</span></div>
+                <div><span className="text-gray-400">Amount:</span> <span className="font-bold">{formatCurrency(previewInvoice.amount)}</span></div>
+                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColor(previewInvoice.status)}`}>
+                  {previewInvoice.status.charAt(0).toUpperCase() + previewInvoice.status.slice(1)}
+                </span>
+              </div>
+            </div>
+
+            {/* Line Items */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700">Line Items</h3>
+                <button onClick={toggleAllItems} className="text-xs text-purple-600 hover:text-purple-700 transition-colors">
+                  {selectedItems.size === previewInvoice.items.length ? 'Deselect All' : 'Select All'}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mb-4">Select the items you want to group into a Station</p>
+
+              <div className="space-y-2">
+                {previewInvoice.items.map((item, index) => (
+                  <label
+                    key={index}
+                    className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      selectedItems.has(index)
+                        ? 'border-purple-400 bg-purple-50'
+                        : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.has(index)}
+                      onChange={() => toggleItem(index)}
+                      className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900">{item.description}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">Qty: {item.quantity} × {formatCurrency(item.rate)}</p>
+                    </div>
+                    <p className="text-sm font-bold text-gray-700">{formatCurrency(item.amount)}</p>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Create Station Footer */}
+            <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex-shrink-0">
+              {selectedItems.size > 0 ? (
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <input
+                      type="text"
+                      placeholder={`Station name (default: Station — ${previewInvoice.invoiceNumber})`}
+                      value={stationName}
+                      onChange={(e) => setStationName(e.target.value)}
+                      className="input-field flex-1 text-sm !py-2"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm">
+                      <span className="text-gray-500">{selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected</span>
+                      <span className="mx-2 text-gray-300">|</span>
+                      <span className="font-bold text-purple-700">{formatCurrency(selectedTotal)}</span>
+                    </div>
+                    <button
+                      onClick={handleCreateStation}
+                      className="bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Create Station
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 text-center">Select line items above to create a Station</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ADD / EDIT CONTACT MODAL */}
       {showContactForm && (
