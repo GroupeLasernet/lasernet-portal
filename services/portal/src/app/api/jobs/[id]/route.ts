@@ -1,20 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
-interface RouteParams {
-  id: string;
-}
-
 // GET /api/jobs/[id] — Get single job with all relations
-export async function GET(request: NextRequest, { params }: { params: RouteParams }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const job = await prisma.job.findUnique({
       where: { id },
       include: {
         managedClient: true,
-        invoices: true,
+        invoices: {
+          include: {
+            machines: true,
+          },
+        },
+        machines: {
+          include: {
+            machine: {
+              include: {
+                events: {
+                  orderBy: { createdAt: 'desc' },
+                  take: 5,
+                },
+              },
+            },
+          },
+        },
         robotPrograms: true,
         laserPresets: true,
         stateLog: true,
@@ -42,11 +57,6 @@ export async function GET(request: NextRequest, { params }: { params: RouteParam
       title: job.title,
       notes: job.notes,
       status: job.status,
-      machineType: job.machineType,
-      robotModel: job.robotModel,
-      laserModel: job.laserModel,
-      robotSerialNumber: job.robotSerialNumber,
-      laserSerialNumber: job.laserSerialNumber,
       invoices: job.invoices.map((inv) => ({
         id: inv.id,
         qbInvoiceId: inv.qbInvoiceId,
@@ -54,22 +64,52 @@ export async function GET(request: NextRequest, { params }: { params: RouteParam
         invoiceType: inv.invoiceType,
         amount: inv.amount,
         linkedAt: inv.linkedAt.toISOString(),
+        machines: inv.machines.map((m) => ({
+          id: m.id,
+          serialNumber: m.serialNumber,
+          type: m.type,
+          model: m.model,
+          status: m.status,
+        })),
+      })),
+      machines: job.machines.map((jm) => ({
+        id: jm.machine.id,
+        serialNumber: jm.machine.serialNumber,
+        type: jm.machine.type,
+        model: jm.machine.model,
+        nickname: jm.machine.nickname,
+        ipAddress: jm.machine.ipAddress,
+        status: jm.machine.status,
+        address: jm.machine.address,
+        city: jm.machine.city,
+        province: jm.machine.province,
+        latitude: jm.machine.latitude,
+        longitude: jm.machine.longitude,
+        recentEvents: jm.machine.events.map((e) => ({
+          id: e.id,
+          eventType: e.eventType,
+          notes: e.notes,
+          createdAt: e.createdAt.toISOString(),
+        })),
       })),
       robotPrograms: job.robotPrograms.map((prog) => ({
         id: prog.id,
         name: prog.name,
         description: prog.description,
         status: prog.status,
+        machineId: prog.machineId,
       })),
       laserPresets: job.laserPresets.map((preset) => ({
         id: preset.id,
         name: preset.name,
         description: preset.description,
         status: preset.status,
+        machineId: preset.machineId,
       })),
       stateLog: job.stateLog.map((log) => ({
         id: log.id,
         source: log.source,
+        machineId: log.machineId,
         timestamp: log.timestamp.toISOString(),
       })),
       createdAt: job.createdAt.toISOString(),
@@ -85,51 +125,57 @@ export async function GET(request: NextRequest, { params }: { params: RouteParam
 
 export const dynamic = 'force-dynamic';
 
-// POST /api/jobs/[id] — Update job
-export async function POST(request: NextRequest, { params }: { params: RouteParams }) {
+// PATCH /api/jobs/[id] — Update job details or manage machines
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
-    const {
-      title,
-      notes,
-      status,
-      machineType,
-      robotModel,
-      laserModel,
-      robotSerialNumber,
-      laserSerialNumber,
-    } = body;
 
-    const job = await prisma.job.findUnique({
-      where: { id },
-      include: {
-        managedClient: true,
-        invoices: true,
-        robotPrograms: true,
-        laserPresets: true,
-      },
-    });
-
+    const job = await prisma.job.findUnique({ where: { id } });
     if (!job) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
+    // Add machine to job
+    if (body.addMachineId) {
+      await prisma.jobMachine.create({
+        data: {
+          jobId: id,
+          machineId: body.addMachineId,
+        },
+      });
+      const updated = await getFullJob(id);
+      return NextResponse.json({ job: updated });
+    }
+
+    // Remove machine from job
+    if (body.removeMachineId) {
+      await prisma.jobMachine.deleteMany({
+        where: {
+          jobId: id,
+          machineId: body.removeMachineId,
+        },
+      });
+      const updated = await getFullJob(id);
+      return NextResponse.json({ job: updated });
+    }
+
+    // Regular field updates
+    const updateData: Record<string, unknown> = {};
+    if (body.title !== undefined) updateData.title = body.title;
+    if (body.notes !== undefined) updateData.notes = body.notes;
+    if (body.status !== undefined) updateData.status = body.status;
+
     const updated = await prisma.job.update({
       where: { id },
-      data: {
-        title: title !== undefined ? title : job.title,
-        notes: notes !== undefined ? notes : job.notes,
-        status: status !== undefined ? status : job.status,
-        machineType: machineType !== undefined ? machineType : job.machineType,
-        robotModel: robotModel !== undefined ? robotModel : job.robotModel,
-        laserModel: laserModel !== undefined ? laserModel : job.laserModel,
-        robotSerialNumber: robotSerialNumber !== undefined ? robotSerialNumber : job.robotSerialNumber,
-        laserSerialNumber: laserSerialNumber !== undefined ? laserSerialNumber : job.laserSerialNumber,
-      },
+      data: updateData,
       include: {
         managedClient: true,
-        invoices: true,
+        invoices: { include: { machines: true } },
+        machines: { include: { machine: true } },
         robotPrograms: true,
         laserPresets: true,
       },
@@ -147,14 +193,42 @@ export async function POST(request: NextRequest, { params }: { params: RoutePara
       title: updated.title,
       notes: updated.notes,
       status: updated.status,
-      machineType: updated.machineType,
-      robotModel: updated.robotModel,
-      laserModel: updated.laserModel,
-      robotSerialNumber: updated.robotSerialNumber,
-      laserSerialNumber: updated.laserSerialNumber,
-      invoices: updated.invoices,
-      robotPrograms: updated.robotPrograms,
-      laserPresets: updated.laserPresets,
+      invoices: updated.invoices.map((inv) => ({
+        id: inv.id,
+        qbInvoiceId: inv.qbInvoiceId,
+        invoiceNumber: inv.invoiceNumber,
+        invoiceType: inv.invoiceType,
+        amount: inv.amount,
+        linkedAt: inv.linkedAt.toISOString(),
+        machines: inv.machines.map((m) => ({
+          id: m.id,
+          serialNumber: m.serialNumber,
+          type: m.type,
+          model: m.model,
+          status: m.status,
+        })),
+      })),
+      machines: updated.machines.map((jm) => ({
+        id: jm.machine.id,
+        serialNumber: jm.machine.serialNumber,
+        type: jm.machine.type,
+        model: jm.machine.model,
+        nickname: jm.machine.nickname,
+        ipAddress: jm.machine.ipAddress,
+        status: jm.machine.status,
+      })),
+      robotPrograms: updated.robotPrograms.map((p) => ({
+        id: p.id,
+        name: p.name,
+        status: p.status,
+        machineId: p.machineId,
+      })),
+      laserPresets: updated.laserPresets.map((p) => ({
+        id: p.id,
+        name: p.name,
+        status: p.status,
+        machineId: p.machineId,
+      })),
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     };
@@ -167,26 +241,91 @@ export async function POST(request: NextRequest, { params }: { params: RoutePara
 }
 
 // DELETE /api/jobs/[id] — Delete job and all related records
-export async function DELETE(request: NextRequest, { params }: { params: RouteParams }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
-    const job = await prisma.job.findUnique({
-      where: { id },
-    });
-
+    const job = await prisma.job.findUnique({ where: { id } });
     if (!job) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
-    // Delete cascades automatically due to Prisma schema
-    await prisma.job.delete({
-      where: { id },
-    });
+    await prisma.job.delete({ where: { id } });
 
-    return NextResponse.json({ message: 'Job deleted successfully' }, { status: 200 });
+    return NextResponse.json({ message: 'Job deleted successfully' });
   } catch (error) {
     console.error('Error deleting job:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+// Helper to get full job with all relations
+async function getFullJob(id: string) {
+  const job = await prisma.job.findUnique({
+    where: { id },
+    include: {
+      managedClient: true,
+      invoices: { include: { machines: true } },
+      machines: { include: { machine: true } },
+      robotPrograms: true,
+      laserPresets: true,
+    },
+  });
+
+  if (!job) return null;
+
+  return {
+    id: job.id,
+    jobNumber: job.jobNumber,
+    clientId: job.managedClientId,
+    client: {
+      displayName: job.managedClient.displayName,
+      companyName: job.managedClient.companyName,
+      email: job.managedClient.email,
+    },
+    title: job.title,
+    notes: job.notes,
+    status: job.status,
+    invoices: job.invoices.map((inv) => ({
+      id: inv.id,
+      qbInvoiceId: inv.qbInvoiceId,
+      invoiceNumber: inv.invoiceNumber,
+      invoiceType: inv.invoiceType,
+      amount: inv.amount,
+      linkedAt: inv.linkedAt.toISOString(),
+      machines: inv.machines.map((m) => ({
+        id: m.id,
+        serialNumber: m.serialNumber,
+        type: m.type,
+        model: m.model,
+        status: m.status,
+      })),
+    })),
+    machines: job.machines.map((jm) => ({
+      id: jm.machine.id,
+      serialNumber: jm.machine.serialNumber,
+      type: jm.machine.type,
+      model: jm.machine.model,
+      nickname: jm.machine.nickname,
+      ipAddress: jm.machine.ipAddress,
+      status: jm.machine.status,
+    })),
+    robotPrograms: job.robotPrograms.map((p) => ({
+      id: p.id,
+      name: p.name,
+      status: p.status,
+      machineId: p.machineId,
+    })),
+    laserPresets: job.laserPresets.map((p) => ({
+      id: p.id,
+      name: p.name,
+      status: p.status,
+      machineId: p.machineId,
+    })),
+    createdAt: job.createdAt.toISOString(),
+    updatedAt: job.updatedAt.toISOString(),
+  };
 }

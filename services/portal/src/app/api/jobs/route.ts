@@ -12,7 +12,16 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         managedClient: true,
-        invoices: true,
+        invoices: {
+          include: {
+            machines: true,
+          },
+        },
+        machines: {
+          include: {
+            machine: true,
+          },
+        },
         robotPrograms: true,
         laserPresets: true,
       },
@@ -31,11 +40,6 @@ export async function GET(request: NextRequest) {
       title: job.title,
       notes: job.notes,
       status: job.status,
-      machineType: job.machineType,
-      robotModel: job.robotModel,
-      laserModel: job.laserModel,
-      robotSerialNumber: job.robotSerialNumber,
-      laserSerialNumber: job.laserSerialNumber,
       invoices: job.invoices.map((inv) => ({
         id: inv.id,
         qbInvoiceId: inv.qbInvoiceId,
@@ -43,16 +47,37 @@ export async function GET(request: NextRequest) {
         invoiceType: inv.invoiceType,
         amount: inv.amount,
         linkedAt: inv.linkedAt.toISOString(),
+        machines: inv.machines.map((m) => ({
+          id: m.id,
+          serialNumber: m.serialNumber,
+          type: m.type,
+          model: m.model,
+          status: m.status,
+        })),
+      })),
+      machines: job.machines.map((jm) => ({
+        id: jm.machine.id,
+        serialNumber: jm.machine.serialNumber,
+        type: jm.machine.type,
+        model: jm.machine.model,
+        nickname: jm.machine.nickname,
+        ipAddress: jm.machine.ipAddress,
+        status: jm.machine.status,
+        address: jm.machine.address,
+        city: jm.machine.city,
+        province: jm.machine.province,
       })),
       robotPrograms: job.robotPrograms.map((prog) => ({
         id: prog.id,
         name: prog.name,
         status: prog.status,
+        machineId: prog.machineId,
       })),
       laserPresets: job.laserPresets.map((preset) => ({
         id: preset.id,
         name: preset.name,
         status: preset.status,
+        machineId: preset.machineId,
       })),
       createdAt: job.createdAt.toISOString(),
       updatedAt: job.updatedAt.toISOString(),
@@ -67,24 +92,15 @@ export async function GET(request: NextRequest) {
 
 export const dynamic = 'force-dynamic';
 
-// POST /api/jobs — Create a new job
+// POST /api/jobs — Create a new job (invoice-first: client + title, then link invoices & machines)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      managedClientId,
-      title,
-      machineType,
-      notes,
-      robotModel,
-      laserModel,
-      robotSerialNumber,
-      laserSerialNumber,
-    } = body;
+    const { managedClientId, title, notes } = body;
 
-    if (!managedClientId || !title || !machineType) {
+    if (!managedClientId || !title) {
       return NextResponse.json(
-        { error: 'managedClientId, title, and machineType are required' },
+        { error: 'managedClientId and title are required' },
         { status: 400 }
       );
     }
@@ -111,16 +127,12 @@ export async function POST(request: NextRequest) {
         managedClientId,
         title,
         notes: notes || null,
-        machineType,
-        robotModel: robotModel || null,
-        laserModel: laserModel || null,
-        robotSerialNumber: robotSerialNumber || null,
-        laserSerialNumber: laserSerialNumber || null,
         status: 'draft',
       },
       include: {
         managedClient: true,
         invoices: true,
+        machines: { include: { machine: true } },
         robotPrograms: true,
         laserPresets: true,
       },
@@ -138,14 +150,10 @@ export async function POST(request: NextRequest) {
       title: job.title,
       notes: job.notes,
       status: job.status,
-      machineType: job.machineType,
-      robotModel: job.robotModel,
-      laserModel: job.laserModel,
-      robotSerialNumber: job.robotSerialNumber,
-      laserSerialNumber: job.laserSerialNumber,
-      invoices: job.invoices,
-      robotPrograms: job.robotPrograms,
-      laserPresets: job.laserPresets,
+      invoices: [],
+      machines: [],
+      robotPrograms: [],
+      laserPresets: [],
       createdAt: job.createdAt.toISOString(),
       updatedAt: job.updatedAt.toISOString(),
     };

@@ -55,6 +55,7 @@ model ManagedClient {
   contacts  Contact[]
   tickets   Ticket[]
   jobs      Job[]
+  machines  Machine[]
 }
 
 // ============================================================
@@ -126,43 +127,126 @@ model TicketAttachment {
 // JOB MANAGEMENT — Central concept for machine programming
 // ============================================================
 model Job {
-  id             String   @id @default(cuid())
-  jobNumber      String   @unique
+  id              String   @id @default(cuid())
+  jobNumber       String   @unique
   managedClientId String
-  managedClient  ManagedClient @relation(fields: [managedClientId], references: [id], onDelete: Cascade)
+  managedClient   ManagedClient @relation(fields: [managedClientId], references: [id], onDelete: Cascade)
 
-  title              String
-  notes              String?  @db.Text
-  status             String   @default("draft") // "draft", "in_progress", "testing", "completed", "archived"
-  machineType        String   // "robot", "laser", "robot_and_laser"
-  robotModel         String?
-  laserModel         String?
-  robotSerialNumber  String?
-  laserSerialNumber  String?
+  title       String
+  notes       String?  @db.Text
+  status      String   @default("draft") // "draft", "in_progress", "testing", "completed", "archived"
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   invoices         JobInvoice[]
+  machines         JobMachine[]
   robotPrograms    JobRobotProgram[]
   laserPresets     JobLaserPreset[]
   stateLog         MachineStateLog[]
 }
 
 // ============================================================
-// JOB INVOICES — Links jobs to QuickBooks invoices
+// JOB INVOICES — Links jobs to QuickBooks invoices (main anchor)
 // ============================================================
 model JobInvoice {
   id           String @id @default(cuid())
   jobId        String
   job          Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-  qbInvoiceId  String
+  qbInvoiceId   String
   invoiceNumber String
-  invoiceType  String @default("general") // "robot", "laser", "general", "service"
-  amount       Float?
-  linkedAt     DateTime @default(now())
+  invoiceType   String @default("general") // "robot", "laser", "general", "service"
+  amount        Float?
+  linkedAt      DateTime @default(now())
+
+  // Machines sold on this invoice
+  machines     Machine[]
+}
+
+// ============================================================
+// JOB-MACHINE LINK — Many-to-many: which machines are in a job
+// ============================================================
+model JobMachine {
+  id        String @id @default(cuid())
+  jobId     String
+  job       Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  machineId String
+  machine   Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  assignedAt DateTime @default(now())
+
+  @@unique([jobId, machineId])
+}
+
+// ============================================================
+// MACHINES — Individual tracked equipment (robots & lasers)
+// ============================================================
+model Machine {
+  id              String   @id @default(cuid())
+  serialNumber    String   @unique
+  type            String   // "robot" or "laser"
+  model           String   // e.g. "UR10e", "Relfar 500W"
+  nickname        String?  // optional friendly name
+
+  // Network location
+  ipAddress       String?
+
+  // Physical location (for map)
+  address         String?
+  city            String?
+  province        String?
+  postalCode      String?
+  country         String?  @default("Canada")
+  latitude        Float?
+  longitude       Float?
+
+  // Status
+  status          String   @default("active") // "active", "in_repair", "refunded", "decommissioned"
+
+  // Current owner
+  managedClientId String?
+  managedClient   ManagedClient? @relation(fields: [managedClientId], references: [id], onDelete: SetNull)
+
+  // Original invoice this machine was sold on
+  invoiceId       String?
+  invoice         JobInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  events          MachineEvent[]
+  jobs            JobMachine[]
+  robotPrograms   JobRobotProgram[]
+  laserPresets    JobLaserPreset[]
+  stateLog        MachineStateLog[]
+}
+
+// ============================================================
+// MACHINE EVENTS — Full lifecycle history for each machine
+// ============================================================
+model MachineEvent {
+  id          String   @id @default(cuid())
+  machineId   String
+  machine     Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  eventType   String   // "installed", "repair", "refund", "model_change", "reassigned", "relocated"
+  notes       String?  @db.Text
+
+  // For reassignment events
+  fromClientId String?
+  toClientId   String?
+
+  // For relocation events
+  fromAddress  String?
+  toAddress    String?
+  fromIp       String?
+  toIp         String?
+
+  createdAt   DateTime @default(now())
+  createdBy   String?  // admin user who made the change
 }
 
 // ============================================================
@@ -172,6 +256,8 @@ model JobRobotProgram {
   id          String @id @default(cuid())
   jobId       String
   job         Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  machineId   String?
+  machine     Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
 
   name           String
   description    String? @db.Text
@@ -210,6 +296,8 @@ model JobLaserPreset {
   id          String @id @default(cuid())
   jobId       String
   job         Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  machineId   String?
+  machine     Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
 
   name        String
   description String? @db.Text
@@ -235,6 +323,8 @@ model MachineStateLog {
   id        String @id @default(cuid())
   jobId     String?
   job       Job?   @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  machineId String?
+  machine   Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
 
   source    String // "robot" or "laser"
   data      String @db.Text // JSON blob of state snapshot

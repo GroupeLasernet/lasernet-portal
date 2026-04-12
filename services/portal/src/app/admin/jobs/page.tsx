@@ -1,481 +1,582 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
-interface QBInvoice {
+// Types matching API structure
+interface Machine {
   id: string;
-  docNumber: string;
-  customerRef: { value: string; name: string };
-  totalAmt: number;
-  txnDate: string;
+  serialNumber: string;
+  type: 'robot' | 'laser';
+  model: string;
+  nickname?: string;
+  ipAddress?: string;
+  status: string;
+  address?: string;
+  city?: string;
+  province?: string;
 }
 
-interface JobProgram {
+interface JobInvoice {
   id: string;
-  name: string;
-  status: 'saved' | 'active' | 'archived';
-  createdAt: string;
-}
-
-interface JobPreset {
-  id: string;
-  name: string;
-  status: 'saved' | 'active' | 'archived';
-  createdAt: string;
+  qbInvoiceId: string;
+  invoiceNumber: string;
+  invoiceType: string;
+  amount: number | null;
+  linkedAt: string;
+  machines: {
+    id: string;
+    serialNumber: string;
+    type: string;
+    model: string;
+    status: string;
+  }[];
 }
 
 interface Job {
   id: string;
   jobNumber: string;
   clientId: string;
-  clientName: string;
+  client: {
+    displayName: string;
+    companyName: string;
+    email: string;
+  };
   title: string;
-  machineType: 'robot' | 'laser' | 'robot_and_laser';
-  robotModel?: string;
-  laserModel?: string;
-  robotSerialNumber?: string;
-  laserSerialNumber?: string;
-  status: 'draft' | 'in_progress' | 'testing' | 'completed' | 'archived';
   notes?: string;
+  status: 'draft' | 'in_progress' | 'testing' | 'completed' | 'archived';
+  invoices: JobInvoice[];
+  machines: Machine[];
+  robotPrograms: {
+    id: string;
+    name: string;
+    status: string;
+    machineId?: string;
+  }[];
+  laserPresets: {
+    id: string;
+    name: string;
+    status: string;
+    machineId?: string;
+  }[];
   createdAt: string;
-  invoices: QBInvoice[];
-  programs: JobProgram[];
-  presets: JobPreset[];
+  updatedAt: string;
 }
 
 interface ManagedClient {
   id: string;
-  qbClient: { displayName: string };
+  qbClient: {
+    displayName: string;
+  };
 }
 
-const statusBadgeColor = {
-  draft: 'bg-gray-100 text-gray-800',
-  in_progress: 'bg-blue-100 text-blue-800',
-  testing: 'bg-yellow-100 text-yellow-800',
-  completed: 'bg-green-100 text-green-800',
-  archived: 'bg-gray-200 text-gray-600',
-};
-
-const statusLabel = {
-  draft: 'Draft',
-  in_progress: 'In Progress',
-  testing: 'Testing',
-  completed: 'Completed',
-  archived: 'Archived',
-};
-
-const machineTypeIcons = {
-  robot: (
-    <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.42 15.17l-5.1-3.26a2 2 0 01-.94-1.64V4.41a2 2 0 012.94-1.76l5.1 3.26a2 2 0 01.94 1.64v5.86a2 2 0 01-2.94 1.76zM20.16 12.83l-5.1 3.26a2 2 0 01-2.94-1.76V8.47a2 2 0 01.94-1.64l5.1-3.26a2 2 0 012.94 1.76v5.86a2 2 0 01-.94 1.64z" />
-    </svg>
-  ),
-  laser: (
-    <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
-  ),
-  robot_and_laser: (
-    <>
-      <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.42 15.17l-5.1-3.26a2 2 0 01-.94-1.64V4.41a2 2 0 012.94-1.76l5.1 3.26a2 2 0 01.94 1.64v5.86a2 2 0 01-2.94 1.76zM20.16 12.83l-5.1 3.26a2 2 0 01-2.94-1.76V8.47a2 2 0 01.94-1.64l5.1-3.26a2 2 0 012.94 1.76v5.86a2 2 0 01-.94 1.64z" />
-      </svg>
-      <svg className="w-4 h-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    </>
-  ),
-};
-
-const machineTypeLabel = {
-  robot: 'Robot',
-  laser: 'Laser',
-  robot_and_laser: 'Robot & Laser',
-};
+interface QBInvoice {
+  id: string;
+  invoiceNumber: string;
+  invoiceType: string;
+  amount: number | null;
+}
 
 export default function AdminJobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [clients, setClients] = useState<ManagedClient[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  const [showNewJobModal, setShowNewJobModal] = useState(false);
-  const [showLinkInvoiceModal, setShowLinkInvoiceModal] = useState(false);
-  const [invoiceSearch, setInvoiceSearch] = useState('');
-  const [availableInvoices, setAvailableInvoices] = useState<QBInvoice[]>([]);
-  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [clients, setClients] = useState<ManagedClient[]>([]);
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [qbInvoices, setQBInvoices] = useState<QBInvoice[]>([]);
 
-  // New job form state
-  const [newJob, setNewJob] = useState({
+  // Modal states
+  const [showNewJobModal, setShowNewJobModal] = useState(false);
+  const [showAddMachineModal, setShowAddMachineModal] = useState(false);
+  const [showLinkInvoiceModal, setShowLinkInvoiceModal] = useState(false);
+
+  // Form states
+  const [newJobForm, setNewJobForm] = useState({
     clientId: '',
     title: '',
-    machineType: 'robot' as 'robot' | 'laser' | 'robot_and_laser',
-    robotModel: '',
-    laserModel: '',
-    robotSerialNumber: '',
-    laserSerialNumber: '',
     notes: '',
   });
 
-  const [formError, setFormError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
 
-  // Load jobs and clients on mount
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [jobsRes, clientsRes] = await Promise.all([
-          fetch('/api/jobs'),
-          fetch('/api/managed-clients'),
-        ]);
-
-        const jobsData = await jobsRes.json();
-        const clientsData = await clientsRes.json();
-
-        setJobs(jobsData.jobs || []);
-        setClients(clientsData.clients || []);
-      } catch (error) {
-        console.error('Error loading jobs:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
+  // Fetch jobs
+  const fetchJobs = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/jobs');
+      if (!res.ok) throw new Error('Failed to fetch jobs');
+      const data = await res.json();
+      setJobs(data.jobs || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch jobs');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const selectedJob = jobs.find((j) => j.id === selectedJobId) || null;
-
-  // Handle create new job
-  const handleCreateJob = async () => {
-    if (!newJob.clientId || !newJob.title.trim()) {
-      setFormError('Client and Title are required');
-      return;
-    }
-
-    setSaving(true);
-    setFormError(null);
-
+  // Fetch clients
+  const fetchClients = useCallback(async () => {
     try {
+      const res = await fetch('/api/managed-clients');
+      if (!res.ok) throw new Error('Failed to fetch clients');
+      const data = await res.json();
+      setClients(data.clients || []);
+    } catch (err) {
+      console.error('Failed to fetch clients:', err);
+    }
+  }, []);
+
+  // Fetch QB invoices
+  const fetchQBInvoices = useCallback(async () => {
+    try {
+      const res = await fetch('/api/quickbooks/invoices');
+      if (!res.ok) throw new Error('Failed to fetch invoices');
+      const data = await res.json();
+      setQBInvoices(data.invoices || []);
+    } catch (err) {
+      console.error('Failed to fetch QB invoices:', err);
+    }
+  }, []);
+
+  // Fetch machines for selected job's client
+  const fetchMachinesForClient = useCallback(async (clientId: string) => {
+    try {
+      const res = await fetch(`/api/machines?clientId=${clientId}`);
+      if (!res.ok) throw new Error('Failed to fetch machines');
+      const data = await res.json();
+      setMachines(data.machines || []);
+    } catch (err) {
+      console.error('Failed to fetch machines:', err);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchJobs();
+    fetchClients();
+    fetchQBInvoices();
+  }, [fetchJobs, fetchClients, fetchQBInvoices]);
+
+  // Load machines when job is selected
+  useEffect(() => {
+    if (selectedJobId) {
+      const job = jobs.find((j) => j.id === selectedJobId);
+      if (job) {
+        setEditingJob(job);
+        fetchMachinesForClient(job.clientId);
+      }
+    }
+  }, [selectedJobId, jobs, fetchMachinesForClient]);
+
+  // Create new job
+  const handleCreateJob = async () => {
+    try {
+      if (!newJobForm.clientId || !newJobForm.title.trim()) {
+        setError('Client and title are required');
+        return;
+      }
+
       const res = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newJob),
+        body: JSON.stringify({
+          managedClientId: newJobForm.clientId,
+          title: newJobForm.title,
+          notes: newJobForm.notes,
+        }),
       });
 
+      if (!res.ok) throw new Error('Failed to create job');
       const data = await res.json();
 
-      if (data.job) {
-        setJobs([...jobs, data.job]);
-        setSelectedJobId(data.job.id);
-        setShowNewJobModal(false);
-        setNewJob({
-          clientId: '',
-          title: '',
-          machineType: 'robot',
-          robotModel: '',
-          laserModel: '',
-          robotSerialNumber: '',
-          laserSerialNumber: '',
-          notes: '',
-        });
-      }
-    } catch (error) {
-      console.error('Error creating job:', error);
-      setFormError('Failed to create job');
-    } finally {
-      setSaving(false);
+      setJobs([...jobs, data.job]);
+      setShowNewJobModal(false);
+      setNewJobForm({ clientId: '', title: '', notes: '' });
+      setSelectedJobId(data.job.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create job');
     }
   };
 
-  // Handle status change
-  const handleStatusChange = async (jobId: string, newStatus: Job['status']) => {
+  // Update job
+  const handleUpdateJob = async (updates: Partial<Job>) => {
+    if (!selectedJobId) return;
+
     try {
-      const res = await fetch(`/api/jobs/${jobId}`, {
+      const res = await fetch(`/api/jobs/${selectedJobId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(updates),
       });
 
+      if (!res.ok) throw new Error('Failed to update job');
       const data = await res.json();
 
-      if (data.job) {
-        setJobs(jobs.map((j) => (j.id === jobId ? data.job : j)));
-        if (selectedJobId === jobId) {
-          setSelectedJob(data.job);
-        }
-      }
-    } catch (error) {
-      console.error('Error updating job status:', error);
+      setJobs(jobs.map((j) => (j.id === selectedJobId ? data.job : j)));
+      setEditingJob(data.job);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update job');
     }
   };
 
-  // Set selected job for detail panel
-  const setSelectedJob = (job: Job) => {
-    setSelectedJobId(job.id);
-  };
-
-  // Handle delete job
-  const handleDeleteJob = async (jobId: string) => {
-    if (!confirm('Are you sure you want to delete this job?')) return;
+  // Add machine to job
+  const handleAddMachine = async (machineId: string) => {
+    if (!selectedJobId) return;
 
     try {
-      await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' });
-      setJobs(jobs.filter((j) => j.id !== jobId));
-      if (selectedJobId === jobId) setSelectedJobId(null);
-    } catch (error) {
-      console.error('Error deleting job:', error);
-    }
-  };
+      const res = await fetch(`/api/jobs/${selectedJobId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addMachineId: machineId }),
+      });
 
-  // Load QB invoices for linking
-  const handleOpenLinkInvoice = async () => {
-    setShowLinkInvoiceModal(true);
-    setInvoiceLoading(true);
-
-    try {
-      const res = await fetch('/api/quickbooks/invoices');
+      if (!res.ok) throw new Error('Failed to add machine');
       const data = await res.json();
-      setAvailableInvoices(data.invoices || []);
-    } catch (error) {
-      console.error('Error loading invoices:', error);
-    } finally {
-      setInvoiceLoading(false);
+
+      setJobs(jobs.map((j) => (j.id === selectedJobId ? data.job : j)));
+      setEditingJob(data.job);
+      setShowAddMachineModal(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add machine');
     }
   };
 
-  // Handle link invoice
-  const handleLinkInvoice = async (invoice: QBInvoice) => {
-    if (!selectedJob) return;
+  // Remove machine from job
+  const handleRemoveMachine = async (machineId: string) => {
+    if (!selectedJobId) return;
 
     try {
-      const res = await fetch(`/api/jobs/${selectedJob.id}/invoices`, {
+      const res = await fetch(`/api/jobs/${selectedJobId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ removeMachineId: machineId }),
+      });
+
+      if (!res.ok) throw new Error('Failed to remove machine');
+      const data = await res.json();
+
+      setJobs(jobs.map((j) => (j.id === selectedJobId ? data.job : j)));
+      setEditingJob(data.job);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove machine');
+    }
+  };
+
+  // Link invoice to job
+  const handleLinkInvoice = async (invoiceId: string) => {
+    if (!selectedJobId) return;
+
+    try {
+      const res = await fetch(`/api/jobs/${selectedJobId}/invoices`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceId: invoice.id }),
+        body: JSON.stringify({ invoiceId }),
       });
 
+      if (!res.ok) throw new Error('Failed to link invoice');
       const data = await res.json();
 
-      if (data.job) {
-        setJobs(jobs.map((j) => (j.id === selectedJob.id ? data.job : j)));
-        setSelectedJob(data.job);
-        setShowLinkInvoiceModal(false);
-      }
-    } catch (error) {
-      console.error('Error linking invoice:', error);
+      setJobs(jobs.map((j) => (j.id === selectedJobId ? data.job : j)));
+      setEditingJob(data.job);
+      setShowLinkInvoiceModal(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to link invoice');
     }
   };
 
-  const filteredInvoices = availableInvoices.filter(
-    (inv) =>
-      inv.docNumber.toLowerCase().includes(invoiceSearch.toLowerCase()) ||
-      inv.customerRef.name.toLowerCase().includes(invoiceSearch.toLowerCase())
-  );
+  // Unlink invoice from job
+  const handleUnlinkInvoice = async (invoiceId: string) => {
+    if (!selectedJobId) return;
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-gray-600">Loading jobs...</div>
-      </div>
-    );
-  }
+    try {
+      const res = await fetch(
+        `/api/jobs/${selectedJobId}/invoices/${invoiceId}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
+      if (!res.ok) throw new Error('Failed to unlink invoice');
+      const data = await res.json();
+
+      setJobs(jobs.map((j) => (j.id === selectedJobId ? data.job : j)));
+      setEditingJob(data.job);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to unlink invoice');
+    }
+  };
+
+  // Delete job
+  const handleDeleteJob = async () => {
+    if (!selectedJobId || !window.confirm('Delete this job permanently?')) return;
+
+    try {
+      const res = await fetch(`/api/jobs/${selectedJobId}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) throw new Error('Failed to delete job');
+
+      setJobs(jobs.filter((j) => j.id !== selectedJobId));
+      setSelectedJobId(null);
+      setEditingJob(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete job');
+    }
+  };
+
+  // Helper to count machines by type
+  const getMachineCount = (job: Job) => {
+    const robots = job.machines.filter((m) => m.type === 'robot').length;
+    const lasers = job.machines.filter((m) => m.type === 'laser').length;
+
+    const parts = [];
+    if (robots > 0) parts.push(`${robots} robot${robots !== 1 ? 's' : ''}`);
+    if (lasers > 0) parts.push(`${lasers} laser${lasers !== 1 ? 's' : ''}`);
+
+    return parts.length > 0 ? parts.join(', ') : 'No machines';
+  };
+
+  // Get available machines (not yet in job)
+  const getAvailableMachines = () => {
+    if (!editingJob) return [];
+    const assignedIds = new Set(editingJob.machines.map((m) => m.id));
+    return machines.filter((m) => !assignedIds.has(m.id));
+  };
+
+  // Get available invoices (not yet in job)
+  const getAvailableInvoices = () => {
+    if (!editingJob) return [];
+    const linkedIds = new Set(editingJob.invoices.map((inv) => inv.qbInvoiceId));
+    return qbInvoices.filter((inv) => !linkedIds.has(inv.id));
+  };
+
+  const selectedJob = jobs.find((j) => j.id === selectedJobId);
 
   return (
-    <div className="flex h-full gap-4">
-      {/* Left Panel - Jobs List */}
-      <div className="flex-1 flex flex-col bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Jobs</h1>
+    <div className="flex h-screen bg-gray-50">
+      {/* Error banner */}
+      {error && (
+        <div className="fixed top-4 left-4 right-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 z-50">
+          <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-900">{error}</p>
+          </div>
           <button
-            onClick={() => setShowNewJobModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+            onClick={() => setError(null)}
+            className="text-red-500 hover:text-red-700"
           >
-            + New Job
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
+      )}
 
+      {/* Left Panel: Job List */}
+      <div className="w-80 border-r border-gray-200 bg-white flex flex-col">
+        {/* Header */}
+        <div className="border-b border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold text-gray-900">Jobs</h1>
+            <button
+              onClick={() => setShowNewJobModal(true)}
+              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Jobs List */}
         <div className="flex-1 overflow-y-auto">
-          {jobs.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              No jobs yet. Create your first job to get started.
+          {loading ? (
+            <div className="flex items-center justify-center h-32">
+              <svg className="w-5 h-5 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            </div>
+          ) : jobs.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">
+              <p className="text-sm">No jobs yet</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
               {jobs.map((job) => (
-                <div
+                <button
                   key={job.id}
                   onClick={() => setSelectedJobId(job.id)}
-                  className={`p-4 cursor-pointer transition-colors ${
+                  className={`w-full text-left p-4 hover:bg-gray-50 transition border-l-4 ${
                     selectedJobId === job.id
-                      ? 'bg-blue-50 border-l-4 border-blue-600'
-                      : 'hover:bg-gray-50'
+                      ? 'border-l-blue-600 bg-blue-50'
+                      : 'border-l-transparent'
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-gray-900">{job.jobNumber}</h3>
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            statusBadgeColor[job.status]
-                          }`}
-                        >
-                          {statusLabel[job.status]}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">{job.title}</p>
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>{job.clientName}</span>
-                        <span className="flex items-center">
-                          {machineTypeIcons[job.machineType]}
-                          {machineTypeLabel[job.machineType]}
-                        </span>
-                        <span>{job.invoices.length} invoices</span>
-                        <span>{job.programs.length} programs</span>
-                      </div>
-                    </div>
+                  <div className="font-semibold text-gray-900 text-sm truncate">
+                    {job.title}
                   </div>
-                </div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    {job.client.displayName}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {getMachineCount(job)}
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full font-medium ${
+                        job.status === 'completed'
+                          ? 'bg-green-100 text-green-800'
+                          : job.status === 'archived'
+                            ? 'bg-gray-100 text-gray-800'
+                            : job.status === 'testing'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-blue-100 text-blue-800'
+                      }`}
+                    >
+                      {job.status}
+                    </span>
+                  </div>
+                </button>
               ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* Right Panel - Job Details */}
-      {selectedJob && (
-        <div className="w-96 flex flex-col bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">{selectedJob.jobNumber}</h2>
+      {/* Right Panel: Job Details */}
+      <div className="flex-1 overflow-y-auto">
+        {selectedJob && editingJob ? (
+          <div className="p-6 max-w-4xl">
+            {/* Job Info Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Job Info</h2>
 
-            {/* Status Dropdown */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-              <select
-                value={selectedJob.status}
-                onChange={(e) => handleStatusChange(selectedJob.id, e.target.value as Job['status'])}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {(Object.keys(statusLabel) as Array<keyof typeof statusLabel>).map((status) => (
-                  <option key={status} value={status}>
-                    {statusLabel[status]}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-4">
+                {/* Title */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    value={editingJob.title}
+                    onChange={(e) => {
+                      const updated = { ...editingJob, title: e.target.value };
+                      setEditingJob(updated);
+                    }}
+                    onBlur={() =>
+                      handleUpdateJob({ title: editingJob.title })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={editingJob.status}
+                    onChange={(e) => {
+                      const updated = {
+                        ...editingJob,
+                        status: e.target.value as Job['status'],
+                      };
+                      setEditingJob(updated);
+                      handleUpdateJob({
+                        status: e.target.value as Job['status'],
+                      });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="testing">Testing</option>
+                    <option value="completed">Completed</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+
+                {/* Client */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Client
+                  </label>
+                  <div className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                    {editingJob.client.displayName}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes
+                  </label>
+                  <textarea
+                    value={editingJob.notes || ''}
+                    onChange={(e) => {
+                      const updated = { ...editingJob, notes: e.target.value };
+                      setEditingJob(updated);
+                    }}
+                    onBlur={() =>
+                      handleUpdateJob({ notes: editingJob.notes })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={3}
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Job Info */}
-            <div className="space-y-3 text-sm">
-              <div>
-                <span className="text-gray-600">Client:</span>
-                <span className="ml-2 font-medium text-gray-900">{selectedJob.clientName}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Title:</span>
-                <span className="ml-2 font-medium text-gray-900">{selectedJob.title}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Machine Type:</span>
-                <span className="ml-2 font-medium text-gray-900 flex items-center">
-                  {machineTypeIcons[selectedJob.machineType]}
-                  {machineTypeLabel[selectedJob.machineType]}
-                </span>
-              </div>
-
-              {selectedJob.robotModel && (
-                <div>
-                  <span className="text-gray-600">Robot Model:</span>
-                  <span className="ml-2 font-medium text-gray-900">{selectedJob.robotModel}</span>
-                </div>
-              )}
-
-              {selectedJob.robotSerialNumber && (
-                <div>
-                  <span className="text-gray-600">Robot S/N:</span>
-                  <span className="ml-2 font-medium text-gray-900">
-                    {selectedJob.robotSerialNumber}
-                  </span>
-                </div>
-              )}
-
-              {selectedJob.laserModel && (
-                <div>
-                  <span className="text-gray-600">Laser Model:</span>
-                  <span className="ml-2 font-medium text-gray-900">{selectedJob.laserModel}</span>
-                </div>
-              )}
-
-              {selectedJob.laserSerialNumber && (
-                <div>
-                  <span className="text-gray-600">Laser S/N:</span>
-                  <span className="ml-2 font-medium text-gray-900">
-                    {selectedJob.laserSerialNumber}
-                  </span>
-                </div>
-              )}
-
-              {selectedJob.notes && (
-                <div>
-                  <span className="text-gray-600">Notes:</span>
-                  <p className="mt-1 text-gray-900 bg-gray-50 p-2 rounded text-xs whitespace-pre-wrap">
-                    {selectedJob.notes}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Invoices Section */}
-            <div className="p-6 border-b border-gray-200">
+            {/* Machines Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900">Invoices</h3>
+                <h2 className="text-lg font-bold text-gray-900">Machines</h2>
                 <button
-                  onClick={handleOpenLinkInvoice}
-                  className="text-xs px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                  onClick={() => setShowAddMachineModal(true)}
+                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-1"
                 >
-                  Link Invoice
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  Add Machine
                 </button>
               </div>
 
-              {selectedJob.invoices.length === 0 ? (
-                <p className="text-sm text-gray-500">No invoices linked</p>
+              {editingJob.machines.length === 0 ? (
+                <p className="text-sm text-gray-500">No machines assigned</p>
               ) : (
                 <div className="space-y-2">
-                  {selectedJob.invoices.map((inv) => (
-                    <div key={inv.id} className="flex items-center justify-between bg-gray-50 p-3 rounded">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{inv.docNumber}</p>
-                        <p className="text-xs text-gray-600">${inv.totalAmt.toFixed(2)}</p>
+                  {editingJob.machines.map((machine) => (
+                    <div
+                      key={machine.id}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        {machine.type === 'robot' ? (
+                          <svg className="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
+                        ) : (
+                          <svg className="w-5 h-5 text-yellow-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 text-sm">
+                            {machine.serialNumber} ({machine.type})
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            {machine.model}
+                          </div>
+                          {machine.ipAddress && (
+                            <div className="text-xs text-gray-500">
+                              {machine.ipAddress}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
+                              {machine.status}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                       <button
-                        onClick={async () => {
-                          try {
-                            await fetch(`/api/jobs/${selectedJob.id}/invoices/${inv.id}`, {
-                              method: 'DELETE',
-                            });
-                            setJobs(
-                              jobs.map((j) =>
-                                j.id === selectedJob.id
-                                  ? {
-                                      ...j,
-                                      invoices: j.invoices.filter((i) => i.id !== inv.id),
-                                    }
-                                  : j
-                              )
-                            );
-                            setSelectedJob({
-                              ...selectedJob,
-                              invoices: selectedJob.invoices.filter((i) => i.id !== inv.id),
-                            });
-                          } catch (error) {
-                            console.error('Error unlinking invoice:', error);
-                          }
-                        }}
-                        className="text-xs text-red-600 hover:text-red-800"
+                        onClick={() => handleRemoveMachine(machine.id)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded transition flex-shrink-0"
                       >
-                        Unlink
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
                     </div>
                   ))}
@@ -483,135 +584,181 @@ export default function AdminJobsPage() {
               )}
             </div>
 
-            {/* Programs Section */}
-            <div className="p-6 border-b border-gray-200">
+            {/* Invoices Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900">Robot Programs</h3>
+                <h2 className="text-lg font-bold text-gray-900">Invoices</h2>
                 <button
-                  disabled
-                  className="text-xs px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Save program feature coming soon"
+                  onClick={() => setShowLinkInvoiceModal(true)}
+                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-1"
                 >
-                  Save Current
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  Link Invoice
                 </button>
               </div>
 
-              {selectedJob.programs.length === 0 ? (
-                <p className="text-sm text-gray-500">No programs saved</p>
+              {editingJob.invoices.length === 0 ? (
+                <p className="text-sm text-gray-500">No invoices linked</p>
               ) : (
                 <div className="space-y-2">
-                  {selectedJob.programs.map((prog) => (
-                    <div key={prog.id} className="flex items-center justify-between bg-gray-50 p-3 rounded">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">{prog.name}</p>
-                        <p className="text-xs text-gray-600">
-                          {new Date(prog.createdAt).toLocaleDateString()}
-                        </p>
+                  {editingJob.invoices.map((invoice) => (
+                    <div
+                      key={invoice.id}
+                      className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900 text-sm">
+                            Invoice #{invoice.invoiceNumber}
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            {invoice.invoiceType}
+                          </div>
+                          {invoice.amount !== null && (
+                            <div className="text-sm font-semibold text-gray-900 mt-1">
+                              ${invoice.amount.toFixed(2)}
+                            </div>
+                          )}
+                          {invoice.machines.length > 0 && (
+                            <div className="mt-2 text-xs text-gray-600 space-y-1">
+                              <div className="font-medium">Linked machines:</div>
+                              {invoice.machines.map((m) => (
+                                <div key={m.id} className="pl-2">
+                                  • {m.serialNumber} ({m.type})
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleUnlinkInvoice(invoice.qbInvoiceId)}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded transition flex-shrink-0"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
                       </div>
-                      <span
-                        className={`text-xs px-2 py-1 rounded font-medium ${
-                          prog.status === 'active'
-                            ? 'bg-blue-100 text-blue-800'
-                            : prog.status === 'saved'
-                              ? 'bg-gray-100 text-gray-800'
-                              : 'bg-gray-200 text-gray-600'
-                        }`}
-                      >
-                        {prog.status === 'active'
-                          ? 'Active'
-                          : prog.status === 'saved'
-                            ? 'Saved'
-                            : 'Archived'}
-                      </span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Presets Section */}
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900">Laser Presets</h3>
-                <button
-                  disabled
-                  className="text-xs px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Save preset feature coming soon"
-                >
-                  Save Current
-                </button>
-              </div>
+            {/* Robot Programs Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">
+                Robot Programs
+              </h2>
 
-              {selectedJob.presets.length === 0 ? (
-                <p className="text-sm text-gray-500">No presets saved</p>
+              {editingJob.robotPrograms.length === 0 ? (
+                <p className="text-sm text-gray-500">No robot programs</p>
               ) : (
                 <div className="space-y-2">
-                  {selectedJob.presets.map((preset) => (
-                    <div key={preset.id} className="flex items-center justify-between bg-gray-50 p-3 rounded">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">{preset.name}</p>
-                        <p className="text-xs text-gray-600">
-                          {new Date(preset.createdAt).toLocaleDateString()}
-                        </p>
+                  {editingJob.robotPrograms.map((program) => (
+                    <div
+                      key={program.id}
+                      className="p-3 border border-gray-200 rounded-lg"
+                    >
+                      <div className="font-medium text-gray-900 text-sm">
+                        {program.name}
                       </div>
-                      <span
-                        className={`text-xs px-2 py-1 rounded font-medium ${
-                          preset.status === 'active'
-                            ? 'bg-blue-100 text-blue-800'
-                            : preset.status === 'saved'
-                              ? 'bg-gray-100 text-gray-800'
-                              : 'bg-gray-200 text-gray-600'
-                        }`}
-                      >
-                        {preset.status === 'active'
-                          ? 'Active'
-                          : preset.status === 'saved'
-                            ? 'Saved'
-                            : 'Archived'}
-                      </span>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
+                          {program.status}
+                        </span>
+                        {program.machineId && (
+                          <span className="text-xs text-gray-600">
+                            Machine: {program.machineId}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Delete Button */}
-          <div className="p-6 border-t border-gray-200">
-            <button
-              onClick={() => handleDeleteJob(selectedJob.id)}
-              className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm"
-            >
-              Delete Job
-            </button>
+            {/* Laser Presets Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">
+                Laser Presets
+              </h2>
+
+              {editingJob.laserPresets.length === 0 ? (
+                <p className="text-sm text-gray-500">No laser presets</p>
+              ) : (
+                <div className="space-y-2">
+                  {editingJob.laserPresets.map((preset) => (
+                    <div
+                      key={preset.id}
+                      className="p-3 border border-gray-200 rounded-lg"
+                    >
+                      <div className="font-medium text-gray-900 text-sm">
+                        {preset.name}
+                      </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
+                          {preset.status}
+                        </span>
+                        {preset.machineId && (
+                          <span className="text-xs text-gray-600">
+                            Machine: {preset.machineId}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Delete Button */}
+            <div className="mb-6">
+              <button
+                onClick={handleDeleteJob}
+                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                Delete Job
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <p className="text-gray-500">Select a job to view details</p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* New Job Modal */}
       {showNewJobModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 sticky top-0 bg-white">
-              <h2 className="text-2xl font-bold text-gray-900">Create New Job</h2>
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">New Job</h2>
+              <button
+                onClick={() => setShowNewJobModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
             </div>
 
-            <div className="p-6 space-y-4">
-              {formError && (
-                <div className="p-3 bg-red-100 text-red-800 rounded-lg text-sm">{formError}</div>
-              )}
-
-              {/* Client Selection */}
+            <div className="space-y-4 mb-6">
+              {/* Client */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Client <span className="text-red-600">*</span>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Client *
                 </label>
                 <select
-                  value={newJob.clientId}
-                  onChange={(e) => setNewJob({ ...newJob, clientId: e.target.value })}
+                  value={newJobForm.clientId}
+                  onChange={(e) =>
+                    setNewJobForm({ ...newJobForm, clientId: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="">Select a client...</option>
+                  <option value="">Select a client</option>
                   {clients.map((client) => (
                     <option key={client.id} value={client.id}>
                       {client.qbClient.displayName}
@@ -622,139 +769,111 @@ export default function AdminJobsPage() {
 
               {/* Title */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Title <span className="text-red-600">*</span>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Title *
                 </label>
                 <input
                   type="text"
-                  value={newJob.title}
-                  onChange={(e) => setNewJob({ ...newJob, title: e.target.value })}
-                  placeholder="e.g., Custom Robot Arm Assembly"
+                  value={newJobForm.title}
+                  onChange={(e) =>
+                    setNewJobForm({ ...newJobForm, title: e.target.value })
+                  }
+                  placeholder="e.g., Production Run"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
-              {/* Machine Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Machine Type <span className="text-red-600">*</span>
-                </label>
-                <div className="space-y-2">
-                  {['robot', 'laser', 'robot_and_laser'].map((type) => (
-                    <label key={type} className="flex items-center cursor-pointer">
-                      <input
-                        type="radio"
-                        name="machineType"
-                        value={type}
-                        checked={newJob.machineType === type}
-                        onChange={(e) =>
-                          setNewJob({
-                            ...newJob,
-                            machineType: e.target.value as typeof newJob.machineType,
-                          })
-                        }
-                        className="w-4 h-4"
-                      />
-                      <span className="ml-3 text-sm text-gray-700">
-                        {type === 'robot'
-                          ? 'Robot Only'
-                          : type === 'laser'
-                            ? 'Laser Only'
-                            : 'Robot & Laser'}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Robot Fields */}
-              {(newJob.machineType === 'robot' || newJob.machineType === 'robot_and_laser') && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Robot Model
-                    </label>
-                    <input
-                      type="text"
-                      value={newJob.robotModel}
-                      onChange={(e) => setNewJob({ ...newJob, robotModel: e.target.value })}
-                      placeholder="e.g., ABB IRB 1200"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Robot Serial Number
-                    </label>
-                    <input
-                      type="text"
-                      value={newJob.robotSerialNumber}
-                      onChange={(e) => setNewJob({ ...newJob, robotSerialNumber: e.target.value })}
-                      placeholder="Optional"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* Laser Fields */}
-              {(newJob.machineType === 'laser' || newJob.machineType === 'robot_and_laser') && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Laser Model
-                    </label>
-                    <input
-                      type="text"
-                      value={newJob.laserModel}
-                      onChange={(e) => setNewJob({ ...newJob, laserModel: e.target.value })}
-                      placeholder="e.g., CO2 100W"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Laser Serial Number
-                    </label>
-                    <input
-                      type="text"
-                      value={newJob.laserSerialNumber}
-                      onChange={(e) => setNewJob({ ...newJob, laserSerialNumber: e.target.value })}
-                      placeholder="Optional"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </>
-              )}
-
               {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
                 <textarea
-                  value={newJob.notes}
-                  onChange={(e) => setNewJob({ ...newJob, notes: e.target.value })}
-                  placeholder="Add any additional notes about this job..."
-                  rows={3}
+                  value={newJobForm.notes}
+                  onChange={(e) =>
+                    setNewJobForm({ ...newJobForm, notes: e.target.value })
+                  }
+                  placeholder="Optional notes"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
                 />
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-200 bg-gray-50 flex gap-3 sticky bottom-0">
+            <div className="flex gap-3">
               <button
                 onClick={() => setShowNewJobModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium"
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateJob}
-                disabled={saving}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
               >
-                {saving ? 'Creating...' : 'Create Job'}
+                Create Job
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Machine Modal */}
+      {showAddMachineModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Add Machine</h2>
+              <button
+                onClick={() => setShowAddMachineModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto mb-6">
+              {getAvailableMachines().length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  All machines are already assigned
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {getAvailableMachines().map((machine) => (
+                    <button
+                      key={machine.id}
+                      onClick={() => {
+                        handleAddMachine(machine.id);
+                      }}
+                      className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition"
+                    >
+                      <div className="flex items-center gap-2">
+                        {machine.type === 'robot' ? (
+                          <svg className="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
+                        ) : (
+                          <svg className="w-5 h-5 text-yellow-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 text-sm">
+                            {machine.serialNumber}
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            {machine.model}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowAddMachineModal(false)}
+              className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -762,66 +881,53 @@ export default function AdminJobsPage() {
       {/* Link Invoice Modal */}
       {showLinkInvoiceModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 sticky top-0 bg-white">
-              <h2 className="text-2xl font-bold text-gray-900">Link Invoice</h2>
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Link Invoice</h2>
+              <button
+                onClick={() => setShowLinkInvoiceModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
             </div>
 
-            <div className="p-6">
-              {invoiceLoading ? (
-                <div className="text-center py-8 text-gray-600">Loading invoices...</div>
+            <div className="max-h-96 overflow-y-auto mb-6">
+              {getAvailableInvoices().length === 0 ? (
+                <p className="text-sm text-gray-500">No available invoices</p>
               ) : (
-                <>
-                  <div className="mb-4">
-                    <input
-                      type="text"
-                      placeholder="Search invoices..."
-                      value={invoiceSearch}
-                      onChange={(e) => setInvoiceSearch(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  {filteredInvoices.length === 0 ? (
-                    <div className="text-center py-8 text-gray-600">No invoices found</div>
-                  ) : (
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {filteredInvoices.map((inv) => (
-                        <button
-                          key={inv.id}
-                          onClick={() => handleLinkInvoice(inv)}
-                          className="w-full text-left p-3 bg-gray-50 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="font-medium text-gray-900">{inv.docNumber}</p>
-                              <p className="text-sm text-gray-600">{inv.customerRef.name}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium text-gray-900">
-                                ${inv.totalAmt.toFixed(2)}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                {new Date(inv.txnDate).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
+                <div className="space-y-2">
+                  {getAvailableInvoices().map((invoice) => (
+                    <button
+                      key={invoice.id}
+                      onClick={() => {
+                        handleLinkInvoice(invoice.id);
+                      }}
+                      className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition"
+                    >
+                      <div className="font-medium text-gray-900 text-sm">
+                        Invoice #{invoice.invoiceNumber}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {invoice.invoiceType}
+                      </div>
+                      {invoice.amount !== null && (
+                        <div className="text-sm font-semibold text-gray-900 mt-1">
+                          ${invoice.amount.toFixed(2)}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
 
-            <div className="p-6 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => setShowLinkInvoiceModal(false)}
-                className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium"
-              >
-                Close
-              </button>
-            </div>
+            <button
+              onClick={() => setShowLinkInvoiceModal(false)}
+              className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
