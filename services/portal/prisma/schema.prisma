@@ -1,0 +1,242 @@
+// ============================================================
+// PRISMA SCHEMA — LaserNet Portal Database
+// Run: npx prisma migrate dev --name init
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// USERS — Admin and client accounts
+// ============================================================
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  password    String?  // Hashed with bcrypt
+  role        String   @default("client") // "admin" or "client"
+  company     String?
+  phone       String?
+  photo       String?  @db.Text // base64 data URL or null
+  status      String   @default("invited") // "invited" or "active"
+  inviteToken String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tickets     Ticket[] @relation("CreatedByUser")
+}
+
+// ============================================================
+// MANAGED CLIENTS — Clients imported from QuickBooks
+// ============================================================
+model ManagedClient {
+  id        String   @id @default(cuid())
+  addedAt   DateTime @default(now())
+
+  // QuickBooks client data (cached locally)
+  qbId          String  @unique
+  displayName   String
+  companyName   String
+  email         String?
+  phone         String?
+  address       String?
+  city          String?
+  province      String?
+  postalCode    String?
+
+  // Relations
+  contacts  Contact[]
+  tickets   Ticket[]
+  jobs      Job[]
+}
+
+// ============================================================
+// CONTACTS — Responsible person + sub-employees for a client
+// ============================================================
+model Contact {
+  id              String        @id @default(cuid())
+  managedClientId String
+  managedClient   ManagedClient @relation(fields: [managedClientId], references: [id], onDelete: Cascade)
+
+  name    String
+  email   String
+  phone   String?
+  role    String?
+  photo   String? @db.Text // base64 data URL or null
+  type    String  // "responsible" or "employee"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// TICKETS — Support tickets
+// ============================================================
+model Ticket {
+  id                  String   @id @default(cuid())
+  ticketNumber        String   @unique
+  managedClientId     String
+  managedClient       ManagedClient @relation(fields: [managedClientId], references: [id], onDelete: Cascade)
+  clientCompanyName   String
+
+  // Who created it
+  createdByUserId     String?
+  createdByUser       User?    @relation("CreatedByUser", fields: [createdByUserId], references: [id])
+  createdByName       String
+  createdByEmail      String
+  createdByRole       String
+
+  subject     String
+  description String   @db.Text
+  priority    String   @default("medium") // critical, high, medium, low
+  status      String   @default("open")   // open, in_progress, waiting, resolved, closed
+
+  linkedInvoiceId     String?
+  linkedInvoiceNumber String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attachments TicketAttachment[]
+}
+
+// ============================================================
+// TICKET ATTACHMENTS — Images/videos attached to tickets
+// ============================================================
+model TicketAttachment {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  name String
+  type String // "image" or "video"
+  url  String @db.Text // base64 data URL or file URL
+
+  createdAt DateTime @default(now())
+}
+
+// ============================================================
+// JOB MANAGEMENT — Central concept for machine programming
+// ============================================================
+model Job {
+  id             String   @id @default(cuid())
+  jobNumber      String   @unique
+  managedClientId String
+  managedClient  ManagedClient @relation(fields: [managedClientId], references: [id], onDelete: Cascade)
+
+  title              String
+  notes              String?  @db.Text
+  status             String   @default("draft") // "draft", "in_progress", "testing", "completed", "archived"
+  machineType        String   // "robot", "laser", "robot_and_laser"
+  robotModel         String?
+  laserModel         String?
+  robotSerialNumber  String?
+  laserSerialNumber  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  invoices         JobInvoice[]
+  robotPrograms    JobRobotProgram[]
+  laserPresets     JobLaserPreset[]
+  stateLog         MachineStateLog[]
+}
+
+// ============================================================
+// JOB INVOICES — Links jobs to QuickBooks invoices
+// ============================================================
+model JobInvoice {
+  id           String @id @default(cuid())
+  jobId        String
+  job          Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  qbInvoiceId  String
+  invoiceNumber String
+  invoiceType  String @default("general") // "robot", "laser", "general", "service"
+  amount       Float?
+  linkedAt     DateTime @default(now())
+}
+
+// ============================================================
+// JOB ROBOT PROGRAMS — Saved robot pathways/programs
+// ============================================================
+model JobRobotProgram {
+  id          String @id @default(cuid())
+  jobId       String
+  job         Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  name           String
+  description    String? @db.Text
+  status         String  @default("development") // "development", "testing", "production", "archived"
+  dxfFilename    String?
+  dxfData        String? @db.Text
+  waypoints      String? @db.Text // JSON array of waypoints
+
+  // Motion parameters
+  speed          Float @default(50.0)
+  acceleration   Float @default(100.0)
+  blendRadius    Float @default(0.5)
+
+  // Origin coordinates (mm, mm, mm)
+  originX        Float @default(400.0)
+  originY        Float @default(0.0)
+  originZ        Float @default(200.0)
+
+  // Orientation (degrees)
+  orientationRx  Float @default(180.0)
+  orientationRy  Float @default(0.0)
+  orientationRz  Float @default(0.0)
+
+  // Approach height (mm)
+  approachHeight Float @default(20.0)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+}
+
+// ============================================================
+// JOB LASER PRESETS — Saved laser controller configurations
+// ============================================================
+model JobLaserPreset {
+  id          String @id @default(cuid())
+  jobId       String
+  job         Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String? @db.Text
+  status      String  @default("development") // "development", "testing", "production", "archived"
+
+  // Laser controller settings
+  registers   String @db.Text // JSON object of register address→value pairs
+  port        String?
+  baudRate    Int?
+  parity      String?
+  slaveId     Int?
+  rs485Mode   String @default("normal")
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+}
+
+// ============================================================
+// MACHINE STATE LOG — Historical logging of robot/laser state
+// ============================================================
+model MachineStateLog {
+  id        String @id @default(cuid())
+  jobId     String?
+  job       Job?   @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  source    String // "robot" or "laser"
+  data      String @db.Text // JSON blob of state snapshot
+  timestamp DateTime @default(now())
+}
