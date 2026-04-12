@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elfin Cobot Studio</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<!-- ===== Top Bar ===== -->
+<header>
+    <div class="header-left">
+        <h1>Elfin Cobot Studio</h1>
+        <span class="header-model">E03 Pro</span>
+    </div>
+    <div class="header-center">
+        <span class="robot-status" id="robotStatus">
+            <span class="status-dot disconnected" id="statusDot"></span>
+            <span id="statusText">Disconnected</span>
+        </span>
+        <span id="enableBadge" class="enable-badge disabled" style="display:none;">DISABLED</span>
+        <span id="simBadge" class="sim-badge" style="display:none;">SIMULATION</span>
+    </div>
+    <div class="header-right"></div>
+</header>
+
+<!-- ===== Main Layout ===== -->
+<div class="app-container">
+
+    <!-- === Vertical Sidebar === -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-tabs">
+            <button class="sidebar-tab active" data-tab="visual" onclick="switchTab('visual')" title="Visual">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m-10-10h4m12 0h4m-2.93-7.07l-2.83 2.83m-8.48 8.48l-2.83 2.83m0-14.14l2.83 2.83m8.48 8.48l2.83 2.83"/>
+                </svg>
+                <span>Visual</span>
+            </button>
+            <button class="sidebar-tab" data-tab="dxf" onclick="switchTab('dxf')" title="DXF Import">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+                <span>DXF Import</span>
+            </button>
+            <button class="sidebar-tab" data-tab="programs" onclick="switchTab('programs')" title="Programs">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5,3 19,12 5,21 5,3"/>
+                </svg>
+                <span>Programs</span>
+            </button>
+            <button class="sidebar-tab" data-tab="settings" onclick="switchTab('settings')" title="Settings">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                </svg>
+                <span>Settings</span>
+            </button>
+        </div>
+        <div class="sidebar-toggle" onclick="toggleSidebar()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="sidebarArrow">
+                <polyline points="15 18 9 12 15 6"/>
+            </svg>
+        </div>
+    </nav>
+
+    <!-- === Content Area === -->
+    <div class="content-area">
+
+        <!-- ==================== VISUAL TAB ==================== -->
+        <div class="tab-content active" id="tab-visual">
+            <div class="visual-layout">
+
+                <!-- Left: Position Display -->
+                <div class="position-panel">
+                    <div class="panel-section">
+                        <h3>TCP Position</h3>
+                        <div class="pos-grid">
+                            <div class="pos-row"><span class="pos-label">X</span><span class="pos-value" id="tcpX">0.000</span><span class="pos-unit">mm</span></div>
+                            <div class="pos-row"><span class="pos-label">Y</span><span class="pos-value" id="tcpY">0.000</span><span class="pos-unit">mm</span></div>
+                            <div class="pos-row"><span class="pos-label">Z</span><span class="pos-value" id="tcpZ">0.000</span><span class="pos-unit">mm</span></div>
+                            <div class="pos-row"><span class="pos-label rx">RX</span><span class="pos-value" id="tcpRx">0.000</span><span class="pos-unit">°</span></div>
+                            <div class="pos-row"><span class="pos-label rx">RY</span><span class="pos-value" id="tcpRy">0.000</span><span class="pos-unit">°</span></div>
+                            <div class="pos-row"><span class="pos-label rx">RZ</span><span class="pos-value" id="tcpRz">0.000</span><span class="pos-unit">°</span></div>
+                        </div>
+                    </div>
+                    <div class="panel-section">
+                        <h3>Jog</h3>
+                        <div class="joint-list">
+                            <div class="joint-row">
+                                <span class="joint-label">J1</span>
+                                <button class="jog-btn minus" onclick="jogJoint(1,-1)">−</button>
+                                <span class="joint-value" id="j1">0.000</span>
+                                <button class="jog-btn plus" onclick="jogJoint(1,1)">+</button>
+                                <span class="joint-range">-360°~360°</span>
+                            </div>
+                            <div class="joint-row">
+                                <span class="joint-label">J2</span>
+                                <button class="jog-btn minus" onclick="jogJoint(2,-1)">−</button>
+                                <span class="joint-value" id="j2">0.000</span>
+                                <button class="jog-btn plus" onclick="jogJoint(2,1)">+</button>
+                                <span class="joint-range">-135°~135°</span>
+                            </div>
+                            <div class="joint-row">
+                                <span class="joint-label">J3</span>
+                                <button class="jog-btn minus" onclick="jogJoint(3,-1)">−</button>
+                                <span class="joint-value" id="j3">0.000</span>
+                                <button class="jog-btn plus" onclick="jogJoint(3,1)">+</button>
+                                <span class="joint-range">-150°~150°</span>
+                            </div>
+                            <div class="joint-row">
+                                <span class="joint-label">J4</span>
+                                <button class="jog-btn minus" onclick="jogJoint(4,-1)">−</button>
+                                <span class="joint-value" id="j4">0.000</span>
+                                <button class="jog-btn plus" onclick="jogJoint(4,1)">+</button>
+                                <span class="joint-range">-360°~360°</span>
+                            </div>
+                            <div class="joint-row">
+                                <span class="joint-label">J5</span>
+                                <button class="jog-btn minus" onclick="jogJoint(5,-1)">−</button>
+                                <span class="joint-value" id="j5">0.000</span>
+                                <button class="jog-btn plus" onclick="jogJoint(5,1)">+</button>
+                                <span class="joint-range">-147°~147°</span>
+                            </div>
+                            <div class="joint-row">
+                                <span class="joint-label">J6</span>
+                                <button class="jog-btn minus" onclick="jogJoint(6,-1)">−</button>
+                                <span class="joint-value" id="j6">0.000</span>
+                                <button class="jog-btn plus" onclick="jogJoint(6,1)">+</button>
+                                <span class="joint-range">-360°~360°</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-section">
+                        <h3>Move</h3>
+                        <div class="joint-list">
+                            <div class="joint-row move-row">
+                                <span class="joint-label">J1</span>
+                                <button class="jog-btn minus" onclick="moveAdjust(1,-1)">−</button>
+                                <input type="number" class="move-angle-input" id="moveJ1" value="0" step="1" oninput="moveInputChanged(1)">
+                                <button class="jog-btn plus" onclick="moveAdjust(1,1)">+</button>
+                                <button class="btn btn-sm move-go-btn dim" id="goJ1" onclick="moveGo(1)" disabled>GO</button>
+                            </div>
+                            <div class="joint-row move-row">
+                                <span class="joint-label">J2</span>
+                                <button class="jog-btn minus" onclick="moveAdjust(2,-1)">−</button>
+                                <input type="number" class="move-angle-input" id="moveJ2" value="0" step="1" oninput="moveInputChanged(2)">
+                                <button class="jog-btn plus" onclick="moveAdjust(2,1)">+</button>
+                                <button class="btn btn-sm move-go-btn dim" id="goJ2" onclick="moveGo(2)" disabled>GO</button>
+                            </div>
+                            <div class="joint-row move-row">
+                                <span class="joint-label">J3</span>
+                                <button class="jog-btn minus" onclick="moveAdjust(3,-1)">−</button>
+                                <input type="number" class="move-angle-input" id="moveJ3" value="0" step="1" oninput="moveInputChanged(3)">
+                                <button class="jog-btn plus" onclick="moveAdjust(3,1)">+</button>
+                                <button class="btn btn-sm move-go-btn dim" id="goJ3" onclick="moveGo(3)" disabled>GO</button>
+                            </div>
+                            <div class="joint-row move-row">
+                                <span class="joint-label">J4</span>
+                                <button class="jog-btn minus" onclick="moveAdjust(4,-1)">−</button>
+                                <input type="number" class="move-angle-input" id="moveJ4" value="0" step="1" oninput="moveInputChanged(4)">
+                                <button class="jog-btn plus" onclick="moveAdjust(4,1)">+</button>
+                                <button class="btn btn-sm move-go-btn dim" id="goJ4" onclick="moveGo(4)" disabled>GO</button>
+                            </div>
+                            <div class="joint-row move-row">
+                                <span class="joint-label">J5</span>
+                                <button class="jog-btn minus" onclick="moveAdjust(5,-1)">−</button>
+                                <input type="number" class="move-angle-input" id="moveJ5" value="0" step="1" oninput="moveInputChanged(5)">
+                                <button class="jog-btn plus" onclick="moveAdjust(5,1)">+</button>
+                                <button class="btn btn-sm move-go-btn dim" id="goJ5" onclick="moveGo(5)" disabled>GO</button>
+                            </div>
+                            <div class="joint-row move-row">
+                                <span class="joint-label">J6</span>
+                                <button class="jog-btn minus" onclick="moveAdjust(6,-1)">−</button>
+                                <input type="number" class="move-angle-input" id="moveJ6" value="0" step="1" oninput="moveInputChanged(6)">
+                                <button class="jog-btn plus" onclick="moveAdjust(6,1)">+</button>
+                                <button class="btn btn-sm move-go-btn dim" id="goJ6" onclick="moveGo(6)" disabled>GO</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-section">
+                        <h3>Arm Position</h3>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <button class="btn btn-sm btn-accent position-btn" onclick="goQuantum()">Quantum</button>
+                        </div>
+                    </div>
+                    <div class="panel-section">
+                        <h3>Speed</h3>
+                        <div class="speed-control">
+                            <button class="btn btn-sm" onclick="changeSpeed(-5)">−</button>
+                            <input type="range" id="speedSlider" min="1" max="100" value="10" oninput="updateSpeed(this.value)">
+                            <span id="speedValue">10</span><span>%</span>
+                            <button class="btn btn-sm" onclick="changeSpeed(5)">+</button>
+                        </div>
+                    </div>
+                    <div class="panel-section">
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <button class="btn btn-sm btn-success servo-btn" id="btnEnable" onclick="enableServo()">Enable</button>
+                            <button class="btn btn-sm btn-warning servo-btn" id="btnDisable" onclick="disableServo()">Disable</button>
+                            <button class="btn btn-sm btn-danger" onclick="stopRobot()">STOP</button>
+                            <button class="btn btn-sm" onclick="clearAlarm()">Clear Alarm</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center: 3D Robot View -->
+                <div class="robot-3d-view" id="robot3dContainer">
+                    <!-- Three.js canvas renders here -->
+                    <div class="view-3d-toolbar">
+                        <label title="Model detail level">Detail</label>
+                        <input type="range" id="modelDetail" min="1" max="5" value="3" step="1"
+                               oninput="if(robot3d) robot3d.setDetail(parseInt(this.value))">
+                        <span id="detailLabel">3</span>
+                    </div>
+                </div>
+
+                <!-- Right: Jog Controls -->
+                <div class="jog-panel">
+                    <div class="panel-section">
+                        <h3>Cartesian Jog</h3>
+                        <div class="jog-step-row">
+                            <label>Step (mm)</label>
+                            <input type="number" id="jogStep" value="10" min="0.1" max="100" step="1" class="input-sm">
+                        </div>
+                        <!-- Z up/down -->
+                        <div class="jog-cartesian-group">
+                            <div class="jog-z-col">
+                                <button class="jog-cart-btn z-btn" onclick="jogCartesian('z',1)">Z +</button>
+                                <button class="jog-cart-btn z-btn" onclick="jogCartesian('z',-1)">Z −</button>
+                            </div>
+                            <!-- XY pad -->
+                            <div class="jog-xy-pad">
+                                <button class="jog-cart-btn xy-up" onclick="jogCartesian('x',1)">+X</button>
+                                <div class="jog-xy-middle">
+                                    <button class="jog-cart-btn xy-left" onclick="jogCartesian('y',-1)">−Y</button>
+                                    <div class="jog-xy-center"></div>
+                                    <button class="jog-cart-btn xy-right" onclick="jogCartesian('y',1)">+Y</button>
+                                </div>
+                                <button class="jog-cart-btn xy-down" onclick="jogCartesian('x',-1)">−X</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-section">
+                        <h3>Rotation Jog</h3>
+                        <div class="jog-step-row">
+                            <label>Step (°)</label>
+                            <input type="number" id="jogRotStep" value="5" min="0.1" max="45" step="1" class="input-sm">
+                        </div>
+                        <div class="jog-rot-grid">
+                            <button class="jog-cart-btn" onclick="jogCartesian('rx',1)">+RX</button>
+                            <button class="jog-cart-btn" onclick="jogCartesian('rx',-1)">−RX</button>
+                            <button class="jog-cart-btn" onclick="jogCartesian('ry',1)">+RY</button>
+                            <button class="jog-cart-btn" onclick="jogCartesian('ry',-1)">−RY</button>
+                            <button class="jog-cart-btn" onclick="jogCartesian('rz',1)">+RZ</button>
+                            <button class="jog-cart-btn" onclick="jogCartesian('rz',-1)">−RZ</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== DXF IMPORT TAB ==================== -->
+        <div class="tab-content" id="tab-dxf">
+            <div class="dxf-layout">
+                <!-- Left panel: project + files -->
+                <div class="dxf-sidebar">
+                    <div class="panel-section">
+                        <div class="section-header">
+                            <h3>Projects</h3>
+                            <button class="btn btn-sm btn-primary" onclick="showNewProjectModal()">+ New</button>
+                        </div>
+                        <div id="projectList" class="item-list"></div>
+                    </div>
+                    <div class="panel-section">
+                        <div class="section-header">
+                            <h3>DXF Files</h3>
+                            <button class="btn btn-sm" onclick="uploadDXF()" id="btnUploadDxf" disabled>Upload</button>
+                        </div>
+                        <div id="dxfList" class="item-list">
+                            <div class="empty-hint">Select a project first.</div>
+                        </div>
+                    </div>
+                    <div class="panel-section">
+                        <div class="section-header">
+                            <h3>Programs</h3>
+                            <button class="btn btn-sm btn-primary" onclick="generateProgram()" id="btnGenerate" disabled>Generate</button>
+                        </div>
+                        <div id="programList" class="item-list">
+                            <div class="empty-hint">Generate from a DXF file.</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Center: DXF viewer -->
+                <div class="dxf-viewer-area">
+                    <div class="dxf-toolbar">
+                        <button class="btn btn-sm btn-success" onclick="runProgram()" id="btnRun" disabled>Run Program</button>
+                        <button class="btn btn-sm btn-danger" onclick="stopRobot()">Stop</button>
+                        <span class="toolbar-spacer"></span>
+                        <span class="toolbar-info" id="viewerInfo"></span>
+                    </div>
+                    <div class="dxf-canvas" id="dxfViewer">
+                        <div class="empty-state">
+                            <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                                <polyline points="14,2 14,8 20,8"/>
+                            </svg>
+                            <p>Upload a DXF file to preview paths</p>
+                        </div>
+                    </div>
+                    <div class="dxf-info-bar">
+                        <span id="infoPathCount">Paths: –</span>
+                        <span id="infoBBox">Bounds: –</span>
+                        <span id="infoWaypoints">Waypoints: –</span>
+                        <span id="infoDistance">Distance: –</span>
+                        <span id="infoTime">Est. time: –</span>
+                    </div>
+                </div>
+                <!-- Right: work plane settings -->
+                <div class="dxf-settings-panel">
+                    <div class="panel-section">
+                        <h3>Work Plane</h3>
+                        <div class="form-grid-3">
+                            <div class="form-group"><label>Origin X</label><input type="number" id="originX" value="400" step="1"></div>
+                            <div class="form-group"><label>Origin Y</label><input type="number" id="originY" value="0" step="1"></div>
+                            <div class="form-group"><label>Origin Z</label><input type="number" id="originZ" value="200" step="1"></div>
+                        </div>
+                        <div class="form-grid-3">
+                            <div class="form-group"><label>Rx (°)</label><input type="number" id="orientRx" value="180" step="1"></div>
+                            <div class="form-group"><label>Ry (°)</label><input type="number" id="orientRy" value="0" step="1"></div>
+                            <div class="form-group"><label>Rz (°)</label><input type="number" id="orientRz" value="0" step="1"></div>
+                        </div>
+                        <div class="form-grid-2">
+                            <div class="form-group"><label>Approach H</label><input type="number" id="approachH" value="20" step="1"></div>
+                            <div class="form-group"><label>Scale</label><input type="number" id="dxfScale" value="1.0" step="0.1" min="0.01"></div>
+                        </div>
+                    </div>
+                    <div class="panel-section">
+                        <h3>Motion</h3>
+                        <div class="form-grid-3">
+                            <div class="form-group"><label>Speed</label><input type="number" id="motionSpeed" value="50" step="5" min="1"></div>
+                            <div class="form-group"><label>Accel</label><input type="number" id="motionAccel" value="100" step="10"></div>
+                            <div class="form-group"><label>Blend</label><input type="number" id="motionBlend" value="0.5" step="0.1" min="0"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== PROGRAMS TAB ==================== -->
+        <div class="tab-content" id="tab-programs">
+            <div class="programs-layout">
+                <div class="programs-center">
+                    <h2>Robot Programs</h2>
+                    <p style="color:var(--text-dim); margin-bottom:16px;">Select a program and run it on the robot.</p>
+                    <div id="allProgramsList" class="programs-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SETTINGS TAB ==================== -->
+        <div class="tab-content" id="tab-settings">
+            <div class="settings-layout">
+                <div class="settings-card">
+                    <h2>Robot Connection</h2>
+                    <div class="conn-status-bar">
+                        <span class="robot-status">
+                            <span class="status-dot disconnected" id="settingsStatusDot"></span>
+                            <span id="settingsStatusText">Disconnected</span>
+                        </span>
+                        <span id="settingsSimBadge" class="sim-badge" style="display:none;">SIMULATION</span>
+                    </div>
+                    <div class="form-grid-2" style="margin-top:12px;">
+                        <div class="form-group"><label>Robot IP</label><input type="text" id="settingsIp" value="192.168.10.10"></div>
+                        <div class="form-group"><label>API Port</label><input type="number" id="settingsPort" value="7001"></div>
+                    </div>
+                    <div class="form-grid-2">
+                        <div class="form-group"><label>Command Port</label><input type="number" id="settingsCmdPort" value="10003"></div>
+                        <div class="form-group"><label>MQTT Port</label><input type="number" id="settingsMqttPort" value="1884"></div>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:10px;">
+                        <button class="btn btn-success" onclick="connectRobot()">Connect</button>
+                        <button class="btn btn-danger" onclick="disconnectRobot()">Disconnect</button>
+                    </div>
+                </div>
+                <div class="settings-card">
+                    <h2>Default Motion Parameters</h2>
+                    <div class="form-grid-3">
+                        <div class="form-group"><label>Speed (mm/s)</label><input type="number" id="settingsSpeed" value="50"></div>
+                        <div class="form-group"><label>Acceleration</label><input type="number" id="settingsAccel" value="100"></div>
+                        <div class="form-group"><label>Blend Radius</label><input type="number" id="settingsBlend" value="0.5"></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSettings()" style="margin-top:8px;">Save Settings</button>
+                </div>
+                <div class="settings-card">
+                    <h2>Data Management</h2>
+                    <p style="color:var(--text-dim); margin-bottom:12px;">
+                        All projects, DXF files, and programs are stored in a local SQLite database in the <code>data/</code> folder.
+                        This data persists across software updates.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ===== Modals ===== -->
+<div id="modalOverlay" class="modal-overlay" style="display:none;" onclick="closeModal(event)">
+    <div class="modal" id="modalContent" onclick="event.stopPropagation()"></div>
+</div>
+<input type="file" id="fileInput" accept=".dxf" style="display:none" onchange="handleFileUpload(event)">
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="/static/js/robot3d.js"></script>
+<script src="/static/js/app.js"></script>
+
+</body>
+</html>

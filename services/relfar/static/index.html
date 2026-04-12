@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relfar V4 - Laser Controller Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0a0e17;
+            color: #e0e6f0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1f35 0%, #0d1321 100%);
+            border-bottom: 1px solid #2a3555;
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .header h1 span {
+            color: #4a9eff;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .status-badge.connected {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .status-badge.disconnected {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-badge.scanning {
+            background: rgba(234, 179, 8, 0.15);
+            color: #eab308;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .scanning .status-dot {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+            display: grid;
+            gap: 20px;
+        }
+
+        .card {
+            background: #141927;
+            border: 1px solid #2a3555;
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #8896b3;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+
+        /* Connection Panel */
+        .connection-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            color: #6b7a99;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group select {
+            background: #0d1321;
+            border: 1px solid #2a3555;
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #e0e6f0;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-color: #4a9eff;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #4a9eff;
+            color: #fff;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #3a8eef;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #dc2626;
+        }
+
+        .btn-secondary {
+            background: #2a3555;
+            color: #e0e6f0;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #354166;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            grid-column: 1 / -1;
+            flex-wrap: wrap;
+        }
+
+        .btn-swap {
+            background: linear-gradient(135deg, #7c3aed, #4a9eff);
+            color: #fff;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-swap:hover:not(:disabled) {
+            background: linear-gradient(135deg, #6d28d9, #3a8eef);
+        }
+
+        .btn-swap .swap-icon {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        .btn-swap.inverted .swap-icon {
+            transform: rotate(180deg);
+        }
+
+        .rs485-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: #0d1321;
+            border: 1px solid #2a3555;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #8896b3;
+            grid-column: 1 / -1;
+        }
+
+        .rs485-indicator .mode-label {
+            font-weight: 600;
+            color: #7c3aed;
+        }
+
+        /* COM Ports */
+        .port-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .port-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: #0d1321;
+            border: 1px solid #2a3555;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .port-item .port-name {
+            font-weight: 600;
+            color: #4a9eff;
+        }
+
+        .port-item .port-desc {
+            color: #6b7a99;
+        }
+
+        /* Registers Table */
+        .register-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .register-table th {
+            text-align: left;
+            padding: 10px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7a99;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #2a3555;
+        }
+
+        .register-table td {
+            padding: 10px 14px;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(42, 53, 85, 0.5);
+            font-family: 'Consolas', 'Courier New', monospace;
+        }
+
+        .register-table tr:hover td {
+            background: rgba(74, 158, 255, 0.05);
+        }
+
+        .reg-addr { color: #4a9eff; }
+        .reg-dec { color: #22c55e; }
+        .reg-hex { color: #eab308; }
+
+        /* Read Controls */
+        .read-controls {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .read-controls .form-group {
+            flex: 0 0 auto;
+        }
+
+        /* Log Area */
+        .log-area {
+            background: #0d1321;
+            border: 1px solid #2a3555;
+            border-radius: 8px;
+            padding: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            color: #6b7a99;
+        }
+
+        .log-entry.success { color: #22c55e; }
+        .log-entry.error { color: #ef4444; }
+        .log-entry.info { color: #4a9eff; }
+        .log-entry.warning { color: #eab308; }
+
+        /* Write Panel */
+        .write-form {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7a99;
+        }
+
+        .empty-state p {
+            margin-top: 8px;
+            font-size: 14px;
+        }
+
+        /* Scan results */
+        .scan-results {
+            display: grid;
+            gap: 8px;
+        }
+
+        .scan-hit {
+            padding: 12px 16px;
+            background: rgba(34, 197, 94, 0.08);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .scan-hit strong {
+            color: #22c55e;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><span>Relfar V4</span> &mdash; Laser Controller Dashboard</h1>
+        <div id="statusBadge" class="status-badge disconnected">
+            <div class="status-dot"></div>
+            <span id="statusText">Disconnected</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Connection & Ports -->
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-title">Connection Settings</div>
+                <div class="connection-form">
+                    <div class="form-group">
+                        <label>COM Port</label>
+                        <input type="text" id="portInput" value="COM5">
+                    </div>
+                    <div class="form-group">
+                        <label>Baud Rate</label>
+                        <select id="baudSelect">
+                            <option value="9600" selected>9600</option>
+                            <option value="19200">19200</option>
+                            <option value="38400">38400</option>
+                            <option value="57600">57600</option>
+                            <option value="115200">115200</option>
+                            <option value="4800">4800</option>
+                            <option value="2400">2400</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Parity</label>
+                        <select id="paritySelect">
+                            <option value="N" selected>None</option>
+                            <option value="E">Even</option>
+                            <option value="O">Odd</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Slave ID</label>
+                        <input type="number" id="slaveInput" value="1" min="0" max="247">
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-primary" id="scanBtn" onclick="startScan()">
+                            Auto-Scan
+                        </button>
+                        <button class="btn btn-secondary" onclick="manualConnect()">
+                            Manual Connect
+                        </button>
+                        <button class="btn btn-swap" id="swapBtn" onclick="toggleRS485()">
+                            <span class="swap-icon">&#8646;</span> Swap TX/RX
+                        </button>
+                        <button class="btn btn-danger" onclick="disconnect()">
+                            Disconnect
+                        </button>
+                    </div>
+                    <div class="rs485-indicator">
+                        RS485 Polarity: <span class="mode-label" id="rs485ModeLabel">Normal</span>
+                        <span id="rs485ModeDesc">— RTS HIGH during TX</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Detected COM Ports</div>
+                <div id="portList" class="port-list">
+                    <div class="empty-state">
+                        <p>Click "Auto-Scan" or loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Read/Write Registers -->
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-title">Read Registers</div>
+                <div class="read-controls">
+                    <div class="form-group">
+                        <label>Start Address</label>
+                        <input type="number" id="readAddr" value="0" min="0" style="width: 100px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Count</label>
+                        <input type="number" id="readCount" value="10" min="1" max="125" style="width: 80px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select id="readType" style="width: 120px;">
+                            <option value="holding">Holding (0x03)</option>
+                            <option value="input">Input (0x04)</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="readRegisters()">Read</button>
+                </div>
+                <div id="registerData">
+                    <div class="empty-state">
+                        <p>Connect to the controller first, then read registers</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Write Register</div>
+                <div class="write-form">
+                    <div class="form-group">
+                        <label>Address</label>
+                        <input type="number" id="writeAddr" value="0" min="0" style="width: 100px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Value</label>
+                        <input type="number" id="writeValue" value="0" min="0" max="65535" style="width: 100px;">
+                    </div>
+                    <button class="btn btn-primary" onclick="writeRegister()">Write</button>
+                </div>
+                <p style="margin-top: 16px; font-size: 13px; color: #6b7a99;">
+                    Caution: writing incorrect values can affect controller behavior.
+                    Only write if you know the register function.
+                </p>
+            </div>
+        </div>
+
+        <!-- Scan Results & Log -->
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-title">Scan Results</div>
+                <div id="scanResults" class="scan-results">
+                    <div class="empty-state">
+                        <p>No scan performed yet</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Activity Log</div>
+                <div id="logArea" class="log-area">
+                    <div class="log-entry info">Dashboard loaded. Ready to connect.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = '';  // Same origin
+
+        function log(msg, type = '') {
+            const area = document.getElementById('logArea');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const now = new Date().toLocaleTimeString();
+            entry.textContent = `[${now}] ${msg}`;
+            area.appendChild(entry);
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function updateStatus(connected, scanning = false) {
+            const badge = document.getElementById('statusBadge');
+            const text = document.getElementById('statusText');
+
+            badge.className = 'status-badge ' + (scanning ? 'scanning' : connected ? 'connected' : 'disconnected');
+            text.textContent = scanning ? 'Scanning...' : connected ? 'Connected' : 'Disconnected';
+        }
+
+        function updateRS485Display(mode) {
+            const label = document.getElementById('rs485ModeLabel');
+            const desc = document.getElementById('rs485ModeDesc');
+            const btn = document.getElementById('swapBtn');
+
+            if (mode === 'inverted') {
+                label.textContent = 'Inverted (Swapped)';
+                desc.textContent = '— RTS LOW during TX';
+                btn.classList.add('inverted');
+            } else {
+                label.textContent = 'Normal';
+                desc.textContent = '— RTS HIGH during TX';
+                btn.classList.remove('inverted');
+            }
+        }
+
+        async function toggleRS485() {
+            log('Toggling RS485 TX/RX polarity...', 'info');
+
+            try {
+                const res = await fetch(`${API}/api/rs485-mode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})  // empty = toggle
+                });
+
+                const data = await res.json();
+                if (data.error) {
+                    log(`Swap error: ${data.error}`, 'error');
+                    return;
+                }
+
+                updateRS485Display(data.new_mode);
+                log(`RS485 polarity swapped: ${data.old_mode} → ${data.new_mode} (${data.description})`, 'success');
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch(`${API}/api/status`);
+                const data = await res.json();
+
+                updateStatus(data.connected, data.scan_in_progress);
+                updateRS485Display(data.rs485_mode || 'normal');
+
+                if (data.connection_settings) {
+                    document.getElementById('baudSelect').value = data.connection_settings.baud_rate || 9600;
+                    document.getElementById('paritySelect').value = data.connection_settings.parity || 'N';
+                    document.getElementById('slaveInput').value = data.connection_settings.slave_id || 1;
+                }
+
+                if (data.port) {
+                    document.getElementById('portInput').value = data.port;
+                }
+
+                if (data.registers && Object.keys(data.registers).length > 0) {
+                    renderRegisters(data.registers);
+                }
+
+                if (data.error) {
+                    document.getElementById('scanBtn').disabled = false;
+                }
+            } catch (e) {
+                // Server not reachable
+            }
+        }
+
+        async function loadPorts() {
+            try {
+                const res = await fetch(`${API}/api/ports`);
+                const data = await res.json();
+                const list = document.getElementById('portList');
+
+                if (data.ports && data.ports.length > 0) {
+                    list.innerHTML = data.ports.map(p => `
+                        <div class="port-item">
+                            <span class="port-name">${p.device}</span>
+                            <span class="port-desc">${p.description}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<div class="empty-state"><p>No COM ports detected</p></div>';
+                }
+            } catch (e) {
+                log('Failed to load COM ports', 'error');
+            }
+        }
+
+        async function startScan() {
+            const port = document.getElementById('portInput').value;
+            const btn = document.getElementById('scanBtn');
+            btn.disabled = true;
+
+            log(`Starting auto-scan on ${port}...`, 'info');
+            updateStatus(false, true);
+
+            try {
+                const res = await fetch(`${API}/api/scan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ port, quick: false })
+                });
+
+                const data = await res.json();
+                if (data.error) {
+                    log(`Scan error: ${data.error}`, 'error');
+                    btn.disabled = false;
+                    return;
+                }
+
+                log('Scan started. This may take 1-3 minutes...', 'warning');
+
+                // Poll for completion
+                const pollInterval = setInterval(async () => {
+                    const statusRes = await fetch(`${API}/api/status`);
+                    const statusData = await statusRes.json();
+
+                    if (!statusData.scan_in_progress) {
+                        clearInterval(pollInterval);
+                        btn.disabled = false;
+                        updateStatus(statusData.connected);
+
+                        // Load scan results
+                        const scanRes = await fetch(`${API}/api/scan-results`);
+                        const scanData = await scanRes.json();
+                        renderScanResults(scanData);
+
+                        if (statusData.connected) {
+                            log('Controller found! Connection established.', 'success');
+                        } else if (statusData.error) {
+                            log(`Scan complete: ${statusData.error}`, 'warning');
+                        }
+                    }
+                }, 2000);
+
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+                btn.disabled = false;
+                updateStatus(false);
+            }
+        }
+
+        async function manualConnect() {
+            const settings = {
+                port: document.getElementById('portInput').value,
+                baud_rate: parseInt(document.getElementById('baudSelect').value),
+                parity: document.getElementById('paritySelect').value,
+                slave_id: parseInt(document.getElementById('slaveInput').value)
+            };
+
+            log(`Connecting manually: ${settings.port} @ ${settings.baud_rate} baud...`, 'info');
+
+            try {
+                const res = await fetch(`${API}/api/connect`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+
+                const data = await res.json();
+                if (data.connected) {
+                    log('Connected successfully!', 'success');
+                    updateStatus(true);
+                } else {
+                    log(`Connection failed: ${data.error}`, 'error');
+                    updateStatus(false);
+                }
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function disconnect() {
+            try {
+                await fetch(`${API}/api/disconnect`, { method: 'POST' });
+                log('Disconnected.', 'info');
+                updateStatus(false);
+                document.getElementById('registerData').innerHTML = '<div class="empty-state"><p>Disconnected</p></div>';
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function readRegisters() {
+            const address = parseInt(document.getElementById('readAddr').value);
+            const count = parseInt(document.getElementById('readCount').value);
+            const type = document.getElementById('readType').value;
+
+            log(`Reading ${count} ${type} registers from address ${address}...`, 'info');
+
+            try {
+                const res = await fetch(`${API}/api/read`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address, count, type })
+                });
+
+                const data = await res.json();
+                if (data.error) {
+                    log(`Read error: ${data.error}`, 'error');
+                    return;
+                }
+
+                renderRegisters(data.registers);
+                log(`Read ${data.count} registers successfully.`, 'success');
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function writeRegister() {
+            const address = parseInt(document.getElementById('writeAddr').value);
+            const value = parseInt(document.getElementById('writeValue').value);
+
+            if (!confirm(`Write value ${value} to register ${address}? This will modify the controller.`)) {
+                return;
+            }
+
+            log(`Writing value ${value} to address ${address}...`, 'info');
+
+            try {
+                const res = await fetch(`${API}/api/write`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address, values: [value] })
+                });
+
+                const data = await res.json();
+                if (data.error) {
+                    log(`Write error: ${data.error}`, 'error');
+                    return;
+                }
+
+                log(`Successfully wrote ${value} to register ${address}.`, 'success');
+                // Refresh read
+                readRegisters();
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        function renderRegisters(registers) {
+            const container = document.getElementById('registerData');
+            const sorted = Object.entries(registers).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+
+            if (sorted.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No register data</p></div>';
+                return;
+            }
+
+            let html = `<table class="register-table">
+                <thead><tr>
+                    <th>Address</th>
+                    <th>Decimal</th>
+                    <th>Hex</th>
+                    <th>Binary</th>
+                </tr></thead><tbody>`;
+
+            for (const [addr, val] of sorted) {
+                html += `<tr>
+                    <td class="reg-addr">${addr}</td>
+                    <td class="reg-dec">${val}</td>
+                    <td class="reg-hex">0x${val.toString(16).toUpperCase().padStart(4, '0')}</td>
+                    <td>${val.toString(2).padStart(16, '0')}</td>
+                </tr>`;
+            }
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function renderScanResults(data) {
+            const container = document.getElementById('scanResults');
+
+            if (!data || data.error) {
+                container.innerHTML = `<div class="empty-state"><p>${data?.error || 'No results'}</p></div>`;
+                return;
+            }
+
+            let html = '';
+
+            if (data.modbus_hits && data.modbus_hits.length > 0) {
+                html += '<p style="color: #22c55e; margin-bottom: 8px; font-weight: 600;">Modbus Devices Found:</p>';
+                for (const hit of data.modbus_hits) {
+                    html += `<div class="scan-hit">
+                        <strong>Baud: ${hit.baud_rate}</strong> | Parity: ${hit.parity} | Slave: ${hit.slave_id}<br>
+                        Register ${hit.address} (${hit.type}): [${hit.values.join(', ')}]
+                    </div>`;
+                }
+            }
+
+            if (data.raw_serial_hits && data.raw_serial_hits.length > 0) {
+                html += '<p style="color: #eab308; margin-top: 12px; margin-bottom: 8px; font-weight: 600;">Raw Serial Responses:</p>';
+                for (const hit of data.raw_serial_hits) {
+                    html += `<div class="scan-hit" style="border-color: rgba(234,179,8,0.2); background: rgba(234,179,8,0.08);">
+                        <strong>Baud: ${hit.baud_rate}</strong> | Parity: ${hit.parity}<br>
+                        Sent: ${hit.sent}<br>
+                        Received: ${hit.received} (${hit.received_length} bytes)
+                    </div>`;
+                }
+            }
+
+            if (!html) {
+                html = `<div class="empty-state">
+                    <p style="color: #ef4444;">No devices found</p>
+                    <p>${data.recommendation || 'Check wiring and power.'}</p>
+                </div>`;
+            } else if (data.recommendation) {
+                html += `<p style="margin-top: 12px; color: #8896b3; font-size: 13px;">${data.recommendation}</p>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // Initialize
+        loadPorts();
+        fetchStatus();
+        setInterval(fetchStatus, 3000);
+    </script>
+</body>
+</html>
