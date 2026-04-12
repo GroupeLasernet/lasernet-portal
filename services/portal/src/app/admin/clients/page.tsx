@@ -312,12 +312,10 @@ export default function AdminClientsPage() {
   const handleCreateStation = async () => {
     if (!previewInvoice || selectedItems.size === 0 || !selectedClient) return;
     const items = previewInvoice.items
-      .filter((_, i) => selectedItems.has(i))
-      .map((item, _idx) => {
-        const originalIndex = Array.from(selectedItems).sort()[Array.from(selectedItems).sort().indexOf(
-          [...selectedItems].find((si) => previewInvoice.items[si] === item) ?? 0
-        )];
-        const qty = itemQuantities[originalIndex] || item.quantity;
+      .map((item, i) => ({ item, index: i }))
+      .filter(({ index }) => selectedItems.has(index))
+      .map(({ item, index }) => {
+        const qty = itemQuantities[index] || item.quantity;
         return { ...item, quantity: qty };
       });
 
