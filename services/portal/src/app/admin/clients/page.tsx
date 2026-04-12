@@ -5,33 +5,8 @@ import { type QBClient, type ManagedClient, type ContactPerson } from '@/lib/moc
 import Avatar from '@/components/Avatar';
 import StreetView from '@/components/StreetView';
 
-// Chevron icon for collapsible sections
-const ChevronIcon = ({ open }: { open: boolean }) => (
-  <svg
-    className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-  </svg>
-);
-
-// Invoice type
-interface QBInvoice {
-  id: string;
-  invoiceNumber: string;
-  clientId: string;
-  clientName: string;
-  amount: number;
-  balance: number;
-  status: string;
-  date: string;
-  dueDate: string;
-  items: { description: string; quantity: number; rate: number; amount: number }[];
-}
-
 export default function AdminClientsPage() {
+  // QuickBooks clients (left panel - import list)
   const [qbClients, setQbClients] = useState<QBClient[]>([]);
   const [qbSearch, setQbSearch] = useState('');
   const [qbConnected, setQbConnected] = useState(false);
@@ -40,11 +15,14 @@ export default function AdminClientsPage() {
   const [credentialsConfigured, setCredentialsConfigured] = useState(true);
   const [connectError, setConnectError] = useState<string | null>(null);
 
+  // My managed clients (middle panel) — loaded from database API
   const [managedClients, setManagedClients] = useState<ManagedClient[]>([]);
   const [hasLoaded, setHasLoaded] = useState(false);
 
+  // Currently selected managed client for detail view
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
+  // Contact form state
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactFormType, setContactFormType] = useState<'responsible' | 'employee'>('responsible');
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
@@ -56,22 +34,14 @@ export default function AdminClientsPage() {
     role: '',
   });
 
-  // Collapsible section states
-  const [streetViewOpen, setStreetViewOpen] = useState(true);
-  const [mainContactOpen, setMainContactOpen] = useState(true);
-  const [staffOpen, setStaffOpen] = useState(true);
-
-  // QuickBooks invoices for selected client
-  const [clientInvoices, setClientInvoices] = useState<QBInvoice[]>([]);
-  const [invoicesLoading, setInvoicesLoading] = useState(false);
-  const [invoicesSource, setInvoicesSource] = useState<string>('');
-
+  // Reset password lockout state: maps email -> timestamp when lockout expires
   const [resetLockouts, setResetLockouts] = useState<Record<string, number>>({});
   const [resetCountdowns, setResetCountdowns] = useState<Record<string, number>>({});
   const [resetSending, setResetSending] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Countdown timer for reset lockouts
   useEffect(() => {
     countdownRef.current = setInterval(() => {
       const now = Date.now();
@@ -93,40 +63,56 @@ export default function AdminClientsPage() {
     };
   }, [resetLockouts]);
 
+  // Handle reset password
   const handleResetPassword = async (email: string, name: string) => {
     if (resetLockouts[email] && Date.now() < resetLockouts[email]) return;
+
     setResetSending(true);
     setResetMessage(null);
+
     try {
       const response = await fetch('/api/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, name }),
       });
+
       const data = await response.json();
+
       if (data.emailSent) {
         setResetMessage(`Reset email sent to ${email}`);
       } else {
         setResetMessage(data.message || 'Reset link generated (email not configured)');
       }
-      setResetLockouts((prev) => ({ ...prev, [email]: Date.now() + 120000 }));
+
+      // Set 120-second lockout
+      setResetLockouts((prev) => ({
+        ...prev,
+        [email]: Date.now() + 120000,
+      }));
     } catch {
       setResetMessage('Failed to send reset email');
     }
+
     setResetSending(false);
   };
 
+  // Load managed clients from DATABASE on mount
   useEffect(() => {
     fetch('/api/managed-clients')
       .then((res) => res.json())
       .then((data) => {
-        if (data.clients) setManagedClients(data.clients);
+        if (data.clients) {
+          setManagedClients(data.clients);
+        }
         setHasLoaded(true);
       })
       .catch(() => setHasLoaded(true));
   }, []);
 
+  // Load QuickBooks clients from API on mount
   useEffect(() => {
+    // Check QB connection status and credentials
     fetch('/api/quickbooks/status')
       .then(res => res.json())
       .then(data => {
@@ -134,6 +120,8 @@ export default function AdminClientsPage() {
         setCredentialsConfigured(data.credentialsConfigured !== false);
       })
       .catch(() => {});
+
+    // Fetch customers (returns mock data if not connected)
     fetch('/api/quickbooks/customers')
       .then(res => res.json())
       .then(data => {
@@ -144,33 +132,7 @@ export default function AdminClientsPage() {
       .catch(() => setQbLoading(false));
   }, []);
 
-  // Load invoices when selected client changes
-  useEffect(() => {
-    if (!selectedClientId) {
-      setClientInvoices([]);
-      return;
-    }
-    const client = managedClients.find((mc) => mc.id === selectedClientId);
-    if (!client) return;
-    const qbId = client.qbClient.id;
-    setInvoicesLoading(true);
-    fetch(`/api/quickbooks/invoices?customerId=${qbId}`)
-      .then(res => res.json())
-      .then(data => {
-        const allInvoices: QBInvoice[] = data.invoices || [];
-        const filtered = allInvoices.filter(
-          (inv) => inv.clientId === qbId || inv.clientName === client.qbClient.displayName
-        );
-        setClientInvoices(filtered.length > 0 ? filtered : allInvoices);
-        setInvoicesSource(data.source || 'mock');
-        setInvoicesLoading(false);
-      })
-      .catch(() => {
-        setClientInvoices([]);
-        setInvoicesLoading(false);
-      });
-  }, [selectedClientId, managedClients]);
-
+  // Connect to QuickBooks
   const handleConnectQB = async () => {
     setConnectError(null);
     try {
@@ -179,13 +141,15 @@ export default function AdminClientsPage() {
       if (data.authUrl) {
         window.location.href = data.authUrl;
       } else {
-        setConnectError(data.details || data.error || 'Could not generate QuickBooks auth URL.');
+        const errorMsg = data.details || data.error || 'Could not generate QuickBooks auth URL.';
+        setConnectError(errorMsg);
       }
     } catch {
       setConnectError('Failed to connect to QuickBooks. The server may be unreachable.');
     }
   };
 
+  // Filter QB clients: hide already-added ones and apply search
   const addedQbIds = new Set(managedClients.map((mc) => mc.qbClient.id));
   const filteredQBClients = qbClients.filter(
     (c) =>
@@ -194,6 +158,7 @@ export default function AdminClientsPage() {
         c.companyName.toLowerCase().includes(qbSearch.toLowerCase()))
   );
 
+  // Add a QB client to managed list (via API)
   const handleAddClient = async (qbClient: QBClient) => {
     try {
       const res = await fetch('/api/managed-clients', {
@@ -211,6 +176,7 @@ export default function AdminClientsPage() {
     }
   };
 
+  // Remove a managed client (via API)
   const handleRemoveClient = async (clientId: string) => {
     try {
       await fetch(`/api/managed-clients/${clientId}`, { method: 'DELETE' });
@@ -221,8 +187,10 @@ export default function AdminClientsPage() {
     }
   };
 
+  // Get the selected managed client
   const selectedClient = managedClients.find((mc) => mc.id === selectedClientId) || null;
 
+  // Open contact form for ADD
   const openContactForm = (type: 'responsible' | 'employee') => {
     setContactFormType(type);
     setEditingContactId(null);
@@ -230,6 +198,7 @@ export default function AdminClientsPage() {
     setShowContactForm(true);
   };
 
+  // Open contact form for EDIT
   const openEditForm = (type: 'responsible' | 'employee', contact: ContactPerson) => {
     setContactFormType(type);
     setEditingContactId(contact.id);
@@ -244,9 +213,12 @@ export default function AdminClientsPage() {
     setShowContactForm(true);
   };
 
+  // Save contact (handles both ADD and EDIT) — via API
   const handleSaveContact = async () => {
     if (!selectedClient || !contactForm.name.trim() || !contactForm.email.trim()) return;
+
     if (editingContactId) {
+      // EDIT existing contact via API
       try {
         const res = await fetch(
           `/api/managed-clients/${selectedClient.id}/contacts/${editingContactId}`,
@@ -279,11 +251,15 @@ export default function AdminClientsPage() {
       setShowContactForm(false);
       setEditingContactId(null);
     } else {
+      // ADD new contact via API
       try {
         const res = await fetch(`/api/managed-clients/${selectedClient.id}/contacts`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...contactForm, type: contactFormType }),
+          body: JSON.stringify({
+            ...contactForm,
+            type: contactFormType,
+          }),
         });
         const data = await res.json();
         if (data.contact) {
@@ -300,6 +276,8 @@ export default function AdminClientsPage() {
       } catch (error) {
         console.error('Error adding contact:', error);
       }
+
+      // Send invitation email
       try {
         await fetch('/api/invite', {
           method: 'POST',
@@ -314,14 +292,18 @@ export default function AdminClientsPage() {
       } catch (error) {
         console.error('Error sending invitation:', error);
       }
+
       setShowContactForm(false);
       setEditingContactId(null);
     }
   };
 
+  // Remove a sub-employee (via API)
   const handleRemoveEmployee = async (clientId: string, employeeId: string) => {
     try {
-      await fetch(`/api/managed-clients/${clientId}/contacts/${employeeId}`, { method: 'DELETE' });
+      await fetch(`/api/managed-clients/${clientId}/contacts/${employeeId}`, {
+        method: 'DELETE',
+      });
       setManagedClients(
         managedClients.map((mc) => {
           if (mc.id !== clientId) return mc;
@@ -329,15 +311,19 @@ export default function AdminClientsPage() {
         })
       );
     } catch (error) {
-      console.error('Error removing staff member:', error);
+      console.error('Error removing employee:', error);
     }
   };
 
+  // Remove responsible person (via API)
   const handleRemoveResponsible = async (clientId: string) => {
     const client = managedClients.find((mc) => mc.id === clientId);
     if (!client?.responsiblePerson) return;
+
     try {
-      await fetch(`/api/managed-clients/${clientId}/contacts/${client.responsiblePerson.id}`, { method: 'DELETE' });
+      await fetch(`/api/managed-clients/${clientId}/contacts/${client.responsiblePerson.id}`, {
+        method: 'DELETE',
+      });
       setManagedClients(
         managedClients.map((mc) => {
           if (mc.id !== clientId) return mc;
@@ -345,39 +331,23 @@ export default function AdminClientsPage() {
         })
       );
     } catch (error) {
-      console.error('Error removing main contact:', error);
+      console.error('Error removing responsible:', error);
     }
   };
 
+  // Pencil icon for edit buttons
   const EditIcon = () => (
     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
     </svg>
   );
 
+  // Trash icon
   const TrashIcon = ({ size = 'w-5 h-5' }: { size?: string }) => (
     <svg className={size} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
     </svg>
   );
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(amount);
-  };
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '\u2014';
-    return new Date(dateStr).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' });
-  };
-
-  const statusColor = (status: string) => {
-    switch (status) {
-      case 'paid': return 'bg-green-100 text-green-700';
-      case 'overdue': return 'bg-red-100 text-red-700';
-      case 'unpaid': return 'bg-yellow-100 text-yellow-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
 
   return (
     <div>
@@ -387,7 +357,9 @@ export default function AdminClientsPage() {
       </div>
 
       <div className="flex gap-6 h-[calc(100vh-180px)]">
-        {/* LEFT PANEL: QuickBooks Clients */}
+        {/* ============================================================ */}
+        {/* LEFT PANEL: QuickBooks Clients (Import List) */}
+        {/* ============================================================ */}
         <div className="w-80 flex-shrink-0 flex flex-col">
           <div className="card flex-1 flex flex-col !p-0 overflow-hidden">
             <div className="p-4 border-b border-gray-100">
@@ -399,35 +371,51 @@ export default function AdminClientsPage() {
                   <h2 className="font-semibold text-sm">QuickBooks Clients</h2>
                 </div>
                 {(!qbConnected || (qbConnected && dataSource === 'mock')) && !qbLoading && (
-                  <button onClick={handleConnectQB} className="text-[10px] bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded transition-colors">
+                  <button
+                    onClick={handleConnectQB}
+                    className="text-[10px] bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded transition-colors"
+                  >
                     {qbConnected && dataSource === 'mock' ? 'Reconnect' : 'Connect'}
                   </button>
                 )}
               </div>
               {!credentialsConfigured && (
                 <p className="text-[10px] text-red-600 bg-red-50 px-2 py-1 rounded mb-2">
-                  QuickBooks credentials are missing on the server. Add QUICKBOOKS_CLIENT_ID and QUICKBOOKS_CLIENT_SECRET in Vercel &rarr; Settings &rarr; Environment Variables, then redeploy.
+                  QuickBooks credentials are missing on the server. Add QUICKBOOKS_CLIENT_ID and QUICKBOOKS_CLIENT_SECRET in Vercel → Settings → Environment Variables, then redeploy.
                 </p>
               )}
               {connectError && (
-                <p className="text-[10px] text-red-600 bg-red-50 px-2 py-1 rounded mb-2">{connectError}</p>
+                <p className="text-[10px] text-red-600 bg-red-50 px-2 py-1 rounded mb-2">
+                  {connectError}
+                </p>
               )}
               {dataSource === 'mock' && credentialsConfigured && (
                 <p className="text-[10px] text-yellow-600 bg-yellow-50 px-2 py-1 rounded mb-2">
                   {qbConnected
-                    ? 'QuickBooks session expired \u2014 click Reconnect to restore your real clients'
-                    : 'Showing demo data \u2014 connect QuickBooks for real clients'}
+                    ? 'QuickBooks session expired — click Reconnect to restore your real clients'
+                    : 'Showing demo data — connect QuickBooks for real clients'}
                 </p>
               )}
               {dataSource === 'quickbooks' && (
-                <p className="text-[10px] text-green-600 bg-green-50 px-2 py-1 rounded mb-2">Connected \u2014 showing live QuickBooks data</p>
+                <p className="text-[10px] text-green-600 bg-green-50 px-2 py-1 rounded mb-2">
+                  Connected — showing live QuickBooks data
+                </p>
               )}
-              <input type="text" placeholder="Search clients..." value={qbSearch} onChange={(e) => setQbSearch(e.target.value)} className="input-field text-sm !py-2" />
+              <input
+                type="text"
+                placeholder="Search clients..."
+                value={qbSearch}
+                onChange={(e) => setQbSearch(e.target.value)}
+                className="input-field text-sm !py-2"
+              />
             </div>
             <div className="flex-1 overflow-y-auto">
               {dataSource === 'quickbooks' && filteredQBClients.length > 0 ? (
                 filteredQBClients.map((client) => (
-                  <div key={client.id} className="flex items-center justify-between px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                  <div
+                    key={client.id}
+                    className="flex items-center justify-between px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors"
+                  >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <Avatar photo={null} name={client.displayName} size="sm" />
                       <div className="min-w-0">
@@ -435,11 +423,18 @@ export default function AdminClientsPage() {
                         <p className="text-xs text-gray-500 truncate">{client.companyName}</p>
                       </div>
                     </div>
-                    <button onClick={() => handleAddClient(client)} className="flex-shrink-0 ml-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">Add</button>
+                    <button
+                      onClick={() => handleAddClient(client)}
+                      className="flex-shrink-0 ml-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Add
+                    </button>
                   </div>
                 ))
               ) : dataSource === 'quickbooks' ? (
-                <div className="p-4 text-center text-sm text-gray-400">{qbSearch ? 'No matching clients' : 'All clients have been added'}</div>
+                <div className="p-4 text-center text-sm text-gray-400">
+                  {qbSearch ? 'No matching clients' : 'All clients have been added'}
+                </div>
               ) : (
                 <div className="p-6 text-center">
                   <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -451,13 +446,17 @@ export default function AdminClientsPage() {
             </div>
             <div className="p-3 border-t border-gray-100 bg-gray-50">
               <p className="text-xs text-gray-500 text-center">
-                {dataSource === 'quickbooks' ? `${filteredQBClients.length} client${filteredQBClients.length !== 1 ? 's' : ''} available` : 'Not connected'}
+                {dataSource === 'quickbooks'
+                  ? `${filteredQBClients.length} client${filteredQBClients.length !== 1 ? 's' : ''} available`
+                  : 'Not connected'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* MIDDLE PANEL: My Clients */}
+        {/* ============================================================ */}
+        {/* MIDDLE PANEL: My Clients (Selected/Added List) */}
+        {/* ============================================================ */}
         <div className="w-72 flex-shrink-0 flex flex-col">
           <div className="card flex-1 flex flex-col !p-0 overflow-hidden">
             <div className="p-4 border-b border-gray-100">
@@ -475,7 +474,9 @@ export default function AdminClientsPage() {
                     key={mc.id}
                     onClick={() => setSelectedClientId(mc.id)}
                     className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 cursor-pointer transition-colors ${
-                      selectedClientId === mc.id ? 'bg-brand-50 border-l-2 border-l-brand-600' : 'hover:bg-gray-50'
+                      selectedClientId === mc.id
+                        ? 'bg-brand-50 border-l-2 border-l-brand-600'
+                        : 'hover:bg-gray-50'
                     }`}
                   >
                     <Avatar photo={null} name={mc.qbClient.displayName} size="sm" />
@@ -484,11 +485,13 @@ export default function AdminClientsPage() {
                       <p className="text-xs text-gray-500 truncate">{mc.qbClient.companyName}</p>
                       <div className="flex items-center gap-2 mt-1">
                         {mc.responsiblePerson && (
-                          <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">Main Contact set</span>
+                          <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
+                            Responsible set
+                          </span>
                         )}
                         {mc.subEmployees.length > 0 && (
                           <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                            {mc.subEmployees.length} staff
+                            {mc.subEmployees.length} employee{mc.subEmployees.length !== 1 ? 's' : ''}
                           </span>
                         )}
                       </div>
@@ -513,204 +516,164 @@ export default function AdminClientsPage() {
           </div>
         </div>
 
-        {/* RIGHT PANEL: Client Detail + Invoices */}
-        <div className="flex-1 flex flex-col min-w-0 gap-4 overflow-y-auto">
+        {/* ============================================================ */}
+        {/* RIGHT PANEL: Client Detail (Responsible + Sub-Employees) */}
+        {/* ============================================================ */}
+        <div className="flex-1 flex flex-col min-w-0">
           {selectedClient ? (
-            <>
-              {/* Client Detail Card */}
-              <div className="card !p-0">
-                {/* Client Header */}
-                <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-brand-50 to-white">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                      <Avatar photo={null} name={selectedClient.qbClient.displayName} size="lg" />
-                      <div>
-                        <h2 className="text-lg font-bold">{selectedClient.qbClient.displayName}</h2>
-                        <p className="text-sm text-gray-500">{selectedClient.qbClient.companyName}</p>
-                        <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                          <span>{selectedClient.qbClient.email}</span>
-                          <span>{selectedClient.qbClient.phone}</span>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {selectedClient.qbClient.address}, {selectedClient.qbClient.city}, {selectedClient.qbClient.province} {selectedClient.qbClient.postalCode}
-                        </p>
+            <div className="card flex-1 !p-0 overflow-y-auto">
+              {/* Client Header */}
+              <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-brand-50 to-white">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-4">
+                    <Avatar photo={null} name={selectedClient.qbClient.displayName} size="lg" />
+                    <div>
+                      <h2 className="text-lg font-bold">{selectedClient.qbClient.displayName}</h2>
+                      <p className="text-sm text-gray-500">{selectedClient.qbClient.companyName}</p>
+                      <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                        <span>{selectedClient.qbClient.email}</span>
+                        <span>{selectedClient.qbClient.phone}</span>
                       </div>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {selectedClient.qbClient.address}, {selectedClient.qbClient.city}, {selectedClient.qbClient.province} {selectedClient.qbClient.postalCode}
+                      </p>
                     </div>
-                    <button onClick={() => handleRemoveClient(selectedClient.id)} className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">Remove</button>
                   </div>
-                </div>
-
-                {/* Street View — Collapsible */}
-                {(selectedClient.qbClient.address || selectedClient.qbClient.city) && (
-                  <div className="border-b border-gray-100">
-                    <button onClick={() => setStreetViewOpen(!streetViewOpen)} className="w-full flex items-center gap-2 px-5 py-3 hover:bg-gray-50 transition-colors">
-                      <ChevronIcon open={streetViewOpen} />
-                      <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      <span className="text-sm font-medium text-gray-700">Street View</span>
-                    </button>
-                    {streetViewOpen && (
-                      <div className="px-5 pb-4">
-                        <StreetView address={selectedClient.qbClient.address} city={selectedClient.qbClient.city} province={selectedClient.qbClient.province} postalCode={selectedClient.qbClient.postalCode} className="h-[180px]" />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Main Contact — Collapsible */}
-                <div className="border-b border-gray-100">
-                  <div className="flex items-center justify-between px-5">
-                    <button onClick={() => setMainContactOpen(!mainContactOpen)} className="flex items-center gap-2 py-3 hover:opacity-80 transition-opacity">
-                      <ChevronIcon open={mainContactOpen} />
-                      <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                      </svg>
-                      <span className="text-sm font-semibold text-gray-900">Main Contact</span>
-                    </button>
-                    {!selectedClient.responsiblePerson && mainContactOpen && (
-                      <button onClick={() => openContactForm('responsible')} className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ Set Main Contact</button>
-                    )}
-                  </div>
-                  {mainContactOpen && (
-                    <div className="px-5 pb-4">
-                      {selectedClient.responsiblePerson ? (
-                        <div className="flex items-center gap-4 bg-green-50 rounded-xl p-4">
-                          <Avatar photo={selectedClient.responsiblePerson.photo} name={selectedClient.responsiblePerson.name} size="lg" />
-                          <div className="flex-1">
-                            <p className="font-semibold">{selectedClient.responsiblePerson.name}</p>
-                            <p className="text-sm text-gray-600">{selectedClient.responsiblePerson.role}</p>
-                            <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                              <span>{selectedClient.responsiblePerson.email}</span>
-                              <span>{selectedClient.responsiblePerson.phone}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => openEditForm('responsible', selectedClient.responsiblePerson!)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title="Edit"><EditIcon /></button>
-                            <button onClick={() => handleRemoveResponsible(selectedClient.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title="Remove"><TrashIcon /></button>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-400 italic">No main contact assigned yet</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Staff — Collapsible */}
-                <div>
-                  <div className="flex items-center justify-between px-5">
-                    <button onClick={() => setStaffOpen(!staffOpen)} className="flex items-center gap-2 py-3 hover:opacity-80 transition-opacity">
-                      <ChevronIcon open={staffOpen} />
-                      <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      <span className="text-sm font-semibold text-gray-900">Staff</span>
-                      {selectedClient.subEmployees.length > 0 && (
-                        <span className="text-xs text-gray-400 ml-1">({selectedClient.subEmployees.length})</span>
-                      )}
-                    </button>
-                    {staffOpen && (
-                      <button onClick={() => openContactForm('employee')} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ Add Staff</button>
-                    )}
-                  </div>
-                  {staffOpen && (
-                    <div className="px-5 pb-4">
-                      {selectedClient.subEmployees.length > 0 ? (
-                        <div className="space-y-2">
-                          {selectedClient.subEmployees.map((emp) => (
-                            <div key={emp.id} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3 hover:bg-blue-50 transition-colors">
-                              <Avatar photo={emp.photo} name={emp.name} size="md" />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm">{emp.name}</p>
-                                <p className="text-xs text-gray-500">{emp.role}</p>
-                                <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
-                                  <span>{emp.email}</span>
-                                  <span>{emp.phone}</span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <button onClick={() => openEditForm('employee', emp)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title="Edit"><EditIcon /></button>
-                                <button onClick={() => handleRemoveEmployee(selectedClient.id, emp.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title="Remove"><TrashIcon size="w-4 h-4" /></button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-400 italic">No staff members added yet</p>
-                      )}
-                    </div>
-                  )}
+                  <button
+                    onClick={() => handleRemoveClient(selectedClient.id)}
+                    className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
 
-              {/* INVOICES BOX */}
-              <div className="card !p-0">
-                <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-white">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-sm flex items-center gap-2">
-                      <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Invoices
-                      {clientInvoices.length > 0 && <span className="text-xs text-gray-400 font-normal">({clientInvoices.length})</span>}
-                    </h3>
-                    {invoicesSource === 'mock' && <span className="text-[10px] text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded">Demo data</span>}
-                  </div>
+              {/* Street View Image */}
+              {(selectedClient.qbClient.address || selectedClient.qbClient.city) && (
+                <div className="px-5 pt-4 pb-2">
+                  <StreetView
+                    address={selectedClient.qbClient.address}
+                    city={selectedClient.qbClient.city}
+                    province={selectedClient.qbClient.province}
+                    postalCode={selectedClient.qbClient.postalCode}
+                    className="h-[180px]"
+                  />
                 </div>
-                <div className="max-h-[400px] overflow-y-auto">
-                  {invoicesLoading ? (
-                    <div className="p-6 text-center">
-                      <div className="animate-spin w-6 h-6 border-2 border-purple-200 border-t-purple-600 rounded-full mx-auto mb-2"></div>
-                      <p className="text-sm text-gray-400">Loading invoices...</p>
-                    </div>
-                  ) : clientInvoices.length > 0 ? (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-100 text-left">
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Due</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Amount</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Balance</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {clientInvoices.map((inv) => (
-                          <tr key={inv.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                            <td className="px-4 py-3 font-medium">{inv.invoiceNumber}</td>
-                            <td className="px-4 py-3 text-gray-500">{formatDate(inv.date)}</td>
-                            <td className="px-4 py-3 text-gray-500">{formatDate(inv.dueDate)}</td>
-                            <td className="px-4 py-3 text-right font-medium">{formatCurrency(inv.amount)}</td>
-                            <td className="px-4 py-3 text-right text-gray-500">{formatCurrency(inv.balance)}</td>
-                            <td className="px-4 py-3 text-center">
-                              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColor(inv.status)}`}>
-                                {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div className="p-6 text-center">
-                      <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      <p className="text-sm text-gray-400">No invoices found for this client</p>
-                    </div>
+              )}
+
+              {/* Responsible Person Section */}
+              <div className="p-5 border-b border-gray-100">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm text-gray-900 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    Responsible Person
+                  </h3>
+                  {!selectedClient.responsiblePerson && (
+                    <button
+                      onClick={() => openContactForm('responsible')}
+                      className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      + Set Responsible
+                    </button>
                   )}
                 </div>
-                {clientInvoices.length > 0 && (
-                  <div className="p-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-                    <p className="text-xs text-gray-500">{clientInvoices.length} invoice{clientInvoices.length !== 1 ? 's' : ''}</p>
-                    <p className="text-xs font-medium text-gray-700">Total: {formatCurrency(clientInvoices.reduce((sum, inv) => sum + inv.amount, 0))}</p>
+
+                {selectedClient.responsiblePerson ? (
+                  <div className="flex items-center gap-4 bg-green-50 rounded-xl p-4">
+                    <Avatar
+                      photo={selectedClient.responsiblePerson.photo}
+                      name={selectedClient.responsiblePerson.name}
+                      size="lg"
+                    />
+                    <div className="flex-1">
+                      <p className="font-semibold">{selectedClient.responsiblePerson.name}</p>
+                      <p className="text-sm text-gray-600">{selectedClient.responsiblePerson.role}</p>
+                      <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                        <span>{selectedClient.responsiblePerson.email}</span>
+                        <span>{selectedClient.responsiblePerson.phone}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEditForm('responsible', selectedClient.responsiblePerson!)}
+                        className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white"
+                        title="Edit"
+                      >
+                        <EditIcon />
+                      </button>
+                      <button
+                        onClick={() => handleRemoveResponsible(selectedClient.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white"
+                        title="Remove"
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  <p className="text-sm text-gray-400 italic">No responsible person assigned yet</p>
                 )}
               </div>
-            </>
+
+              {/* Sub-Employees Section */}
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm text-gray-900 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Staff / Employees
+                  </h3>
+                  <button
+                    onClick={() => openContactForm('employee')}
+                    className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    + Add Employee
+                  </button>
+                </div>
+
+                {selectedClient.subEmployees.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedClient.subEmployees.map((emp) => (
+                      <div
+                        key={emp.id}
+                        className="flex items-center gap-3 bg-gray-50 rounded-xl p-3 hover:bg-blue-50 transition-colors"
+                      >
+                        <Avatar photo={emp.photo} name={emp.name} size="md" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{emp.name}</p>
+                          <p className="text-xs text-gray-500">{emp.role}</p>
+                          <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
+                            <span>{emp.email}</span>
+                            <span>{emp.phone}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openEditForm('employee', emp)}
+                            className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white"
+                            title="Edit"
+                          >
+                            <EditIcon />
+                          </button>
+                          <button
+                            onClick={() => handleRemoveEmployee(selectedClient.id, emp.id)}
+                            className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white"
+                            title="Remove"
+                          >
+                            <TrashIcon size="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400 italic">No employees added yet</p>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="card flex-1 flex items-center justify-center">
               <div className="text-center">
@@ -724,15 +687,17 @@ export default function AdminClientsPage() {
         </div>
       </div>
 
+      {/* ============================================================ */}
       {/* ADD / EDIT CONTACT MODAL */}
+      {/* ============================================================ */}
       {showContactForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-lg font-semibold">
                 {editingContactId
-                  ? (contactFormType === 'responsible' ? 'Edit Main Contact' : 'Edit Staff Member')
-                  : (contactFormType === 'responsible' ? 'Set Main Contact' : 'Add Staff Member')
+                  ? (contactFormType === 'responsible' ? 'Edit Responsible Person' : 'Edit Employee')
+                  : (contactFormType === 'responsible' ? 'Set Responsible Person' : 'Add Employee')
                 }
               </h2>
               <p className="text-sm text-gray-500 mt-1">
@@ -742,30 +707,68 @@ export default function AdminClientsPage() {
               </p>
             </div>
             <div className="p-6 space-y-4">
+              {/* Photo Upload with Avatar fallback */}
               <div className="flex items-center gap-4">
-                <Avatar photo={contactForm.photo} name={contactForm.name || '?'} size="xl" editable onPhotoChange={(base64) => setContactForm({ ...contactForm, photo: base64 })} />
+                <Avatar
+                  photo={contactForm.photo}
+                  name={contactForm.name || '?'}
+                  size="xl"
+                  editable
+                  onPhotoChange={(base64) => setContactForm({ ...contactForm, photo: base64 })}
+                />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Profile Photo</p>
                   <p className="text-xs text-gray-500 mt-0.5">Click the avatar to upload a photo</p>
                   <p className="text-xs text-gray-400">Or leave empty for auto-generated initials</p>
                 </div>
               </div>
+
+              {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                <input className="input-field" value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} placeholder="e.g. Pierre Martin" />
+                <input
+                  className="input-field"
+                  value={contactForm.name}
+                  onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                  placeholder="e.g. Pierre Martin"
+                />
               </div>
+
+              {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                <input className="input-field" type="email" value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="e.g. pierre@company.ca" />
+                <input
+                  className="input-field"
+                  type="email"
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                  placeholder="e.g. pierre@company.ca"
+                />
               </div>
+
+              {/* Phone */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input className="input-field" value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="e.g. 514-555-0000" />
+                <input
+                  className="input-field"
+                  value={contactForm.phone}
+                  onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                  placeholder="e.g. 514-555-0000"
+                />
               </div>
+
+              {/* Role */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                <input className="input-field" value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} placeholder="e.g. IT Manager, Receptionist, Owner" />
+                <input
+                  className="input-field"
+                  value={contactForm.role}
+                  onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })}
+                  placeholder="e.g. IT Manager, Receptionist, Owner"
+                />
               </div>
+
+              {/* Reset Password — only visible when editing */}
               {editingContactId && contactForm.email && (
                 <div className="pt-2 border-t border-gray-100">
                   <div className="flex items-center justify-between">
@@ -782,19 +785,36 @@ export default function AdminClientsPage() {
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                       </svg>
-                      {resetSending ? 'Sending...' : resetCountdowns[contactForm.email] && resetCountdowns[contactForm.email] > 0 ? `Wait ${resetCountdowns[contactForm.email]}s` : 'Reset Password'}
+                      {resetSending
+                        ? 'Sending...'
+                        : resetCountdowns[contactForm.email] && resetCountdowns[contactForm.email] > 0
+                          ? `Wait ${resetCountdowns[contactForm.email]}s`
+                          : 'Reset Password'
+                      }
                     </button>
                   </div>
                   {resetMessage && (
-                    <p className={`text-xs mt-2 ${resetMessage.includes('sent') ? 'text-green-600' : 'text-yellow-600'}`}>{resetMessage}</p>
+                    <p className={`text-xs mt-2 ${resetMessage.includes('sent') ? 'text-green-600' : 'text-yellow-600'}`}>
+                      {resetMessage}
+                    </p>
                   )}
                 </div>
               )}
             </div>
+
             <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
-              <button onClick={() => { setShowContactForm(false); setEditingContactId(null); }} className="btn-secondary">Cancel</button>
-              <button onClick={handleSaveContact} disabled={!contactForm.name.trim() || !contactForm.email.trim()} className="btn-primary disabled:opacity-50">
-                {editingContactId ? 'Save Changes' : (contactFormType === 'responsible' ? 'Set as Main Contact' : 'Add Staff Member')}
+              <button onClick={() => { setShowContactForm(false); setEditingContactId(null); }} className="btn-secondary">
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveContact}
+                disabled={!contactForm.name.trim() || !contactForm.email.trim()}
+                className="btn-primary disabled:opacity-50"
+              >
+                {editingContactId
+                  ? 'Save Changes'
+                  : (contactFormType === 'responsible' ? 'Set as Responsible' : 'Add Employee')
+                }
               </button>
             </div>
           </div>
