@@ -48,8 +48,8 @@ export default function LoginPage() {
         {/* Logos */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-6 mb-6">
-            <img src="/logo-dsm.png" alt="Atelier DSM" className="h-24 w-auto object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
-            <img src="/logo-lasernet.png" alt="Groupe Lasernet" className="h-24 w-auto object-contain" />
+            <img src="/logo-dsm.png" alt="Atelier DSM" className="h-36 w-auto object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+            <img src="/logo-lasernet.png" alt="Groupe Lasernet" className="h-48 w-auto object-contain" />
             <img src="/logo-summumliner.png" alt="Summum Liner" className="h-16 w-auto object-contain" />
           </div>
           <h1 className="text-3xl font-bold text-white">LaserNet</h1>
