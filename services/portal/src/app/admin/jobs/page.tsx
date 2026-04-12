@@ -108,7 +108,7 @@ export default function AdminJobsPage() {
   const [newJob, setNewJob] = useState({
     clientId: '',
     title: '',
-    machineType: 'robot' as const,
+    machineType: 'robot' as 'robot' | 'laser' | 'robot_and_laser',
     robotModel: '',
     laserModel: '',
     robotSerialNumber: '',
