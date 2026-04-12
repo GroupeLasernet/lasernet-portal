@@ -134,12 +134,19 @@ export default function AdminClientsPage() {
     if (!selectedClientId) { setClientInvoices([]); setClientStations([]); return; }
     const client = managedClients.find((mc) => mc.id === selectedClientId);
     if (!client) return;
-    const qbId = client.qbClient.id;
+    // Strip 'qb-' prefix if present to get the real QuickBooks customer ID
+    const rawQbId = client.qbClient.id.replace(/^qb-/, '');
+    const clientName = client.qbClient.displayName;
     setInvoicesLoading(true);
-    fetch(`/api/quickbooks/invoices?customerId=${qbId}`).then(r => r.json()).then(data => {
+    fetch(`/api/quickbooks/invoices?customerId=${rawQbId}`).then(r => r.json()).then(data => {
       const allInvoices: QBInvoice[] = data.invoices || [];
-      const filtered = allInvoices.filter(inv => inv.clientId === qbId || inv.clientName === client.qbClient.displayName);
-      setClientInvoices(filtered.length > 0 ? filtered : allInvoices);
+      // Match by raw QB ID or client display name
+      const filtered = allInvoices.filter(inv =>
+        inv.clientId === rawQbId ||
+        inv.clientName === clientName ||
+        inv.clientName.toLowerCase() === clientName.toLowerCase()
+      );
+      setClientInvoices(filtered);
       setInvoicesSource(data.source || 'mock');
       setInvoicesLoading(false);
     }).catch(() => { setClientInvoices([]); setInvoicesLoading(false); });
