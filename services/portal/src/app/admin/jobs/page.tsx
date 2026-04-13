@@ -195,6 +195,7 @@ export default function AdminJobsPage() {
 
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [searchFilter, setSearchFilter] = useState('');
 
   // Fetch jobs
   const fetchJobs = useCallback(async () => {
@@ -448,6 +449,14 @@ export default function AdminJobsPage() {
     return qbInvoices.filter((inv) => !linkedIds.has(inv.id));
   };
 
+  // Filter jobs by business name search
+  const filteredJobs = searchFilter.trim()
+    ? jobs.filter((j) =>
+        j.client.displayName.toLowerCase().includes(searchFilter.toLowerCase()) ||
+        j.client.companyName.toLowerCase().includes(searchFilter.toLowerCase())
+      )
+    : jobs;
+
   const selectedJob = jobs.find((j) => j.id === selectedJobId);
 
   return (
@@ -470,16 +479,26 @@ export default function AdminJobsPage() {
 
       {/* Left Panel: Job List */}
       <div className="w-80 border-r border-gray-200 bg-white flex flex-col">
-        {/* Header */}
+        {/* Header with Search */}
         <div className="border-b border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold text-gray-900">Stations</h1>
-            <button
-              onClick={() => setShowNewJobModal(true)}
-              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-            </button>
+          <h1 className="text-xl font-bold text-gray-900 mb-3">Stations</h1>
+          <div className="relative">
+            <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <input
+              type="text"
+              placeholder="Search by business name..."
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {searchFilter && (
+              <button
+                onClick={() => setSearchFilter('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -489,13 +508,13 @@ export default function AdminJobsPage() {
             <div className="flex items-center justify-center h-32">
               <svg className="w-5 h-5 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </div>
-          ) : jobs.length === 0 ? (
+          ) : filteredJobs.length === 0 ? (
             <div className="p-4 text-center text-gray-500">
-              <p className="text-sm">No stations yet</p>
+              <p className="text-sm">{searchFilter ? 'No stations match your search' : 'No stations yet'}</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
-              {jobs.map((job) => (
+              {filteredJobs.map((job) => (
                 <button
                   key={job.id}
                   onClick={() => setSelectedJobId(job.id)}
@@ -623,18 +642,27 @@ export default function AdminJobsPage() {
                   />
                 </div>
 
-                {/* Linked Invoice Info */}
+                {/* Linked Invoice(s) Info */}
                 {(() => {
                   try {
                     const meta = JSON.parse(editingJob.notes || '{}');
-                    if (meta.invoiceNumber) {
+                    const invoices: { id: string; number: string }[] = meta.invoices || [];
+                    // Fallback: if no invoices array but has invoiceNumber
+                    if (invoices.length === 0 && meta.invoiceNumber) {
+                      invoices.push({ id: meta.invoiceId, number: meta.invoiceNumber });
+                    }
+                    if (invoices.length > 0) {
                       return (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Linked Invoice
+                            Linked Invoice{invoices.length > 1 ? 's' : ''}
                           </label>
-                          <div className="text-sm bg-blue-50 rounded-lg px-3 py-2 text-blue-700 font-medium">
-                            Invoice #{meta.invoiceNumber}
+                          <div className="space-y-1">
+                            {invoices.map((inv, idx) => (
+                              <div key={idx} className="text-sm bg-blue-50 rounded-lg px-3 py-2 text-blue-700 font-medium">
+                                Invoice #{inv.number}
+                              </div>
+                            ))}
                           </div>
                         </div>
                       );

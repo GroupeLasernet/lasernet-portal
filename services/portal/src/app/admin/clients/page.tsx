@@ -396,11 +396,26 @@ export default function AdminClientsPage() {
       });
 
     if (stationMode === 'existing' && selectedExistingStationId) {
-      // Add items to existing station — update notes JSON
+      // Add items to existing station — update notes JSON, preserve multiple invoices
       const existing = clientStations.find(s => s.id === selectedExistingStationId);
       if (existing) {
-        const updatedItems = [...existing.items, ...items];
-        const notes = JSON.stringify({ invoiceId: existing.invoiceId, invoiceNumber: existing.invoiceNumber, items: updatedItems });
+        // Tag each new item with its source invoice
+        const taggedItems = items.map(it => ({ ...it, sourceInvoiceId: previewInvoice.id, sourceInvoiceNumber: previewInvoice.invoiceNumber }));
+        const updatedItems = [...existing.items, ...taggedItems];
+        // Build invoices array for multi-invoice support
+        let existingMeta: Record<string, unknown> = {};
+        try {
+          const raw = await fetch(`/api/jobs/${selectedExistingStationId}`).then(r => r.json());
+          existingMeta = JSON.parse(raw.job?.notes || '{}');
+        } catch { /* fallback */ }
+        const invoices: { id: string; number: string }[] = (existingMeta.invoices as { id: string; number: string }[]) || [];
+        if (existingMeta.invoiceId && !invoices.find((inv: { id: string }) => inv.id === existingMeta.invoiceId)) {
+          invoices.push({ id: existingMeta.invoiceId as string, number: existingMeta.invoiceNumber as string });
+        }
+        if (!invoices.find((inv: { id: string }) => inv.id === previewInvoice.id)) {
+          invoices.push({ id: previewInvoice.id, number: previewInvoice.invoiceNumber });
+        }
+        const notes = JSON.stringify({ ...existingMeta, invoiceId: existingMeta.invoiceId || previewInvoice.id, invoiceNumber: existingMeta.invoiceNumber || previewInvoice.invoiceNumber, invoices, items: updatedItems });
         setClientStations(prev => prev.map(s => s.id !== selectedExistingStationId ? s : { ...s, items: updatedItems }));
         fetch(`/api/jobs/${selectedExistingStationId}`, {
           method: 'PATCH',
