@@ -723,7 +723,7 @@ export default function AdminClientsPage() {
                           <Avatar photo={selectedClient.responsiblePerson.photo} name={selectedClient.responsiblePerson.name} size="lg" />
                           <div className="flex-1">
                             <p className="font-semibold flex items-center gap-1.5">{selectedClient.responsiblePerson.name}
-                              {selectedClient.responsiblePerson.trainingPhoto ? (
+                              {selectedClient.responsiblePerson.trainingInvoiceId ? (
                                 <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                               ) : (
                                 <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -771,7 +771,7 @@ export default function AdminClientsPage() {
                               <Avatar photo={emp.photo} name={emp.name} size="md" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-sm flex items-center gap-1.5">{emp.name}
-                                  {emp.trainingPhoto ? (
+                                  {emp.trainingInvoiceId ? (
                                     <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                   ) : (
                                     <svg className="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1177,47 +1177,72 @@ export default function AdminClientsPage() {
               <div className="pt-3 border-t border-gray-100">
                 <p className="text-sm font-semibold text-gray-800 mb-3">Training</p>
                 <div className="space-y-3">
-                  {/* Training booklet photo upload */}
+                  {/* Training invoices list */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Training Booklet Photo</label>
-                    {contactForm.trainingPhoto ? (
-                      <div className="relative">
-                        <img src={contactForm.trainingPhoto} alt="Training booklet" className="w-full max-h-40 object-contain rounded-lg border border-gray-200" />
-                        <button
-                          type="button"
-                          onClick={() => setContactForm({ ...contactForm, trainingPhoto: null })}
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                        >
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        <span className="text-sm text-gray-500">Upload training booklet photo</span>
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => setContactForm({ ...contactForm, trainingPhoto: ev.target?.result as string });
-                            reader.readAsDataURL(file);
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Training Invoices</label>
+                    {/* Existing invoices */}
+                    {(() => {
+                      const invoices = (contactForm.trainingInvoiceId || '').split(',').map(s => s.trim()).filter(Boolean);
+                      return invoices.length > 0 ? (
+                        <div className="space-y-1 mb-2">
+                          {invoices.map((inv, idx) => (
+                            <div key={idx} className="flex items-center justify-between bg-blue-50 rounded-lg px-3 py-1.5 text-sm">
+                              <span className="text-blue-700 font-medium">Invoice #{inv}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = invoices.filter((_, i) => i !== idx).join(', ');
+                                  setContactForm({ ...contactForm, trainingInvoiceId: updated || null });
+                                }}
+                                className="text-red-400 hover:text-red-600 text-xs"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
+                    {/* Add new invoice */}
+                    <div className="flex gap-2">
+                      <input
+                        id="training-invoice-input"
+                        className="input-field text-sm flex-1"
+                        placeholder="Enter QB invoice #"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const input = e.currentTarget;
+                            const val = input.value.trim();
+                            if (!val) return;
+                            const existing = (contactForm.trainingInvoiceId || '').split(',').map(s => s.trim()).filter(Boolean);
+                            if (!existing.includes(val)) {
+                              const updated = [...existing, val].join(', ');
+                              setContactForm({ ...contactForm, trainingInvoiceId: updated });
+                            }
+                            input.value = '';
                           }
-                        }} />
-                      </label>
-                    )}
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const input = document.getElementById('training-invoice-input') as HTMLInputElement;
+                          const val = input?.value.trim();
+                          if (!val) return;
+                          const existing = (contactForm.trainingInvoiceId || '').split(',').map(s => s.trim()).filter(Boolean);
+                          if (!existing.includes(val)) {
+                            const updated = [...existing, val].join(', ');
+                            setContactForm({ ...contactForm, trainingInvoiceId: updated });
+                          }
+                          if (input) input.value = '';
+                        }}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 whitespace-nowrap"
+                      >
+                        + Add
+                      </button>
+                    </div>
                   </div>
-
-                  {/* Training invoice link */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Training Invoice</label>
-                    <input
-                      className="input-field text-sm"
-                      value={contactForm.trainingInvoiceId || ''}
-                      onChange={(e) => setContactForm({ ...contactForm, trainingInvoiceId: e.target.value || null })}
-                      placeholder="Enter QB invoice # for this training"
-                    />
-                  </div>
-                </div>
 
                   {/* QR Code for self-edit profile */}
                   {editingContactId && contactForm.email && (
@@ -1231,13 +1256,30 @@ export default function AdminClientsPage() {
                           alt="QR Code"
                           className="w-24 h-24 border border-gray-200 rounded-lg"
                         />
-                        <div className="text-xs text-gray-500">
-                          <p>Scan to open self-edit profile page.</p>
-                          <p className="mt-1">Staff can update their own info via this link.</p>
+                        <div className="flex flex-col gap-2">
+                          <div className="text-xs text-gray-500">
+                            <p>Scan to open self-edit profile page.</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const profileUrl = `${window.location.origin}/profile/${editingContactId}`;
+                              const subject = encodeURIComponent('Your Profile Link - Atelier DSM');
+                              const body = encodeURIComponent(`Hi ${contactForm.name},\n\nHere is your profile link where you can update your information:\n${profileUrl}\n\nBest regards,\nAtelier DSM`);
+                              window.open(`mailto:${contactForm.email}?subject=${subject}&body=${body}`, '_blank');
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            Send to {contactForm.name.split(' ')[0] || 'contact'}
+                          </button>
                         </div>
                       </div>
                     </div>
                   )}
+                </div>
               </div>
 
               {editingContactId && contactForm.email && (
