@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
         managedClientId,
         title,
         notes: notes || null,
-        status: 'draft',
+        status: 'not_configured',
       },
       include: {
         managedClient: true,
