@@ -25,25 +25,21 @@ export async function GET() {
         province: mc.province || '',
         postalCode: mc.postalCode || '',
       },
-      responsiblePerson: mc.contacts.find((c) => c.type === 'responsible')
-        ? {
-            id: mc.contacts.find((c) => c.type === 'responsible')!.id,
-            name: mc.contacts.find((c) => c.type === 'responsible')!.name,
-            email: mc.contacts.find((c) => c.type === 'responsible')!.email,
-            phone: mc.contacts.find((c) => c.type === 'responsible')!.phone || '',
-            role: mc.contacts.find((c) => c.type === 'responsible')!.role || '',
-            photo: mc.contacts.find((c) => c.type === 'responsible')!.photo || null,
-          }
-        : null,
+      responsiblePerson: (() => {
+        const r = mc.contacts.find((c) => c.type === 'responsible');
+        if (!r) return null;
+        return {
+          id: r.id, name: r.name, email: r.email,
+          phone: r.phone || '', role: r.role || '', photo: r.photo || null,
+          trainingPhoto: r.trainingPhoto || null, trainingInvoiceId: r.trainingInvoiceId || null, trainingCompleted: r.trainingCompleted || false,
+        };
+      })(),
       subEmployees: mc.contacts
         .filter((c) => c.type === 'employee')
         .map((c) => ({
-          id: c.id,
-          name: c.name,
-          email: c.email,
-          phone: c.phone || '',
-          role: c.role || '',
-          photo: c.photo || null,
+          id: c.id, name: c.name, email: c.email,
+          phone: c.phone || '', role: c.role || '', photo: c.photo || null,
+          trainingPhoto: c.trainingPhoto || null, trainingInvoiceId: c.trainingInvoiceId || null, trainingCompleted: c.trainingCompleted || false,
         })),
       addedAt: mc.addedAt.toISOString().split('T')[0],
     }));

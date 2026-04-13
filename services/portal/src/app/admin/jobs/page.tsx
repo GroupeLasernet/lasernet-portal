@@ -172,7 +172,7 @@ const MachineItems = ({ editingJob, setEditingJob, handleUpdateJob }: {
 }) => {
   let meta: Record<string, unknown> = {};
   try { meta = JSON.parse(editingJob.notes || '{}'); } catch { /* not JSON */ }
-  const items: { description: string; quantity: number; model?: string }[] = (meta.items as { description: string; quantity: number; model?: string }[]) || [];
+  const items: { description: string; quantity: number; model?: string; sourceInvoiceNumber?: string }[] = (meta.items as { description: string; quantity: number; model?: string; sourceInvoiceNumber?: string }[]) || [];
   const machineData: { serialNumber?: string; machineType?: string }[] = (meta.machineData as { serialNumber?: string; machineType?: string }[]) || [];
 
   // Local state for serial number inputs
@@ -230,11 +230,16 @@ const MachineItems = ({ editingJob, setEditingJob, handleUpdateJob }: {
               ) : (
                 <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
               )}
-              <div className="flex items-start gap-4 flex-1 min-w-0">
-                {item.model && (
-                  <div className="bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wide whitespace-nowrap">{item.model}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start gap-4">
+                  {item.model && (
+                    <div className="bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wide whitespace-nowrap">{item.model}</div>
+                  )}
+                  <div className="text-sm font-medium text-gray-900 pt-0.5">{item.description}</div>
+                </div>
+                {(item.sourceInvoiceNumber || meta.invoiceNumber) && (
+                  <div className="mt-1 text-xs text-gray-400">Invoice #{item.sourceInvoiceNumber || (meta.invoiceNumber as string)}</div>
                 )}
-                <div className="text-sm font-medium text-gray-900 pt-0.5">{item.description}</div>
               </div>
             </div>
 
@@ -532,7 +537,7 @@ export default function AdminJobsPage() {
 
   // Delete job
   const handleDeleteJob = async () => {
-    if (!selectedJobId || !window.confirm('Delete this job permanently?')) return;
+    if (!selectedJobId) return;
 
     try {
       const res = await fetch(`/api/jobs/${selectedJobId}`, {
@@ -858,14 +863,14 @@ export default function AdminJobsPage() {
               )}
             </div>
 
-            {/* Laser Presets / Laser Status Section */}
+            {/* Laser Status Section */}
             <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">
-                Laser Presets / Laser Status
+                Laser Status
               </h2>
 
               {editingJob.laserPresets.length === 0 ? (
-                <p className="text-sm text-gray-500">No laser presets or status entries</p>
+                <p className="text-sm text-gray-500">No laser status entries</p>
               ) : (
                 <div className="space-y-2">
                   {editingJob.laserPresets.map((preset) => (

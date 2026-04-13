@@ -85,6 +85,11 @@ model Contact {
   photo   String? @db.Text // base64 data URL or null
   type    String  // "responsible" or "employee"
 
+  // Training fields
+  trainingPhoto     String?  @db.Text // base64 of training booklet photo
+  trainingInvoiceId String?  // QB invoice ID linked to training
+  trainingCompleted Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

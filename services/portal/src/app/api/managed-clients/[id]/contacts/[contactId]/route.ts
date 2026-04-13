@@ -10,7 +10,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { contactId } = params;
     const body = await request.json();
-    const { name, email, phone, role, photo } = body;
+    const { name, email, phone, role, photo, trainingPhoto, trainingInvoiceId, trainingCompleted } = body;
 
     const contact = await prisma.contact.update({
       where: { id: contactId },
@@ -20,6 +20,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ...(phone !== undefined && { phone: phone || null }),
         ...(role !== undefined && { role: role || null }),
         ...(photo !== undefined && { photo: photo || null }),
+        ...(trainingPhoto !== undefined && { trainingPhoto: trainingPhoto || null }),
+        ...(trainingInvoiceId !== undefined && { trainingInvoiceId: trainingInvoiceId || null }),
+        ...(trainingCompleted !== undefined && { trainingCompleted }),
       },
     });
 
@@ -31,6 +34,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         phone: contact.phone || '',
         role: contact.role || '',
         photo: contact.photo || null,
+        trainingPhoto: contact.trainingPhoto || null,
+        trainingInvoiceId: contact.trainingInvoiceId || null,
+        trainingCompleted: contact.trainingCompleted || false,
       },
     });
   } catch (error) {

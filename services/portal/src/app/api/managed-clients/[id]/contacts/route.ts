@@ -10,7 +10,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = params;
     const body = await request.json();
-    const { name, email, phone, role, photo, type } = body;
+    const { name, email, phone, role, photo, type, trainingPhoto, trainingInvoiceId, trainingCompleted } = body;
 
     if (!name || !email || !type) {
       return NextResponse.json(
@@ -35,6 +35,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         role: role || null,
         photo: photo || null,
         type,
+        trainingPhoto: trainingPhoto || null,
+        trainingInvoiceId: trainingInvoiceId || null,
+        trainingCompleted: trainingCompleted || false,
       },
     });
 
@@ -46,6 +49,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         phone: contact.phone || '',
         role: contact.role || '',
         photo: contact.photo || null,
+        trainingPhoto: contact.trainingPhoto || null,
+        trainingInvoiceId: contact.trainingInvoiceId || null,
+        trainingCompleted: contact.trainingCompleted || false,
       },
     }, { status: 201 });
   } catch (error) {

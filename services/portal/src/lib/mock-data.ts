@@ -25,6 +25,9 @@ export interface ContactPerson {
   email: string;
   phone: string;
   role: string;
+  trainingPhoto?: string | null;
+  trainingInvoiceId?: string | null;
+  trainingCompleted?: boolean;
 }
 
 export interface ManagedClient {

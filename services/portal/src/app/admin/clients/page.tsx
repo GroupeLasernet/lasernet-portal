@@ -108,6 +108,7 @@ export default function AdminClientsPage() {
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState<Omit<ContactPerson, 'id'>>({
     photo: null, name: '', email: '', phone: '', role: '',
+    trainingPhoto: null, trainingInvoiceId: null, trainingCompleted: false,
   });
 
   const [streetViewOpen, setStreetViewOpen] = useState(true);
@@ -721,7 +722,13 @@ export default function AdminClientsPage() {
                         <div className="flex items-center gap-4 bg-green-50 rounded-xl p-4">
                           <Avatar photo={selectedClient.responsiblePerson.photo} name={selectedClient.responsiblePerson.name} size="lg" />
                           <div className="flex-1">
-                            <p className="font-semibold">{selectedClient.responsiblePerson.name}</p>
+                            <p className="font-semibold flex items-center gap-1.5">{selectedClient.responsiblePerson.name}
+                              {selectedClient.responsiblePerson.trainingPhoto ? (
+                                <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" title="Training completed"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                              ) : (
+                                <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" title="No training"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              )}
+                            </p>
                             <p className="text-sm text-gray-600">{selectedClient.responsiblePerson.role}</p>
                             <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
                               <span>{selectedClient.responsiblePerson.email}</span>
@@ -763,7 +770,13 @@ export default function AdminClientsPage() {
                             <div key={emp.id} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3 hover:bg-blue-50 transition-colors">
                               <Avatar photo={emp.photo} name={emp.name} size="md" />
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm">{emp.name}</p>
+                                <p className="font-medium text-sm flex items-center gap-1.5">{emp.name}
+                                  {emp.trainingPhoto ? (
+                                    <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" title="Training completed"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                  ) : (
+                                    <svg className="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" title="No training"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                  )}
+                                </p>
                                 <p className="text-xs text-gray-500">{emp.role}</p>
                                 <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
                                   <span>{emp.email}</span><span>{emp.phone}</span>
@@ -931,7 +944,7 @@ export default function AdminClientsPage() {
       {/* INVOICE PREVIEW MODAL */}
       {previewInvoice && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="p-6 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-start justify-between">
@@ -1159,6 +1172,54 @@ export default function AdminClientsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                 <input className="input-field" value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} placeholder="e.g. IT Manager, Receptionist, Owner" />
               </div>
+
+              {/* Training Section */}
+              <div className="pt-3 border-t border-gray-100">
+                <p className="text-sm font-semibold text-gray-800 mb-3">Training</p>
+                <div className="space-y-3">
+                  {/* Training booklet photo upload */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Training Booklet Photo</label>
+                    {contactForm.trainingPhoto ? (
+                      <div className="relative">
+                        <img src={contactForm.trainingPhoto} alt="Training booklet" className="w-full max-h-40 object-contain rounded-lg border border-gray-200" />
+                        <button
+                          type="button"
+                          onClick={() => setContactForm({ ...contactForm, trainingPhoto: null })}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        >
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <span className="text-sm text-gray-500">Upload training booklet photo</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => setContactForm({ ...contactForm, trainingPhoto: ev.target?.result as string });
+                            reader.readAsDataURL(file);
+                          }
+                        }} />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Training invoice link */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Training Invoice</label>
+                    <input
+                      className="input-field text-sm"
+                      value={contactForm.trainingInvoiceId || ''}
+                      onChange={(e) => setContactForm({ ...contactForm, trainingInvoiceId: e.target.value || null })}
+                      placeholder="Enter QB invoice # for this training"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {editingContactId && contactForm.email && (
                 <div className="pt-2 border-t border-gray-100">
                   <div className="flex items-center justify-between">
