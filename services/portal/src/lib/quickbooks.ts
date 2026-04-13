@@ -349,6 +349,7 @@ export interface QBInvoice {
     SalesItemLineDetail?: {
       Qty?: number;
       UnitPrice?: number;
+      ItemRef?: { value: string; name: string };
     };
     DetailType: string;
   }[];
@@ -381,6 +382,7 @@ export interface QBEstimate {
     SalesItemLineDetail?: {
       Qty?: number;
       UnitPrice?: number;
+      ItemRef?: { value: string; name: string };
     };
     DetailType: string;
   }[];
