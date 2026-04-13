@@ -34,6 +34,18 @@ model User {
 }
 
 // ============================================================
+// QUICKBOOKS TOKENS — Persistent OAuth token storage
+// ============================================================
+model QBToken {
+  id           String   @id @default("singleton")
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  realmId      String
+  expiresAt    BigInt
+  updatedAt    DateTime @updatedAt
+}
+
+// ============================================================
 // MANAGED CLIENTS — Clients imported from QuickBooks
 // ============================================================
 model ManagedClient {

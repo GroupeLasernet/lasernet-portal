@@ -152,6 +152,58 @@ export function buildClearTokenCookie(): string {
 }
 
 // ============================================================
+// DATABASE TOKEN STORAGE — Persistent across deploys/sessions
+// ============================================================
+import prisma from '@/lib/prisma';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = prisma as any;
+
+export async function getTokensFromDB(): Promise<QBTokens | null> {
+  try {
+    const row = await db.qBToken.findUnique({ where: { id: 'singleton' } });
+    if (!row) return null;
+    return {
+      accessToken: row.accessToken,
+      refreshToken: row.refreshToken,
+      realmId: row.realmId,
+      expiresAt: Number(row.expiresAt),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function saveTokensToDB(tokens: QBTokens): Promise<void> {
+  try {
+    await db.qBToken.upsert({
+      where: { id: 'singleton' },
+      update: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        realmId: tokens.realmId,
+        expiresAt: BigInt(tokens.expiresAt),
+      },
+      create: {
+        id: 'singleton',
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        realmId: tokens.realmId,
+        expiresAt: BigInt(tokens.expiresAt),
+      },
+    });
+  } catch (err) {
+    console.error('Failed to save QB tokens to DB:', err);
+  }
+}
+
+export async function clearTokensFromDB(): Promise<void> {
+  try {
+    await db.qBToken.deleteMany({ where: { id: 'singleton' } });
+  } catch { /* ignore */ }
+}
+
+// ============================================================
 // OAUTH FLOW
 // ============================================================
 
@@ -178,6 +230,9 @@ export async function handleCallback(url: string): Promise<QBTokens> {
     expiresAt: Date.now() + tokens.expires_in * 1000,
   };
 
+  // Save to database for persistence across sessions
+  await saveTokensToDB(qbTokens);
+
   return qbTokens;
 }
 
@@ -200,6 +255,9 @@ export async function ensureValidToken(currentTokens: QBTokens): Promise<{ acces
       refreshToken: tokens.refresh_token,
       expiresAt: Date.now() + tokens.expires_in * 1000,
     };
+
+    // Auto-persist refreshed tokens to database
+    await saveTokensToDB(updatedTokens);
 
     return { accessToken: updatedTokens.accessToken, updatedTokens };
   }

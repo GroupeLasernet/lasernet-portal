@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchInvoices, isConnected, getTokensFromCookies, buildTokenCookie } from '@/lib/quickbooks';
+import { fetchInvoices, isConnected, getTokensFromCookies, getTokensFromDB, buildTokenCookie } from '@/lib/quickbooks';
 import { mockInvoices } from '@/lib/mock-data';
 
 export const dynamic = 'force-dynamic';
@@ -9,8 +9,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const customerId = request.nextUrl.searchParams.get('customerId') || undefined;
+    // Try DB first, fall back to cookies
     const cookieHeader = request.headers.get('cookie');
-    const tokens = getTokensFromCookies(cookieHeader);
+    const tokens = await getTokensFromDB() || getTokensFromCookies(cookieHeader);
 
     if (isConnected(tokens)) {
       const { invoices: qbInvoices, updatedTokens } = await fetchInvoices(tokens!, customerId);

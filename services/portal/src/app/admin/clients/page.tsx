@@ -944,53 +944,82 @@ export default function AdminClientsPage() {
 
             {/* Line Items */}
             <div className="flex-1 overflow-y-auto p-6">
-              <div className="flex items-center justify-between mb-3">
+              <div className="mb-3">
                 <h3 className="text-sm font-semibold text-gray-700">Line Items</h3>
-                <button onClick={toggleAllItems} className="text-xs text-purple-600 hover:text-purple-700 transition-colors">
-                  {selectedItems.size === previewInvoice.items.length ? 'Deselect All' : 'Select All'}
-                </button>
+                <p className="text-xs text-gray-400 mt-1">Select the items you want to assign to a Station</p>
               </div>
-              <p className="text-xs text-gray-400 mb-4">Select the items you want to assign to a Station</p>
+
+              {/* Column headers */}
+              <div className="flex items-center gap-2 px-4 py-2 text-[10px] font-medium text-gray-400 uppercase tracking-wider border-b border-gray-100 mb-2">
+                <div className="w-6" />
+                <div className="flex-1">Description / Model</div>
+                <div className="w-20 text-center">Created</div>
+                <div className="w-20 text-center">Available</div>
+              </div>
 
               <div className="space-y-2">
-                {previewInvoice.items.map((item, index) => (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-xl border-2 transition-all ${
-                      selectedItems.has(index)
-                        ? 'border-purple-400 bg-purple-50'
-                        : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <label className="flex items-center gap-4 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedItems.has(index)}
-                        onChange={() => toggleItem(index)}
-                        className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{item.description}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Qty: {item.quantity}</p>
-                      </div>
-                    </label>
-                    {/* Quantity selector for multi-unit items */}
-                    {selectedItems.has(index) && item.quantity > 1 && (
-                      <div className="mt-3 ml-8 flex items-center gap-3 bg-white rounded-lg p-2 border border-purple-200">
-                        <span className="text-xs text-gray-500">How many stations for this item?</span>
-                        <select
-                          value={itemQuantities[index] || 1}
-                          onChange={(e) => setItemQuantities(prev => ({ ...prev, [index]: parseInt(e.target.value) }))}
-                          className="text-sm border border-gray-200 rounded px-2 py-1 focus:ring-purple-500 focus:border-purple-500"
-                        >
-                          {Array.from({ length: item.quantity }, (_, i) => i + 1).map(n => (
-                            <option key={n} value={n}>{n} station{n > 1 ? 's' : ''}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                {previewInvoice.items.map((item, index) => {
+                  // Count stations already created for this specific line item
+                  const stationsForItem = clientStations.filter(s =>
+                    s.invoiceId === previewInvoice.id &&
+                    s.items.some(si => si.description === item.description)
+                  ).length;
+                  const available = Math.max(0, item.quantity - stationsForItem);
+
+                  // Extract model from description (first line or before newline)
+                  const descParts = item.description.split(/\n|\\n/);
+                  const mainDesc = descParts[0] || item.description;
+                  const model = descParts.length > 1 ? descParts.slice(1).join(' ').trim() : '';
+
+                  return (
+                    <div
+                      key={index}
+                      className={`p-3 rounded-xl border-2 transition-all ${
+                        selectedItems.has(index)
+                          ? 'border-purple-400 bg-purple-50'
+                          : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.has(index)}
+                          onChange={() => toggleItem(index)}
+                          className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{mainDesc}</p>
+                          {model && <p className="text-xs text-gray-400 mt-0.5">{model}</p>}
+                        </div>
+                        <div className="w-20 text-center">
+                          <span className={`text-xs font-medium ${stationsForItem > 0 ? 'text-green-600' : 'text-gray-300'}`}>
+                            {stationsForItem}
+                          </span>
+                        </div>
+                        <div className="w-20 text-center">
+                          <span className={`text-xs font-medium ${available > 0 ? 'text-purple-600' : 'text-gray-300'}`}>
+                            {available}
+                          </span>
+                        </div>
+                      </label>
+                      {/* Quantity selector for multi-unit items */}
+                      {selectedItems.has(index) && available > 1 && (
+                        <div className="mt-3 ml-8 flex items-center gap-3 bg-white rounded-lg p-2 border border-purple-200">
+                          <span className="text-xs text-gray-500">How many stations for this item?</span>
+                          <select
+                            value={itemQuantities[index] || 1}
+                            onChange={(e) => setItemQuantities(prev => ({ ...prev, [index]: parseInt(e.target.value) }))}
+                            className="text-sm border border-gray-200 rounded px-2 py-1 focus:ring-purple-500 focus:border-purple-500"
+                          >
+                            {Array.from({ length: available }, (_, i) => i + 1).map(n => (
+                              <option key={n} value={n}>{n} station{n > 1 ? 's' : ''}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

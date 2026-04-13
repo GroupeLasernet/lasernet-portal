@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchEstimates, isConnected, getTokensFromCookies, buildTokenCookie } from '@/lib/quickbooks';
+import { fetchEstimates, isConnected, getTokensFromCookies, getTokensFromDB, buildTokenCookie } from '@/lib/quickbooks';
 import { mockQuotes } from '@/lib/mock-data';
 
 // GET /api/quickbooks/estimates?customerId=123
@@ -7,8 +7,9 @@ import { mockQuotes } from '@/lib/mock-data';
 export async function GET(request: NextRequest) {
   try {
     const customerId = request.nextUrl.searchParams.get('customerId') || undefined;
+    // Try DB first, fall back to cookies
     const cookieHeader = request.headers.get('cookie');
-    const tokens = getTokensFromCookies(cookieHeader);
+    const tokens = await getTokensFromDB() || getTokensFromCookies(cookieHeader);
 
     if (isConnected(tokens)) {
       const { estimates: qbEstimates, updatedTokens } = await fetchEstimates(tokens!, customerId);

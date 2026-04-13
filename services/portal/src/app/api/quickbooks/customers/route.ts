@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchAllCustomers, isConnected, getTokensFromCookies, buildTokenCookie, buildClearTokenCookie } from '@/lib/quickbooks';
+import { fetchAllCustomers, isConnected, getTokensFromCookies, getTokensFromDB, buildTokenCookie, buildClearTokenCookie, clearTokensFromDB } from '@/lib/quickbooks';
 import { mockQBClients } from '@/lib/mock-data';
 
 // GET /api/quickbooks/customers
 // Returns all customers from QuickBooks, or mock data if not connected
 export async function GET(request: NextRequest) {
   try {
+    // Try DB first, fall back to cookies
     const cookieHeader = request.headers.get('cookie');
-    const tokens = getTokensFromCookies(cookieHeader);
+    const tokens = await getTokensFromDB() || getTokensFromCookies(cookieHeader);
 
     // If connected to QuickBooks, fetch real data
     if (isConnected(tokens)) {
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
       expired: true,
     });
     response.headers.set('Set-Cookie', buildClearTokenCookie());
+    await clearTokensFromDB();
     return response;
   }
 }
