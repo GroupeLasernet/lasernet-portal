@@ -836,17 +836,29 @@ export default function AdminClientsPage() {
                         <div className="flex items-center gap-4 bg-green-50 rounded-xl p-4">
                           <Avatar photo={selectedClient.responsiblePerson.photo} name={selectedClient.responsiblePerson.name} size="lg" />
                           <div className="flex-1">
-                            <p className="font-semibold flex items-center gap-1.5">{selectedClient.responsiblePerson.name}
-                              {selectedClient.responsiblePerson.trainingCompleted ? (
-                                <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                              ) : (
-                                <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                              )}
-                            </p>
+                            <p className="font-semibold">{selectedClient.responsiblePerson.name}</p>
                             <p className="text-sm text-gray-600">{selectedClient.responsiblePerson.role}</p>
                             <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
                               <span>{selectedClient.responsiblePerson.email}</span>
                               <span>{selectedClient.responsiblePerson.phone}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium">Training</span>
+                              {selectedClient.responsiblePerson.trainingCompleted ? (
+                                <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                              ) : (
+                                <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium">Booklet</span>
+                              {selectedClient.responsiblePerson.trainingPhoto ? (
+                                <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                              ) : (
+                                <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
@@ -884,16 +896,28 @@ export default function AdminClientsPage() {
                             <div key={emp.id} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3 hover:bg-blue-50 transition-colors">
                               <Avatar photo={emp.photo} name={emp.name} size="md" />
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm flex items-center gap-1.5">{emp.name}
-                                  {emp.trainingCompleted ? (
-                                    <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                  ) : (
-                                    <svg className="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                  )}
-                                </p>
+                                <p className="font-medium text-sm">{emp.name}</p>
                                 <p className="text-xs text-gray-500">{emp.role}</p>
                                 <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
                                   <span>{emp.email}</span><span>{emp.phone}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium">Training</span>
+                                  {emp.trainingCompleted ? (
+                                    <svg className="w-4.5 h-4.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                  ) : (
+                                    <svg className="w-4.5 h-4.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                  )}
+                                </div>
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium">Booklet</span>
+                                  {emp.trainingPhoto ? (
+                                    <svg className="w-4.5 h-4.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                  ) : (
+                                    <svg className="w-4.5 h-4.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">
