@@ -237,7 +237,7 @@ const MachineItems = ({ editingJob, setEditingJob, handleUpdateJob }: {
                   )}
                   <div className="text-sm font-medium text-gray-900 pt-0.5">{String(item.description || '')}</div>
                 </div>
-                {(item.sourceInvoiceNumber || meta.invoiceNumber) && (
+                {!!(item.sourceInvoiceNumber || meta.invoiceNumber) && (
                   <div className="mt-1 text-xs text-gray-400">Invoice #{String(item.sourceInvoiceNumber || meta.invoiceNumber || '')}</div>
                 )}
               </div>
