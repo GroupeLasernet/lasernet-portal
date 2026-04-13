@@ -188,6 +188,49 @@ export default function SettingsPage() {
                 rows={2}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+
+              {/* Files — only in edit mode */}
+              {editingTemplate && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Attached Files</label>
+                  {editingTemplate.files.length > 0 && (
+                    <div className="space-y-1 mb-2">
+                      {editingTemplate.files.map((file) => (
+                        <div key={file.id} className="flex items-center justify-between bg-white rounded px-3 py-1.5 text-sm border border-gray-200">
+                          <div className="flex items-center gap-2">
+                            <span>{getFileIcon(file.fileType)}</span>
+                            <span className="text-gray-700">{file.name}</span>
+                            <span className="text-gray-400 text-xs">{formatFileSize(file.fileSize)}</span>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteFile(file.id)}
+                            className="text-gray-400 hover:text-red-500 text-xs"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <label className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 cursor-pointer">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    {uploading ? 'Uploading...' : 'Attach file'}
+                    <input
+                      type="file"
+                      className="hidden"
+                      disabled={uploading}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleFileUpload(editingTemplate.id, f);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <button
                   onClick={editingTemplate ? handleUpdate : handleCreate}
@@ -255,46 +298,6 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                {/* Files attached to this template */}
-                {template.files.length > 0 && (
-                  <div className="mt-3 space-y-1">
-                    {template.files.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-1.5 text-sm">
-                        <div className="flex items-center gap-2">
-                          <span>{getFileIcon(file.fileType)}</span>
-                          <span className="text-gray-700">{file.name}</span>
-                          <span className="text-gray-400 text-xs">{formatFileSize(file.fileSize)}</span>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteFile(file.id)}
-                          className="text-gray-400 hover:text-red-500 text-xs"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Upload file button */}
-                <div className="mt-2">
-                  <label className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 cursor-pointer">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    {uploading ? 'Uploading...' : 'Attach file'}
-                    <input
-                      type="file"
-                      className="hidden"
-                      disabled={uploading}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleFileUpload(template.id, f);
-                        e.target.value = '';
-                      }}
-                    />
-                  </label>
-                </div>
               </div>
             ))
           )}

@@ -64,10 +64,11 @@ model ManagedClient {
   postalCode    String?
 
   // Relations
-  contacts  Contact[]
-  tickets   Ticket[]
-  jobs      Job[]
-  machines  Machine[]
+  contacts        Contact[]
+  tickets         Ticket[]
+  jobs            Job[]
+  machines        Machine[]
+  trainingEvents  TrainingEvent[]
 }
 
 // ============================================================
@@ -381,13 +382,16 @@ model TrainingFile {
 
 // Training events — scheduled trainings (Agenda)
 model TrainingEvent {
-  id          String @id @default(cuid())
-  templateId  String?
-  template    TrainingTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  title       String
-  description String?  @db.Text
-  date        DateTime
-  status      String   @default("scheduled") // scheduled, completed, cancelled
+  id              String @id @default(cuid())
+  templateId      String?
+  template        TrainingTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  managedClientId String?
+  managedClient   ManagedClient? @relation(fields: [managedClientId], references: [id], onDelete: SetNull)
+  title           String
+  description     String?  @db.Text
+  date            DateTime
+  duration        Int?     // duration in minutes
+  status          String   @default("scheduled") // scheduled, completed, cancelled
 
   attendees   TrainingAttendee[]
   files       TrainingFile[]

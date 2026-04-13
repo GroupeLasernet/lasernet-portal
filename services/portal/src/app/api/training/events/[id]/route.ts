@@ -24,7 +24,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { id } = await params;
   try {
     const body = await request.json();
-    const { title, description, date, status, templateId } = body;
+    const { title, description, date, status, templateId, duration, managedClientId } = body;
     const event = await db.trainingEvent.update({
       where: { id },
       data: {
@@ -33,8 +33,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         ...(date !== undefined && { date: new Date(date) }),
         ...(status !== undefined && { status }),
         ...(templateId !== undefined && { templateId }),
+        ...(duration !== undefined && { duration: duration ? parseInt(duration) : null }),
+        ...(managedClientId !== undefined && { managedClientId: managedClientId || null }),
       },
-      include: { attendees: true, template: true, files: true },
+      include: { attendees: true, template: true, files: true, managedClient: { select: { id: true, displayName: true, companyName: true } } },
     });
     return NextResponse.json({ event });
   } catch (error: any) {

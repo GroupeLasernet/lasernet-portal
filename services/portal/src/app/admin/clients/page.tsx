@@ -108,7 +108,6 @@ export default function AdminClientsPage() {
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState<Omit<ContactPerson, 'id'>>({
     photo: null, name: '', email: '', phone: '', role: '',
-    trainingPhoto: null, trainingInvoiceId: null, trainingCompleted: false,
   });
 
   const [streetViewOpen, setStreetViewOpen] = useState(true);
@@ -130,6 +129,19 @@ export default function AdminClientsPage() {
   const [selectedExistingStationId, setSelectedExistingStationId] = useState<string | null>(null);
   // Quantity split: for multi-unit items, how many stations to create
   const [itemQuantities, setItemQuantities] = useState<Record<number, number>>({});
+
+  // Training Agenda state
+  const [trainingAgendaOpen, setTrainingAgendaOpen] = useState(true);
+  const [clientTrainings, setClientTrainings] = useState<any[]>([]);
+  const [showTrainingForm, setShowTrainingForm] = useState(false);
+  const [trainingTemplates, setTrainingTemplates] = useState<{ id: string; name: string; description: string }[]>([]);
+  const [trainingForm, setTrainingForm] = useState({
+    title: '', description: '', date: '', duration: '', templateId: '',
+  });
+  const [trainingAttendees, setTrainingAttendees] = useState<{ contactId: string; name: string; email: string }[]>([]);
+  const [trainingFiles, setTrainingFiles] = useState<{ name: string; fileType: string; fileData: string; fileSize: number }[]>([]);
+  const [trainingSaving, setTrainingSaving] = useState(false);
+  const [trainingDetail, setTrainingDetail] = useState<any | null>(null);
 
   const [resetLockouts, setResetLockouts] = useState<Record<string, number>>({});
   const [resetCountdowns, setResetCountdowns] = useState<Record<string, number>>({});
@@ -187,6 +199,21 @@ export default function AdminClientsPage() {
       setQbLoading(false);
     }).catch(() => setQbLoading(false));
   }, []);
+
+  // Load training templates once
+  useEffect(() => {
+    fetch('/api/training/templates').then(r => r.json()).then(data => {
+      setTrainingTemplates(data.templates || []);
+    }).catch(() => {});
+  }, []);
+
+  // Load training events for selected client
+  useEffect(() => {
+    if (!selectedClientId) { setClientTrainings([]); return; }
+    fetch(`/api/training/events?clientId=${selectedClientId}`).then(r => r.json()).then(data => {
+      setClientTrainings(data.events || []);
+    }).catch(() => setClientTrainings([]));
+  }, [selectedClientId]);
 
   useEffect(() => {
     if (!selectedClientId) { setClientInvoices([]); setClientStations([]); return; }
@@ -471,6 +498,14 @@ export default function AdminClientsPage() {
   const [editingStationName, setEditingStationName] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: string; id2?: string; label: string } | null>(null);
 
+  const handleDeleteTraining = async (trainingId: string) => {
+    try {
+      await fetch(`/api/training/events/${trainingId}`, { method: 'DELETE' });
+      setClientTrainings(prev => prev.filter(t => t.id !== trainingId));
+      if (trainingDetail?.id === trainingId) setTrainingDetail(null);
+    } catch (err) { console.error('Failed to delete training:', err); }
+  };
+
   const executeConfirmDelete = useCallback(() => {
     if (!confirmDelete) return;
     switch (confirmDelete.type) {
@@ -478,6 +513,7 @@ export default function AdminClientsPage() {
       case 'client': handleRemoveClient(confirmDelete.id); break;
       case 'responsible': handleRemoveResponsible(confirmDelete.id); break;
       case 'employee': handleRemoveEmployee(confirmDelete.id, confirmDelete.id2 || ''); break;
+      case 'training': handleDeleteTraining(confirmDelete.id); break;
     }
     setConfirmDelete(null);
   }, [confirmDelete]);
@@ -504,6 +540,84 @@ export default function AdminClientsPage() {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
     </svg>
   );
+
+  const handleCreateTraining = async () => {
+    if (!selectedClientId || !trainingForm.title.trim() || !trainingForm.date) return;
+    setTrainingSaving(true);
+    try {
+      const res = await fetch('/api/training/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: trainingForm.title,
+          description: trainingForm.description || null,
+          date: trainingForm.date,
+          duration: trainingForm.duration ? parseInt(trainingForm.duration) : null,
+          templateId: trainingForm.templateId || null,
+          managedClientId: selectedClientId,
+          attendees: trainingAttendees,
+        }),
+      });
+      const data = await res.json();
+      if (data.event) {
+        // Upload files if any
+        if (trainingFiles.length > 0) {
+          await Promise.all(trainingFiles.map(f =>
+            fetch('/api/training/files', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...f, eventId: data.event.id }),
+            })
+          ));
+        }
+        // Mark attendees as trainingCompleted
+        if (trainingAttendees.length > 0) {
+          await Promise.all(trainingAttendees.map(a =>
+            fetch(`/api/managed-clients/${selectedClientId}/contacts/${a.contactId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ trainingCompleted: true }),
+            })
+          ));
+          // Refresh managed clients to update indicators
+          const mcRes = await fetch('/api/managed-clients');
+          const mcData = await mcRes.json();
+          if (mcData.clients) setManagedClients(mcData.clients);
+        }
+        // Reload trainings
+        const evRes = await fetch(`/api/training/events?clientId=${selectedClientId}`);
+        const evData = await evRes.json();
+        setClientTrainings(evData.events || []);
+        // Reset form
+        setShowTrainingForm(false);
+        setTrainingForm({ title: '', description: '', date: '', duration: '', templateId: '' });
+        setTrainingAttendees([]);
+        setTrainingFiles([]);
+      }
+    } catch (err) {
+      console.error('Failed to create training:', err);
+    }
+    setTrainingSaving(false);
+  };
+
+  const handleTrainingFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'other';
+        let fileType = 'other';
+        if (['pdf'].includes(ext)) fileType = 'pdf';
+        else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) fileType = 'image';
+        else if (['mp4', 'mov', 'avi', 'webm'].includes(ext)) fileType = 'video';
+        setTrainingFiles(prev => [...prev, { name: file.name, fileType, fileData: base64, fileSize: file.size }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
 
   const formatDate = (dateStr: string) => { if (!dateStr) return '\u2014'; return new Date(dateStr).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' }); };
   const stationStatusColor = (status: string) => {
@@ -723,7 +837,7 @@ export default function AdminClientsPage() {
                           <Avatar photo={selectedClient.responsiblePerson.photo} name={selectedClient.responsiblePerson.name} size="lg" />
                           <div className="flex-1">
                             <p className="font-semibold flex items-center gap-1.5">{selectedClient.responsiblePerson.name}
-                              {selectedClient.responsiblePerson.trainingInvoiceId ? (
+                              {selectedClient.responsiblePerson.trainingCompleted ? (
                                 <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                               ) : (
                                 <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -771,7 +885,7 @@ export default function AdminClientsPage() {
                               <Avatar photo={emp.photo} name={emp.name} size="md" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-sm flex items-center gap-1.5">{emp.name}
-                                  {emp.trainingInvoiceId ? (
+                                  {emp.trainingCompleted ? (
                                     <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                   ) : (
                                     <svg className="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -922,6 +1036,81 @@ export default function AdminClientsPage() {
                         </svg>
                         <p className="text-sm text-gray-400">No stations created yet</p>
                         <p className="text-xs text-gray-400 mt-1">Click an invoice above to select line items and create stations</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* TRAINING AGENDA BOX */}
+              <div className="card !p-0">
+                <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-teal-50 to-white">
+                  <div className="flex items-center justify-between">
+                    <button onClick={() => setTrainingAgendaOpen(!trainingAgendaOpen)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                      <ChevronIcon open={trainingAgendaOpen} />
+                      <h3 className="font-semibold text-sm flex items-center gap-2">
+                        <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        Training Agenda
+                        {clientTrainings.length > 0 && <span className="text-xs text-gray-400 font-normal">({clientTrainings.length})</span>}
+                      </h3>
+                    </button>
+                    {trainingAgendaOpen && (
+                      <button
+                        onClick={() => { setShowTrainingForm(true); setTrainingDetail(null); setTrainingForm({ title: '', description: '', date: '', duration: '', templateId: '' }); setTrainingAttendees([]); setTrainingFiles([]); }}
+                        className="text-xs bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                        New Training
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {trainingAgendaOpen && (
+                  <div>
+                    {clientTrainings.length > 0 ? (
+                      <div className="divide-y divide-gray-50">
+                        {clientTrainings.map((tr: any) => (
+                          <div key={tr.id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setTrainingDetail(tr)}>
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-sm">{tr.title}</p>
+                                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                                    tr.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                    tr.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                    'bg-teal-100 text-teal-700'
+                                  }`}>
+                                    {tr.status}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                  {formatDate(tr.date)}
+                                  {tr.duration && <span> — {tr.duration} min</span>}
+                                  {tr.template && <span> — Template: {tr.template.name}</span>}
+                                </p>
+                                {tr.attendees?.length > 0 && (
+                                  <p className="text-xs text-gray-500 mt-1">{tr.attendees.length} attendee{tr.attendees.length !== 1 ? 's' : ''}</p>
+                                )}
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setConfirmDelete({ type: 'training', id: tr.id, label: 'Delete this training?' }); }}
+                                className="text-gray-300 hover:text-red-500 transition-colors p-1 ml-2"
+                              >
+                                <TrashIcon size="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center">
+                        <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        <p className="text-sm text-gray-400">No trainings yet</p>
+                        <p className="text-xs text-gray-400 mt-1">Click + New Training to schedule one</p>
                       </div>
                     )}
                   </div>
@@ -1173,114 +1362,41 @@ export default function AdminClientsPage() {
                 <input className="input-field" value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} placeholder="e.g. IT Manager, Receptionist, Owner" />
               </div>
 
-              {/* Training Section */}
-              <div className="pt-3 border-t border-gray-100">
-                <p className="text-sm font-semibold text-gray-800 mb-3">Training</p>
-                <div className="space-y-3">
-                  {/* Training invoices list */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Training Invoices</label>
-                    {/* Existing invoices */}
-                    {(() => {
-                      const invoices = (contactForm.trainingInvoiceId || '').split(',').map(s => s.trim()).filter(Boolean);
-                      return invoices.length > 0 ? (
-                        <div className="space-y-1 mb-2">
-                          {invoices.map((inv, idx) => (
-                            <div key={idx} className="flex items-center justify-between bg-blue-50 rounded-lg px-3 py-1.5 text-sm">
-                              <span className="text-blue-700 font-medium">Invoice #{inv}</span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const updated = invoices.filter((_, i) => i !== idx).join(', ');
-                                  setContactForm({ ...contactForm, trainingInvoiceId: updated || null });
-                                }}
-                                className="text-red-400 hover:text-red-600 text-xs"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null;
-                    })()}
-                    {/* Add new invoice */}
-                    <div className="flex gap-2">
-                      <input
-                        id="training-invoice-input"
-                        className="input-field text-sm flex-1"
-                        placeholder="Enter QB invoice #"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const input = e.currentTarget;
-                            const val = input.value.trim();
-                            if (!val) return;
-                            const existing = (contactForm.trainingInvoiceId || '').split(',').map(s => s.trim()).filter(Boolean);
-                            if (!existing.includes(val)) {
-                              const updated = [...existing, val].join(', ');
-                              setContactForm({ ...contactForm, trainingInvoiceId: updated });
-                            }
-                            input.value = '';
-                          }
-                        }}
-                      />
+              {/* QR Code for self-edit profile */}
+              {editingContactId && contactForm.email && (
+                <div className="pt-3 border-t border-gray-100">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Profile QR Code</label>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
+                        `${typeof window !== 'undefined' ? window.location.origin : ''}/profile/${editingContactId}`
+                      )}`}
+                      alt="QR Code"
+                      className="w-24 h-24 border border-gray-200 rounded-lg"
+                    />
+                    <div className="flex flex-col gap-2">
+                      <div className="text-xs text-gray-500">
+                        <p>Scan to open self-edit profile page.</p>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
-                          const input = document.getElementById('training-invoice-input') as HTMLInputElement;
-                          const val = input?.value.trim();
-                          if (!val) return;
-                          const existing = (contactForm.trainingInvoiceId || '').split(',').map(s => s.trim()).filter(Boolean);
-                          if (!existing.includes(val)) {
-                            const updated = [...existing, val].join(', ');
-                            setContactForm({ ...contactForm, trainingInvoiceId: updated });
-                          }
-                          if (input) input.value = '';
+                          const profileUrl = `${window.location.origin}/profile/${editingContactId}`;
+                          const subject = encodeURIComponent('Your Profile Link - Atelier DSM');
+                          const body = encodeURIComponent(`Hi ${contactForm.name},\n\nHere is your profile link where you can update your information:\n${profileUrl}\n\nBest regards,\nAtelier DSM`);
+                          window.open(`mailto:${contactForm.email}?subject=${subject}&body=${body}`, '_blank');
                         }}
-                        className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 whitespace-nowrap"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
                       >
-                        + Add
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Send to {contactForm.name.split(' ')[0] || 'contact'}
                       </button>
                     </div>
                   </div>
-
-                  {/* QR Code for self-edit profile */}
-                  {editingContactId && contactForm.email && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Profile QR Code</label>
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
-                            `${typeof window !== 'undefined' ? window.location.origin : ''}/profile/${editingContactId}`
-                          )}`}
-                          alt="QR Code"
-                          className="w-24 h-24 border border-gray-200 rounded-lg"
-                        />
-                        <div className="flex flex-col gap-2">
-                          <div className="text-xs text-gray-500">
-                            <p>Scan to open self-edit profile page.</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const profileUrl = `${window.location.origin}/profile/${editingContactId}`;
-                              const subject = encodeURIComponent('Your Profile Link - Atelier DSM');
-                              const body = encodeURIComponent(`Hi ${contactForm.name},\n\nHere is your profile link where you can update your information:\n${profileUrl}\n\nBest regards,\nAtelier DSM`);
-                              window.open(`mailto:${contactForm.email}?subject=${subject}&body=${body}`, '_blank');
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                            Send to {contactForm.name.split(' ')[0] || 'contact'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </div>
+              )}
 
               {editingContactId && contactForm.email && (
                 <div className="pt-2 border-t border-gray-100">
@@ -1307,6 +1423,254 @@ export default function AdminClientsPage() {
               <button onClick={handleSaveContact} disabled={!contactForm.name.trim() || !contactForm.email.trim()} className="btn-primary disabled:opacity-50">
                 {editingContactId ? 'Save Changes' : (contactFormType === 'responsible' ? 'Set as Main Contact' : 'Add Staff Member')}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEW TRAINING MODAL */}
+      {showTrainingForm && selectedClient && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <svg className="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    New Training
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">For {selectedClient.qbClient.companyName}</p>
+                </div>
+                <button onClick={() => setShowTrainingForm(false)} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Template link */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Training Template</label>
+                {trainingTemplates.length > 0 ? (
+                  <select
+                    value={trainingForm.templateId}
+                    onChange={(e) => {
+                      const tpl = trainingTemplates.find(t => t.id === e.target.value);
+                      setTrainingForm({ ...trainingForm, templateId: e.target.value, title: tpl ? tpl.name : trainingForm.title, description: tpl ? tpl.description : trainingForm.description });
+                    }}
+                    className="input-field text-sm"
+                  >
+                    <option value="">— No template —</option>
+                    {trainingTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                ) : (
+                  <div className="bg-yellow-50 text-yellow-700 text-xs rounded-lg px-3 py-2">
+                    No templates found. Create templates in <strong>Settings &gt; Training Templates</strong> before adding.
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                <input className="input-field" value={trainingForm.title} onChange={(e) => setTrainingForm({ ...trainingForm, title: e.target.value })} placeholder="e.g. Laser Safety Training" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea className="input-field text-sm" rows={2} value={trainingForm.description} onChange={(e) => setTrainingForm({ ...trainingForm, description: e.target.value })} placeholder="Optional details..." />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                  <input type="datetime-local" className="input-field text-sm" value={trainingForm.date} onChange={(e) => setTrainingForm({ ...trainingForm, date: e.target.value })} />
+                </div>
+                <div className="w-32">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (min)</label>
+                  <input type="number" className="input-field text-sm" value={trainingForm.duration} onChange={(e) => setTrainingForm({ ...trainingForm, duration: e.target.value })} placeholder="60" />
+                </div>
+              </div>
+
+              {/* Attendees — pick from client's staff */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Attendees</label>
+                <p className="text-xs text-gray-400 mb-2">Add staff from {selectedClient.qbClient.companyName}</p>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {/* Main contact */}
+                  {selectedClient.responsiblePerson && (
+                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Avatar photo={selectedClient.responsiblePerson.photo} name={selectedClient.responsiblePerson.name} size="sm" />
+                        <div>
+                          <p className="text-sm font-medium">{selectedClient.responsiblePerson.name}</p>
+                          <p className="text-xs text-gray-400">{selectedClient.responsiblePerson.role || 'Main Contact'}</p>
+                        </div>
+                      </div>
+                      {trainingAttendees.some(a => a.contactId === selectedClient.responsiblePerson!.id) ? (
+                        <button onClick={() => setTrainingAttendees(prev => prev.filter(a => a.contactId !== selectedClient.responsiblePerson!.id))} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50">Remove</button>
+                      ) : (
+                        <button onClick={() => setTrainingAttendees(prev => [...prev, { contactId: selectedClient.responsiblePerson!.id, name: selectedClient.responsiblePerson!.name, email: selectedClient.responsiblePerson!.email }])} className="text-xs text-teal-600 hover:text-teal-700 px-2 py-1 rounded hover:bg-teal-50 font-medium">+ Add</button>
+                      )}
+                    </div>
+                  )}
+                  {/* Staff employees */}
+                  {selectedClient.subEmployees.map(emp => (
+                    <div key={emp.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Avatar photo={emp.photo} name={emp.name} size="sm" />
+                        <div>
+                          <p className="text-sm font-medium">{emp.name}</p>
+                          <p className="text-xs text-gray-400">{emp.role || 'Staff'}</p>
+                        </div>
+                      </div>
+                      {trainingAttendees.some(a => a.contactId === emp.id) ? (
+                        <button onClick={() => setTrainingAttendees(prev => prev.filter(a => a.contactId !== emp.id))} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50">Remove</button>
+                      ) : (
+                        <button onClick={() => setTrainingAttendees(prev => [...prev, { contactId: emp.id, name: emp.name, email: emp.email }])} className="text-xs text-teal-600 hover:text-teal-700 px-2 py-1 rounded hover:bg-teal-50 font-medium">+ Add</button>
+                      )}
+                    </div>
+                  ))}
+                  {!selectedClient.responsiblePerson && selectedClient.subEmployees.length === 0 && (
+                    <p className="text-xs text-gray-400 italic py-2">No contacts to add. Add staff or a main contact first.</p>
+                  )}
+                </div>
+                {trainingAttendees.length > 0 && (
+                  <p className="text-xs text-teal-600 mt-2 font-medium">{trainingAttendees.length} attendee{trainingAttendees.length !== 1 ? 's' : ''} selected</p>
+                )}
+              </div>
+
+              {/* File upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Files</label>
+                <p className="text-xs text-gray-400 mb-2">Attach training booklet photos, documents, or videos</p>
+                {trainingFiles.length > 0 && (
+                  <div className="space-y-1 mb-2">
+                    {trainingFiles.map((f, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-blue-50 rounded-lg px-3 py-1.5 text-sm">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                          <span className="text-blue-700 font-medium truncate max-w-[200px]">{f.name}</span>
+                          <span className="text-blue-400 text-xs">{(f.fileSize / 1024).toFixed(0)} KB</span>
+                        </div>
+                        <button type="button" onClick={() => setTrainingFiles(prev => prev.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 text-xs">Remove</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 cursor-pointer transition-colors">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                  Upload Files
+                  <input type="file" multiple className="hidden" onChange={handleTrainingFileUpload} />
+                </label>
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0">
+              <button onClick={() => setShowTrainingForm(false)} className="btn-secondary">Cancel</button>
+              <button
+                onClick={handleCreateTraining}
+                disabled={!trainingForm.title.trim() || !trainingForm.date || trainingSaving}
+                className="bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
+              >
+                {trainingSaving ? 'Creating...' : 'Create Training'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TRAINING DETAIL MODAL */}
+      {trainingDetail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">{trainingDetail.title}</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {formatDate(trainingDetail.date)}
+                    {trainingDetail.duration && <span> — {trainingDetail.duration} min</span>}
+                  </p>
+                </div>
+                <button onClick={() => setTrainingDetail(null)} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                  trainingDetail.status === 'completed' ? 'bg-green-100 text-green-700' :
+                  trainingDetail.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                  'bg-teal-100 text-teal-700'
+                }`}>{trainingDetail.status}</span>
+                {trainingDetail.template && (
+                  <span className="text-xs text-gray-500">Template: {trainingDetail.template.name}</span>
+                )}
+              </div>
+              {trainingDetail.description && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Description</p>
+                  <p className="text-sm text-gray-700">{trainingDetail.description}</p>
+                </div>
+              )}
+              {trainingDetail.attendees?.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-2">Attendees ({trainingDetail.attendees.length})</p>
+                  <div className="space-y-1">
+                    {trainingDetail.attendees.map((a: any) => (
+                      <div key={a.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                        <Avatar photo={null} name={a.name} size="sm" />
+                        <div>
+                          <p className="text-sm font-medium">{a.name}</p>
+                          <p className="text-xs text-gray-400">{a.email}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {trainingDetail.files?.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-2">Files ({trainingDetail.files.length})</p>
+                  <div className="space-y-1">
+                    {trainingDetail.files.map((f: any) => (
+                      <div key={f.id} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-1.5 text-sm">
+                        <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                        <span className="text-blue-700 font-medium">{f.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Mark as completed / cancelled */}
+              {trainingDetail.status === 'scheduled' && (
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={async () => {
+                      await fetch(`/api/training/events/${trainingDetail.id}`, {
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'completed' }),
+                      });
+                      setClientTrainings(prev => prev.map(t => t.id === trainingDetail.id ? { ...t, status: 'completed' } : t));
+                      setTrainingDetail({ ...trainingDetail, status: 'completed' });
+                    }}
+                    className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                  >Mark Completed</button>
+                  <button
+                    onClick={async () => {
+                      await fetch(`/api/training/events/${trainingDetail.id}`, {
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'cancelled' }),
+                      });
+                      setClientTrainings(prev => prev.map(t => t.id === trainingDetail.id ? { ...t, status: 'cancelled' } : t));
+                      setTrainingDetail({ ...trainingDetail, status: 'cancelled' });
+                    }}
+                    className="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-lg transition-colors"
+                  >Cancel Training</button>
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-gray-100 flex justify-end flex-shrink-0">
+              <button onClick={() => setTrainingDetail(null)} className="btn-secondary text-sm">Close</button>
             </div>
           </div>
         </div>
