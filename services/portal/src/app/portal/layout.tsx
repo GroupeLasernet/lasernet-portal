@@ -4,7 +4,7 @@ import DashboardShell from '@/components/DashboardShell';
 
 const clientLinks = [
   {
-    label: 'Dashboard',
+    labelKey: 'dashboard',
     href: '/portal',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -13,7 +13,7 @@ const clientLinks = [
     ),
   },
   {
-    label: 'Tickets',
+    labelKey: 'tickets',
     href: '/portal/tickets',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -22,7 +22,7 @@ const clientLinks = [
     ),
   },
   {
-    label: 'Videos',
+    labelKey: 'videos',
     href: '/portal/videos',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -31,7 +31,7 @@ const clientLinks = [
     ),
   },
   {
-    label: 'Files',
+    labelKey: 'files',
     href: '/portal/files',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -40,7 +40,7 @@ const clientLinks = [
     ),
   },
   {
-    label: 'Invoices',
+    labelKey: 'invoices',
     href: '/portal/invoices',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

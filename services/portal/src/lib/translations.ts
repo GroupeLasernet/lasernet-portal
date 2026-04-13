@@ -60,6 +60,8 @@ const translations = {
     tickets: { fr: 'Billets', en: 'Tickets' },
     files: { fr: 'Fichiers', en: 'Files' },
     settings: { fr: 'Paramètres', en: 'Settings' },
+    videos: { fr: 'Vidéos', en: 'Videos' },
+    invoices: { fr: 'Factures', en: 'Invoices' },
     signOut: { fr: 'Déconnexion', en: 'Sign Out' },
     signingOut: { fr: 'Déconnexion...', en: 'Signing out...' },
     adminPortal: { fr: 'Portail Admin', en: 'Admin Portal' },
