@@ -118,8 +118,8 @@ export async function POST(request: NextRequest) {
     const lastJob = await prisma.job.findFirst({
       orderBy: { jobNumber: 'desc' },
     });
-    const lastNum = lastJob ? parseInt(lastJob.jobNumber.split('-')[1]) || 0 : 0;
-    const jobNumber = `JOB-${String(lastNum + 1).padStart(3, '0')}`;
+    const lastNum = lastJob ? parseInt(lastJob.jobNumber.replace(/^[A-Z]+-/, '')) || 0 : 0;
+    const jobNumber = `STN-${String(lastNum + 1).padStart(3, '0')}`;
 
     const job = await prisma.job.create({
       data: {

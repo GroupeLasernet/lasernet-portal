@@ -156,9 +156,30 @@ export default function AdminClientsPage() {
       setInvoicesLoading(false);
     }).catch(() => { setClientInvoices([]); setInvoicesLoading(false); });
 
-    // Load stations for this client
-    fetch(`/api/stations?clientId=${selectedClientId}`).then(r => r.json()).then(data => {
-      setClientStations(data.stations || []);
+    // Load stations for this client (stations are stored as Jobs in the DB)
+    fetch(`/api/jobs?clientId=${selectedClientId}`).then(r => r.json()).then(data => {
+      const jobs = data.jobs || [];
+      const stations: Station[] = jobs.map((job: Record<string, unknown>) => {
+        let items: { description: string; quantity: number; rate: number; amount: number }[] = [];
+        let invoiceId = '';
+        let invoiceNumber = '';
+        try {
+          const meta = JSON.parse((job.notes as string) || '{}');
+          items = meta.items || [];
+          invoiceId = meta.invoiceId || '';
+          invoiceNumber = meta.invoiceNumber || '';
+        } catch { /* notes not JSON, that's fine */ }
+        return {
+          id: job.id as string,
+          name: job.title as string,
+          invoiceId,
+          invoiceNumber,
+          items,
+          status: (job.status as 'pending' | 'in_progress' | 'completed') || 'pending',
+          createdAt: job.createdAt as string,
+        };
+      });
+      setClientStations(stations);
     }).catch(() => setClientStations([]));
   }, [selectedClientId, managedClients]);
 
@@ -320,46 +341,47 @@ export default function AdminClientsPage() {
       });
 
     if (stationMode === 'existing' && selectedExistingStationId) {
-      // Add items to existing station
-      setClientStations(prev => prev.map(s => {
-        if (s.id !== selectedExistingStationId) return s;
-        return { ...s, items: [...s.items, ...items] };
-      }));
-      // Also try API
-      fetch(`/api/stations/${selectedExistingStationId}/items`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items }),
-      }).catch(() => {});
+      // Add items to existing station — update notes JSON
+      const existing = clientStations.find(s => s.id === selectedExistingStationId);
+      if (existing) {
+        const updatedItems = [...existing.items, ...items];
+        const notes = JSON.stringify({ invoiceId: existing.invoiceId, invoiceNumber: existing.invoiceNumber, items: updatedItems });
+        setClientStations(prev => prev.map(s => s.id !== selectedExistingStationId ? s : { ...s, items: updatedItems }));
+        fetch(`/api/jobs/${selectedExistingStationId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes }),
+        }).catch(() => {});
+      }
     } else {
-      // Create new station
+      // Create new station via /api/jobs
       const name = stationName.trim() || `Station — ${previewInvoice.invoiceNumber}`;
-      const localStation: Station = {
-        id: `local-${Date.now()}`,
-        name,
-        invoiceId: previewInvoice.id,
-        invoiceNumber: previewInvoice.invoiceNumber,
-        items,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-      };
+      const notes = JSON.stringify({ invoiceId: previewInvoice.id, invoiceNumber: previewInvoice.invoiceNumber, items });
 
       try {
-        const res = await fetch('/api/stations', {
+        const res = await fetch('/api/jobs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            clientId: selectedClient.id,
-            invoiceId: previewInvoice.id,
-            invoiceNumber: previewInvoice.invoiceNumber,
-            name,
-            items,
+            managedClientId: selectedClient.id,
+            title: name,
+            notes,
           }),
         });
         const data = await res.json();
-        setClientStations(prev => [...prev, data.station || localStation]);
-      } catch {
-        setClientStations(prev => [...prev, localStation]);
+        if (data.job) {
+          setClientStations(prev => [...prev, {
+            id: data.job.id,
+            name: data.job.title,
+            invoiceId: previewInvoice.id,
+            invoiceNumber: previewInvoice.invoiceNumber,
+            items,
+            status: 'pending',
+            createdAt: data.job.createdAt,
+          }]);
+        }
+      } catch (err) {
+        console.error('Failed to create station:', err);
       }
     }
 
@@ -371,8 +393,21 @@ export default function AdminClientsPage() {
 
   const handleDeleteStation = (stationId: string) => {
     setClientStations(prev => prev.filter(s => s.id !== stationId));
-    // Also try to delete from API
-    fetch(`/api/stations/${stationId}`, { method: 'DELETE' }).catch(() => {});
+    fetch(`/api/jobs/${stationId}`, { method: 'DELETE' }).catch(() => {});
+  };
+
+  const [editingStationId, setEditingStationId] = useState<string | null>(null);
+  const [editingStationName, setEditingStationName] = useState('');
+
+  const handleRenameStation = (stationId: string, newName: string) => {
+    if (!newName.trim()) return;
+    setClientStations(prev => prev.map(s => s.id === stationId ? { ...s, name: newName.trim() } : s));
+    setEditingStationId(null);
+    fetch(`/api/jobs/${stationId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newName.trim() }),
+    }).catch(() => {});
   };
 
   const EditIcon = () => (
@@ -685,7 +720,6 @@ export default function AdminClientsPage() {
                         <tr className="border-b border-gray-100 text-left">
                           <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
                           <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Due</th>
                           <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Items</th>
                         </tr>
                       </thead>
@@ -694,7 +728,6 @@ export default function AdminClientsPage() {
                           <tr key={inv.id} onClick={() => openInvoicePreview(inv)} className="border-b border-gray-50 hover:bg-purple-50 transition-colors cursor-pointer group">
                             <td className="px-4 py-3 font-medium group-hover:text-purple-700">{inv.invoiceNumber}</td>
                             <td className="px-4 py-3 text-gray-500">{formatDate(inv.date)}</td>
-                            <td className="px-4 py-3 text-gray-500">{formatDate(inv.dueDate)}</td>
                             <td className="px-4 py-3 text-right text-gray-500">{inv.items?.length || 0}</td>
                           </tr>
                         ))}
@@ -739,7 +772,27 @@ export default function AdminClientsPage() {
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
-                                  <p className="font-medium text-sm">{station.name}</p>
+                                  {editingStationId === station.id ? (
+                                    <input
+                                      autoFocus
+                                      value={editingStationName}
+                                      onChange={(e) => setEditingStationName(e.target.value)}
+                                      onBlur={() => handleRenameStation(station.id, editingStationName)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleRenameStation(station.id, editingStationName);
+                                        if (e.key === 'Escape') setEditingStationId(null);
+                                      }}
+                                      className="font-medium text-sm border border-purple-300 rounded px-2 py-0.5 focus:ring-purple-500 focus:border-purple-500 w-48"
+                                    />
+                                  ) : (
+                                    <p
+                                      className="font-medium text-sm cursor-pointer hover:text-purple-600 transition-colors"
+                                      onClick={(e) => { e.stopPropagation(); setEditingStationId(station.id); setEditingStationName(station.name); }}
+                                      title="Click to rename"
+                                    >
+                                      {station.name}
+                                    </p>
+                                  )}
                                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${stationStatusColor(station.status)}`}>
                                     {station.status.replace('_', ' ').charAt(0).toUpperCase() + station.status.replace('_', ' ').slice(1)}
                                   </span>

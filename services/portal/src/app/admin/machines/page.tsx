@@ -698,7 +698,7 @@ function DetailPanel({
         {/* Jobs */}
         {machine.jobs.length > 0 && (
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">Linked Jobs</h3>
+            <h3 className="font-semibold text-gray-900 mb-3">Linked Stations</h3>
             <div className="space-y-2">
               {machine.jobs.map((job) => (
                 <div key={job.id} className="p-2 bg-gray-50 rounded text-sm">

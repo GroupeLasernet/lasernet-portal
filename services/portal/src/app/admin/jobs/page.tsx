@@ -376,7 +376,7 @@ export default function AdminJobsPage() {
         {/* Header */}
         <div className="border-b border-gray-200 p-4">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold text-gray-900">Jobs</h1>
+            <h1 className="text-xl font-bold text-gray-900">Stations</h1>
             <button
               onClick={() => setShowNewJobModal(true)}
               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
@@ -394,7 +394,7 @@ export default function AdminJobsPage() {
             </div>
           ) : jobs.length === 0 ? (
             <div className="p-4 text-center text-gray-500">
-              <p className="text-sm">No jobs yet</p>
+              <p className="text-sm">No stations yet</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
@@ -445,13 +445,13 @@ export default function AdminJobsPage() {
           <div className="p-6 max-w-4xl">
             {/* Job Info Section */}
             <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Job Info</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Station Info</h2>
 
               <div className="space-y-4">
                 {/* Title */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Title
+                    Station Name
                   </label>
                   <input
                     type="text"
@@ -718,14 +718,14 @@ export default function AdminJobsPage() {
                 className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                Delete Job
+                Delete Station
               </button>
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <p className="text-gray-500">Select a job to view details</p>
+              <p className="text-gray-500">Select a station to view details</p>
             </div>
           </div>
         )}
@@ -736,7 +736,7 @@ export default function AdminJobsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">New Job</h2>
+              <h2 className="text-lg font-bold text-gray-900">New Station</h2>
               <button
                 onClick={() => setShowNewJobModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -811,7 +811,7 @@ export default function AdminJobsPage() {
                 onClick={handleCreateJob}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
               >
-                Create Job
+                Create Station
               </button>
             </div>
           </div>
