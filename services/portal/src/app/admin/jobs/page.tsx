@@ -233,12 +233,12 @@ const MachineItems = ({ editingJob, setEditingJob, handleUpdateJob }: {
               <div className="flex-1 min-w-0">
                 <div className="flex items-start gap-4">
                   {item.model && (
-                    <div className="bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wide whitespace-nowrap">{item.model}</div>
+                    <div className="bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wide whitespace-nowrap">{String(item.model)}</div>
                   )}
-                  <div className="text-sm font-medium text-gray-900 pt-0.5">{item.description}</div>
+                  <div className="text-sm font-medium text-gray-900 pt-0.5">{String(item.description || '')}</div>
                 </div>
                 {(item.sourceInvoiceNumber || meta.invoiceNumber) && (
-                  <div className="mt-1 text-xs text-gray-400">Invoice #{item.sourceInvoiceNumber || (meta.invoiceNumber as string)}</div>
+                  <div className="mt-1 text-xs text-gray-400">Invoice #{String(item.sourceInvoiceNumber || meta.invoiceNumber || '')}</div>
                 )}
               </div>
             </div>
