@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
-// POST /api/cleanup-duplicate-contacts — Find duplicate emails and delete all but the newest
+// GET + POST /api/cleanup-duplicate-contacts — Find duplicate emails and delete all but the newest
 // This is a one-time cleanup route. Remove after use.
-export async function POST() {
+export async function GET() { return cleanup(); }
+export async function POST() { return cleanup(); }
+
+async function cleanup() {
   try {
     // Find all contacts grouped by email, keep only the most recent one
     const allContacts = await prisma.contact.findMany({
