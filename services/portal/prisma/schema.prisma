@@ -347,3 +347,77 @@ model MachineStateLog {
   data      String @db.Text // JSON blob of state snapshot
   timestamp DateTime @default(now())
 }
+
+// ============================================================
+// TRAINING SYSTEM
+// ============================================================
+
+// Training templates — reusable training definitions (Settings)
+model TrainingTemplate {
+  id          String @id @default(cuid())
+  name        String // e.g. "Laser Training", "Cobot Training"
+  description String @db.Text
+  files       TrainingFile[]
+  events      TrainingEvent[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Training files — PDFs, videos, docs attached to templates
+model TrainingFile {
+  id         String @id @default(cuid())
+  templateId String?
+  template   TrainingTemplate? @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  name       String
+  fileType   String // "pdf", "video", "image", "other"
+  fileData   String @db.Text // base64 data or URL
+  fileSize   Int?   // size in bytes
+  createdAt  DateTime @default(now())
+
+  // Files can also be attached to events directly
+  eventId    String?
+  event      TrainingEvent? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+// Training events — scheduled trainings (Agenda)
+model TrainingEvent {
+  id          String @id @default(cuid())
+  templateId  String?
+  template    TrainingTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  title       String
+  description String?  @db.Text
+  date        DateTime
+  status      String   @default("scheduled") // scheduled, completed, cancelled
+
+  attendees   TrainingAttendee[]
+  files       TrainingFile[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Training attendees — staff linked to training events
+model TrainingAttendee {
+  id            String @id @default(cuid())
+  eventId       String
+  event         TrainingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  contactId     String
+  name          String
+  email         String
+  inviteSent    Boolean  @default(false)
+  inviteSentAt  DateTime?
+  confirmed     Boolean  @default(false)
+  confirmedAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  @@unique([eventId, contactId])
+}
+
+// QB data cache — store invoices and customers locally
+model QBCache {
+  id        String   @id @default("singleton")
+  invoices  String   @db.Text // JSON array of all invoices
+  customers String   @db.Text // JSON array of all customers
+  cachedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
