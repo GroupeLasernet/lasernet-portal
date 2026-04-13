@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { handleCallback, buildTokenCookie } from '@/lib/quickbooks';
+import { handleCallback, buildTokenCookie, fetchInvoices, fetchAllCustomers, cacheQBData } from '@/lib/quickbooks';
 
 // GET /api/quickbooks/callback
 // QuickBooks redirects here after the admin authorizes access
@@ -7,6 +7,17 @@ export async function GET(request: NextRequest) {
   try {
     const url = request.url;
     const tokens = await handleCallback(url);
+
+    // Cache all QB data immediately on successful connection
+    try {
+      const [{ invoices }, { customers }] = await Promise.all([
+        fetchInvoices(tokens),
+        fetchAllCustomers(tokens),
+      ]);
+      await cacheQBData(invoices, customers);
+    } catch (cacheErr) {
+      console.error('Failed to cache QB data on callback:', cacheErr);
+    }
 
     // Redirect back to the admin clients page and set the token cookie
     const response = NextResponse.redirect(

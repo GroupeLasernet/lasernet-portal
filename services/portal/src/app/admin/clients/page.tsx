@@ -1218,6 +1218,26 @@ export default function AdminClientsPage() {
                     />
                   </div>
                 </div>
+
+                  {/* QR Code for self-edit profile */}
+                  {editingContactId && contactForm.email && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Profile QR Code</label>
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
+                            `${typeof window !== 'undefined' ? window.location.origin : ''}/profile/${editingContactId}`
+                          )}`}
+                          alt="QR Code"
+                          className="w-24 h-24 border border-gray-200 rounded-lg"
+                        />
+                        <div className="text-xs text-gray-500">
+                          <p>Scan to open self-edit profile page.</p>
+                          <p className="mt-1">Staff can update their own info via this link.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
               </div>
 
               {editingContactId && contactForm.email && (

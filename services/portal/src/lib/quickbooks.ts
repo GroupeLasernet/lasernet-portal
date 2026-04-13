@@ -404,3 +404,52 @@ export async function fetchEstimates(tokens: QBTokens, customerId?: string): Pro
 export function isConnected(tokens: QBTokens | null): boolean {
   return tokens !== null && tokens.accessToken !== '';
 }
+
+// ============================================================
+// QB DATA CACHE — Save invoices & customers to DB so data
+// is available even when QB tokens expire or QB is down
+// ============================================================
+
+export async function cacheQBData(
+  invoices: QBInvoice[],
+  customers: QBCustomer[]
+): Promise<void> {
+  try {
+    await db.qBCache.upsert({
+      where: { id: 'singleton' },
+      update: {
+        invoices: JSON.stringify(invoices),
+        customers: JSON.stringify(customers),
+        updatedAt: new Date(),
+      },
+      create: {
+        id: 'singleton',
+        invoices: JSON.stringify(invoices),
+        customers: JSON.stringify(customers),
+      },
+    });
+    console.log(`Cached ${invoices.length} invoices and ${customers.length} customers to DB`);
+  } catch (err) {
+    console.error('Failed to cache QB data:', err);
+  }
+}
+
+export async function getCachedInvoices(): Promise<QBInvoice[] | null> {
+  try {
+    const row = await db.qBCache.findUnique({ where: { id: 'singleton' } });
+    if (!row?.invoices) return null;
+    return JSON.parse(row.invoices) as QBInvoice[];
+  } catch {
+    return null;
+  }
+}
+
+export async function getCachedCustomers(): Promise<QBCustomer[] | null> {
+  try {
+    const row = await db.qBCache.findUnique({ where: { id: 'singleton' } });
+    if (!row?.customers) return null;
+    return JSON.parse(row.customers) as QBCustomer[];
+  } catch {
+    return null;
+  }
+}
