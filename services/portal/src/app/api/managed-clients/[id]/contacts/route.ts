@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check email uniqueness across all contacts
-    const existingContact = await prisma.contact.findUnique({
+    const existingContact = await prisma.contact.findFirst({
       where: { email },
       include: { managedClient: true },
     });

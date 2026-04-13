@@ -14,7 +14,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Check email uniqueness if email is being changed
     if (email !== undefined) {
-      const existingContact = await prisma.contact.findUnique({
+      const existingContact = await prisma.contact.findFirst({
         where: { email },
         include: { managedClient: true },
       });
