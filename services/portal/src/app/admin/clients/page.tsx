@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { type QBClient, type ManagedClient, type ContactPerson } from '@/lib/mock-data';
 import Avatar from '@/components/Avatar';
 import StreetView from '@/components/StreetView';
@@ -13,6 +13,57 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
   </svg>
 );
+
+const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onConfirm: () => void; onCancel: () => void; label?: string }) => {
+  const [holding, setHolding] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const startRef = useRef(0);
+
+  const startHold = () => {
+    setHolding(true);
+    startRef.current = Date.now();
+    intervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startRef.current;
+      const pct = Math.min(elapsed / 2000, 1);
+      setProgress(pct);
+      if (pct >= 1) {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        onConfirm();
+      }
+    }, 30);
+  };
+
+  const cancelHold = () => {
+    setHolding(false);
+    setProgress(0);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  };
+
+  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+      <div className="bg-white rounded-xl shadow-xl p-5 max-w-xs w-full text-center">
+        <p className="text-sm font-medium text-gray-800 mb-4">{label}</p>
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition">No</button>
+          <button
+            onMouseDown={startHold}
+            onMouseUp={cancelHold}
+            onMouseLeave={cancelHold}
+            onTouchStart={startHold}
+            onTouchEnd={cancelHold}
+            className="flex-1 px-4 py-2 bg-red-400 text-white rounded-lg text-sm font-medium transition relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-red-600 transition-none" style={{ width: `${progress * 100}%` }} />
+            <span className="relative">{holding ? 'Hold...' : 'Yes (hold 2s)'}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface QBInvoice {
   id: string;
@@ -30,10 +81,11 @@ interface QBInvoice {
 interface Station {
   id: string;
   name: string;
+  description?: string;
   invoiceId: string;
   invoiceNumber: string;
   items: { description: string; quantity: number; rate: number; amount: number }[];
-  status: 'pending' | 'in_progress' | 'completed';
+  status: 'not_configured' | 'waiting_pairing' | 'in_trouble' | 'active';
   createdAt: string;
 }
 
@@ -163,19 +215,22 @@ export default function AdminClientsPage() {
         let items: { description: string; quantity: number; rate: number; amount: number }[] = [];
         let invoiceId = '';
         let invoiceNumber = '';
+        let description = '';
         try {
           const meta = JSON.parse((job.notes as string) || '{}');
           items = meta.items || [];
           invoiceId = meta.invoiceId || '';
           invoiceNumber = meta.invoiceNumber || '';
+          description = meta.description || '';
         } catch { /* notes not JSON, that's fine */ }
         return {
           id: job.id as string,
           name: job.title as string,
+          description,
           invoiceId,
           invoiceNumber,
           items,
-          status: (job.status as 'pending' | 'in_progress' | 'completed') || 'pending',
+          status: (job.status as 'not_configured' | 'waiting_pairing' | 'in_trouble' | 'active') || 'not_configured',
           createdAt: job.createdAt as string,
         };
       });
@@ -376,7 +431,7 @@ export default function AdminClientsPage() {
             invoiceId: previewInvoice.id,
             invoiceNumber: previewInvoice.invoiceNumber,
             items,
-            status: 'pending',
+            status: 'not_configured',
             createdAt: data.job.createdAt,
           }]);
         }
@@ -398,6 +453,18 @@ export default function AdminClientsPage() {
 
   const [editingStationId, setEditingStationId] = useState<string | null>(null);
   const [editingStationName, setEditingStationName] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: string; id2?: string; label: string } | null>(null);
+
+  const executeConfirmDelete = useCallback(() => {
+    if (!confirmDelete) return;
+    switch (confirmDelete.type) {
+      case 'station': handleDeleteStation(confirmDelete.id); break;
+      case 'client': handleRemoveClient(confirmDelete.id); break;
+      case 'responsible': handleRemoveResponsible(confirmDelete.id); break;
+      case 'employee': handleRemoveEmployee(confirmDelete.id, confirmDelete.id2 || ''); break;
+    }
+    setConfirmDelete(null);
+  }, [confirmDelete]);
 
   const handleRenameStation = (stationId: string, newName: string) => {
     if (!newName.trim()) return;
@@ -425,10 +492,21 @@ export default function AdminClientsPage() {
   const formatDate = (dateStr: string) => { if (!dateStr) return '\u2014'; return new Date(dateStr).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' }); };
   const stationStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-700';
-      case 'in_progress': return 'bg-blue-100 text-blue-700';
-      case 'pending': return 'bg-yellow-100 text-yellow-700';
+      case 'active': return 'bg-green-100 text-green-700';
+      case 'waiting_pairing': return 'bg-blue-100 text-blue-700';
+      case 'not_configured': return 'bg-yellow-100 text-yellow-700';
+      case 'in_trouble': return 'bg-red-100 text-red-700';
       default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const stationStatusLabel = (status: string) => {
+    switch (status) {
+      case 'active': return 'Working / Active';
+      case 'waiting_pairing': return 'Configured / Waiting for first pairing';
+      case 'not_configured': return 'Not fully configured';
+      case 'in_trouble': return 'In trouble';
+      default: return status;
     }
   };
 
@@ -585,7 +663,7 @@ export default function AdminClientsPage() {
                         </p>
                       </div>
                     </div>
-                    <button onClick={() => handleRemoveClient(selectedClient.id)} className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">Remove</button>
+                    <button onClick={() => setConfirmDelete({ type: 'client', id: selectedClient.id, label: 'Remove this client?' })} className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">Remove</button>
                   </div>
                 </div>
 
@@ -637,7 +715,7 @@ export default function AdminClientsPage() {
                           </div>
                           <div className="flex items-center gap-1">
                             <button onClick={() => openEditForm('responsible', selectedClient.responsiblePerson!)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title="Edit"><EditIcon /></button>
-                            <button onClick={() => handleRemoveResponsible(selectedClient.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title="Remove"><TrashIcon /></button>
+                            <button onClick={() => setConfirmDelete({ type: 'responsible', id: selectedClient.id, label: 'Remove the main contact?' })} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title="Remove"><TrashIcon /></button>
                           </div>
                         </div>
                       ) : (
@@ -678,7 +756,7 @@ export default function AdminClientsPage() {
                               </div>
                               <div className="flex items-center gap-1">
                                 <button onClick={() => openEditForm('employee', emp)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title="Edit"><EditIcon /></button>
-                                <button onClick={() => handleRemoveEmployee(selectedClient.id, emp.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title="Remove"><TrashIcon size="w-4 h-4" /></button>
+                                <button onClick={() => setConfirmDelete({ type: 'employee', id: selectedClient.id, id2: emp.id, label: 'Remove this staff member?' })} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title="Remove"><TrashIcon size="w-4 h-4" /></button>
                               </div>
                             </div>
                           ))}
@@ -794,20 +872,15 @@ export default function AdminClientsPage() {
                                     </p>
                                   )}
                                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${stationStatusColor(station.status)}`}>
-                                    {station.status.replace('_', ' ').charAt(0).toUpperCase() + station.status.replace('_', ' ').slice(1)}
+                                    {stationStatusLabel(station.status)}
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-400 mt-0.5">From invoice {station.invoiceNumber} — {formatDate(station.createdAt)}</p>
-                                <div className="mt-2 space-y-1">
-                                  {station.items.map((item, i) => (
-                                    <div key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1">
-                                      <span className="text-gray-600">{item.description}</span>
-                                      <span className="text-gray-500 font-medium">Qty: {item.quantity}</span>
-                                    </div>
-                                  ))}
-                                </div>
+                                {station.description && (
+                                  <p className="text-xs text-gray-500 mt-1">{station.description}</p>
+                                )}
                               </div>
-                              <button onClick={() => handleDeleteStation(station.id)} className="text-gray-300 hover:text-red-500 transition-colors p-1 ml-3" title="Delete station">
+                              <button onClick={() => setConfirmDelete({ type: 'station', id: station.id, label: 'Delete this station?' })} className="text-gray-300 hover:text-red-500 transition-colors p-1 ml-3" title="Delete station">
                                 <TrashIcon size="w-4 h-4" />
                               </button>
                             </div>
@@ -994,6 +1067,15 @@ export default function AdminClientsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* DELETE CONFIRMATION */}
+      {confirmDelete && (
+        <HoldToConfirm
+          label={confirmDelete.label}
+          onConfirm={executeConfirmDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
 
       {/* ADD / EDIT CONTACT MODAL */}

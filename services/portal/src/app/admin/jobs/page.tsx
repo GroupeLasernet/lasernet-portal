@@ -1,6 +1,57 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onConfirm: () => void; onCancel: () => void; label?: string }) => {
+  const [holding, setHolding] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const startRef = useRef(0);
+
+  const startHold = () => {
+    setHolding(true);
+    startRef.current = Date.now();
+    intervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startRef.current;
+      const pct = Math.min(elapsed / 2000, 1);
+      setProgress(pct);
+      if (pct >= 1) {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        onConfirm();
+      }
+    }, 30);
+  };
+
+  const cancelHold = () => {
+    setHolding(false);
+    setProgress(0);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  };
+
+  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+      <div className="bg-white rounded-xl shadow-xl p-5 max-w-xs w-full text-center">
+        <p className="text-sm font-medium text-gray-800 mb-4">{label}</p>
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition">No</button>
+          <button
+            onMouseDown={startHold}
+            onMouseUp={cancelHold}
+            onMouseLeave={cancelHold}
+            onTouchStart={startHold}
+            onTouchEnd={cancelHold}
+            className="flex-1 px-4 py-2 bg-red-400 text-white rounded-lg text-sm font-medium transition relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-red-600 transition-none" style={{ width: `${progress * 100}%` }} />
+            <span className="relative">{holding ? 'Hold...' : 'Yes (hold 2s)'}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Types matching API structure
 interface Machine {
@@ -43,7 +94,7 @@ interface Job {
   };
   title: string;
   notes?: string;
-  status: 'draft' | 'in_progress' | 'testing' | 'completed' | 'archived';
+  status: 'not_configured' | 'waiting_pairing' | 'in_trouble' | 'active' | 'draft' | 'in_progress' | 'testing' | 'completed' | 'archived';
   invoices: JobInvoice[];
   machines: Machine[];
   robotPrograms: {
@@ -98,6 +149,7 @@ export default function AdminJobsPage() {
   });
 
   const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Fetch jobs
   const fetchJobs = useCallback(async () => {
@@ -486,11 +538,10 @@ export default function AdminJobsPage() {
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="draft">Draft</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="testing">Testing</option>
-                    <option value="completed">Completed</option>
-                    <option value="archived">Archived</option>
+                    <option value="not_configured">Not fully configured</option>
+                    <option value="waiting_pairing">Configured / Waiting for first pairing</option>
+                    <option value="in_trouble">In trouble</option>
+                    <option value="active">Working / Active</option>
                   </select>
                 </div>
 
@@ -504,24 +555,52 @@ export default function AdminJobsPage() {
                   </div>
                 </div>
 
-                {/* Notes */}
+                {/* Description */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notes
+                    Description
                   </label>
                   <textarea
-                    value={editingJob.notes || ''}
+                    value={(() => { try { const m = JSON.parse(editingJob.notes || '{}'); return m.description || ''; } catch { return editingJob.notes || ''; } })()}
                     onChange={(e) => {
-                      const updated = { ...editingJob, notes: e.target.value };
+                      let meta: Record<string, unknown> = {};
+                      try { meta = JSON.parse(editingJob.notes || '{}'); } catch { /* not JSON */ }
+                      meta.description = e.target.value;
+                      const updated = { ...editingJob, notes: JSON.stringify(meta) };
                       setEditingJob(updated);
                     }}
                     onBlur={() =>
                       handleUpdateJob({ notes: editingJob.notes })
                     }
+                    placeholder="Add a description for this station..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                   />
                 </div>
+
+                {/* Invoice Items (read-only) */}
+                {(() => {
+                  try {
+                    const meta = JSON.parse(editingJob.notes || '{}');
+                    if (meta.items && meta.items.length > 0) {
+                      return (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Invoice Items {meta.invoiceNumber ? `(#${meta.invoiceNumber})` : ''}
+                          </label>
+                          <div className="space-y-1">
+                            {meta.items.map((item: { description: string; quantity: number }, i: number) => (
+                              <div key={i} className="text-xs bg-gray-50 rounded px-3 py-2 text-gray-600">
+                                {item.description} {item.quantity > 1 ? `× ${item.quantity}` : ''}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                  } catch { /* not JSON */ }
+                  return null;
+                })()}
               </div>
             </div>
 
@@ -714,11 +793,11 @@ export default function AdminJobsPage() {
             {/* Delete Button */}
             <div className="mb-6">
               <button
-                onClick={handleDeleteJob}
-                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2"
+                onClick={() => setConfirmDeleteId(editingJob?.id || null)}
+                className="px-3 py-1.5 bg-red-400 text-white text-xs rounded-lg hover:bg-red-500 transition flex items-center gap-1.5"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                Delete Station
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                Delete
               </button>
             </div>
           </div>
@@ -816,6 +895,15 @@ export default function AdminJobsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Delete Confirmation */}
+      {confirmDeleteId && (
+        <HoldToConfirm
+          label="Delete this station?"
+          onConfirm={() => { handleDeleteJob(); setConfirmDeleteId(null); }}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
       )}
 
       {/* Add Machine Modal */}
