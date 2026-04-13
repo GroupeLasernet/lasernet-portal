@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Ticket, TicketPriority, TicketStatus, Invoice, mockInvoices } from '@/lib/mock-data';
+import { useLanguage } from '@/lib/LanguageContext';
 
 const priorityColors = {
   critical: 'bg-red-100 text-red-800 border border-red-300',
@@ -27,6 +28,7 @@ const statusFlow: Record<TicketStatus, TicketStatus | null> = {
 };
 
 export default function AdminTicketsPage() {
+  const { t } = useLanguage();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -120,41 +122,41 @@ export default function AdminTicketsPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Support Tickets</h1>
+        <h1 className="text-3xl font-bold text-gray-900">{t('tickets', 'title')}</h1>
         <div className="text-sm text-gray-600">
-          Total: <span className="font-semibold">{filteredTickets.length}</span> tickets
+          {t('tickets', 'totalTickets')} <span className="font-semibold">{filteredTickets.length}</span>
         </div>
       </div>
 
       {/* Filters */}
       <div className="card mb-6 flex gap-4">
         <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('tickets', 'statusFilter')}</label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as TicketStatus | 'all')}
             className="input-field"
           >
-            <option value="all">All Statuses</option>
-            <option value="open">Open</option>
-            <option value="in_progress">In Progress</option>
-            <option value="waiting">Waiting</option>
-            <option value="resolved">Resolved</option>
-            <option value="closed">Closed</option>
+            <option value="all">{t('tickets', 'allStatuses')}</option>
+            <option value="open">{t('tickets', 'open')}</option>
+            <option value="in_progress">{t('tickets', 'inProgress')}</option>
+            <option value="waiting">{t('tickets', 'waiting')}</option>
+            <option value="resolved">{t('tickets', 'resolved')}</option>
+            <option value="closed">{t('tickets', 'closed')}</option>
           </select>
         </div>
         <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('tickets', 'priorityFilter')}</label>
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value as TicketPriority | 'all')}
             className="input-field"
           >
-            <option value="all">All Priorities</option>
-            <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
+            <option value="all">{t('tickets', 'allPriorities')}</option>
+            <option value="critical">{t('tickets', 'critical')}</option>
+            <option value="high">{t('tickets', 'high')}</option>
+            <option value="medium">{t('tickets', 'medium')}</option>
+            <option value="low">{t('tickets', 'low')}</option>
           </select>
         </div>
       </div>
@@ -164,7 +166,7 @@ export default function AdminTicketsPage() {
         <div className="flex-1">
           {filteredTickets.length === 0 ? (
             <div className="card text-center py-12">
-              <p className="text-gray-500">No tickets found</p>
+              <p className="text-gray-500">{t('tickets', 'noTickets')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -203,7 +205,7 @@ export default function AdminTicketsPage() {
         {/* Detail Panel */}
         {selectedTicket && (
           <div className="w-96 card sticky top-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Ticket Details</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">{t('tickets', 'ticketDetails')}</h2>
 
             {/* Ticket Header */}
             <div className="mb-4 pb-4 border-b border-gray-200">
@@ -220,9 +222,9 @@ export default function AdminTicketsPage() {
 
             {/* Client & Creator Info */}
             <div className="mb-4 pb-4 border-b border-gray-200">
-              <p className="text-sm font-medium text-gray-700 mb-1">Client Company</p>
+              <p className="text-sm font-medium text-gray-700 mb-1">{t('tickets', 'clientCompany')}</p>
               <p className="text-gray-900 font-semibold">{selectedTicket.clientCompanyName}</p>
-              <p className="text-sm font-medium text-gray-700 mt-3 mb-1">Created By</p>
+              <p className="text-sm font-medium text-gray-700 mt-3 mb-1">{t('tickets', 'createdBy')}</p>
               <p className="text-gray-900">{selectedTicket.createdBy.name}</p>
               <p className="text-xs text-gray-600">{selectedTicket.createdBy.email}</p>
               <p className="text-xs text-gray-600">{selectedTicket.createdBy.role}</p>
@@ -230,16 +232,16 @@ export default function AdminTicketsPage() {
 
             {/* Subject & Description */}
             <div className="mb-4 pb-4 border-b border-gray-200">
-              <p className="text-sm font-medium text-gray-700 mb-1">Subject</p>
+              <p className="text-sm font-medium text-gray-700 mb-1">{t('tickets', 'subject')}</p>
               <p className="text-gray-900 font-semibold">{selectedTicket.subject}</p>
-              <p className="text-sm font-medium text-gray-700 mt-3 mb-1">Description</p>
+              <p className="text-sm font-medium text-gray-700 mt-3 mb-1">{t('common', 'description')}</p>
               <p className="text-gray-700 text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
             </div>
 
             {/* Attachments */}
             {selectedTicket.attachments.length > 0 && (
               <div className="mb-4 pb-4 border-b border-gray-200">
-                <p className="text-sm font-medium text-gray-700 mb-2">Attachments</p>
+                <p className="text-sm font-medium text-gray-700 mb-2">{t('tickets', 'attachments')}</p>
                 <div className="space-y-2">
                   {selectedTicket.attachments.map((att) => (
                     <div key={att.id}>
@@ -263,11 +265,11 @@ export default function AdminTicketsPage() {
 
             {/* Link Invoice Section */}
             <div className="mb-4 pb-4 border-b border-gray-200">
-              <p className="text-sm font-medium text-gray-700 mb-2">Link Invoice</p>
+              <p className="text-sm font-medium text-gray-700 mb-2">{t('tickets', 'linkInvoice')}</p>
               {selectedTicket.linkedInvoiceNumber ? (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-2">
                   <p className="text-sm text-gray-700">
-                    Linked: <span className="font-semibold">{selectedTicket.linkedInvoiceNumber}</span>
+                    {t('tickets', 'linked')} <span className="font-semibold">{selectedTicket.linkedInvoiceNumber}</span>
                   </p>
                 </div>
               ) : (
@@ -277,7 +279,7 @@ export default function AdminTicketsPage() {
                     onChange={(e) => setSelectedInvoiceId(e.target.value || null)}
                     className="input-field text-sm flex-1"
                   >
-                    <option value="">Select Invoice</option>
+                    <option value="">{t('tickets', 'selectInvoice')}</option>
                     {getAvailableInvoices(selectedTicket).map((inv) => (
                       <option key={inv.id} value={inv.id}>
                         {inv.invoiceNumber} - ${inv.amount}
@@ -289,7 +291,7 @@ export default function AdminTicketsPage() {
                     disabled={!selectedInvoiceId}
                     className="btn-primary text-sm py-2 px-3 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Link
+                    {t('tickets', 'link')}
                   </button>
                 </div>
               )}
@@ -297,23 +299,23 @@ export default function AdminTicketsPage() {
 
             {/* Status Control */}
             <div className="mb-4">
-              <p className="text-sm font-medium text-gray-700 mb-2">Update Status</p>
+              <p className="text-sm font-medium text-gray-700 mb-2">{t('tickets', 'updateStatus')}</p>
               {statusFlow[selectedTicket.status] ? (
                 <button
                   onClick={() => handleUpdateStatus(selectedTicket)}
                   className="btn-primary w-full text-sm py-2"
                 >
-                  Move to {statusFlow[selectedTicket.status]?.replace('_', ' ')}
+                  {t('tickets', 'moveTo')} {statusFlow[selectedTicket.status]?.replace('_', ' ')}
                 </button>
               ) : (
-                <p className="text-xs text-gray-500">This ticket is closed</p>
+                <p className="text-xs text-gray-500">{t('tickets', 'ticketClosed')}</p>
               )}
             </div>
 
             {/* Metadata */}
             <div className="text-xs text-gray-500">
-              <p>Created: {new Date(selectedTicket.createdAt).toLocaleString()}</p>
-              <p>Updated: {new Date(selectedTicket.updatedAt).toLocaleString()}</p>
+              <p>{t('tickets', 'created')} {new Date(selectedTicket.createdAt).toLocaleString()}</p>
+              <p>{t('tickets', 'updated')} {new Date(selectedTicket.updatedAt).toLocaleString()}</p>
             </div>
           </div>
         )}

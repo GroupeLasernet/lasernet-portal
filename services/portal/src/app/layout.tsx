@@ -1,15 +1,20 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { LanguageProvider } from '@/lib/LanguageContext'
 
 export const metadata: Metadata = {
-  title: 'LaserNet - Client Portal',
-  description: 'LaserNet client and admin portal for managing IT services',
+  title: 'LaserNet - Portail',
+  description: 'LaserNet — portail client et administrateur',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen">{children}</body>
+    <html lang="fr">
+      <body className="min-h-screen">
+        <LanguageProvider>
+          {children}
+        </LanguageProvider>
+      </body>
     </html>
   )
 }

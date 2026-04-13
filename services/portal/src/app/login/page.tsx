@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/lib/LanguageContext';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { lang, setLang, t } = useLanguage();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +27,7 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Login failed');
+        setError(data.error === 'Invalid email or password' ? t('login', 'invalidCredentials') : (data.error || t('login', 'loginFailed')));
         return;
       }
 
@@ -36,7 +38,7 @@ export default function LoginPage() {
         router.push('/portal');
       }
     } catch {
-      setError('Something went wrong. Please try again.');
+      setError(t('login', 'somethingWentWrong'));
     } finally {
       setLoading(false);
     }
@@ -53,7 +55,7 @@ export default function LoginPage() {
             <img src="/logo-summumliner.png" alt="Summum Liner" className="h-16 w-auto object-contain" />
           </div>
           <h1 className="text-3xl font-bold text-white">LaserNet</h1>
-          <p className="text-brand-200 mt-2">Sign in to your portal</p>
+          <p className="text-brand-200 mt-2">{t('login', 'signInToPortal')}</p>
         </div>
 
         {/* Login Form */}
@@ -61,7 +63,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
+                {t('login', 'emailAddress')}
               </label>
               <input
                 id="email"
@@ -76,7 +78,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
+                {t('login', 'password')}
               </label>
               <input
                 id="password"
@@ -100,13 +102,30 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full btn-primary text-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? t('login', 'signingIn') : t('login', 'signIn')}
             </button>
           </form>
 
+          {/* Language Selector */}
+          <div className="mt-5 pt-5 border-t border-gray-100 flex items-center justify-center gap-3">
+            <span className="text-xs text-gray-400">{t('login', 'language')} :</span>
+            <button
+              onClick={() => setLang('fr')}
+              className={`text-sm px-3 py-1 rounded-lg transition-colors ${lang === 'fr' ? 'bg-brand-600 text-white font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            >
+              Français
+            </button>
+            <button
+              onClick={() => setLang('en')}
+              className={`text-sm px-3 py-1 rounded-lg transition-colors ${lang === 'en' ? 'bg-brand-600 text-white font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            >
+              English
+            </button>
+          </div>
+
           {/* Demo Credentials */}
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-xs text-gray-500 text-center mb-3">Demo Accounts</p>
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <p className="text-xs text-gray-500 text-center mb-3">{t('login', 'demoAccounts')}</p>
             <div className="space-y-2 text-xs text-gray-600">
               <div className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg">
                 <span><strong>Admin:</strong> admin@lasernet.ca</span>

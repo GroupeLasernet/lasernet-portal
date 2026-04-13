@@ -4,7 +4,7 @@ import DashboardShell from '@/components/DashboardShell';
 
 const adminLinks = [
   {
-    label: 'Dashboard',
+    labelKey: 'dashboard',
     href: '/admin',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -13,7 +13,7 @@ const adminLinks = [
     ),
   },
   {
-    label: 'Clients',
+    labelKey: 'clients',
     href: '/admin/clients',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -22,25 +22,7 @@ const adminLinks = [
     ),
   },
   {
-    label: 'Tickets',
-    href: '/admin/tickets',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Files',
-    href: '/admin/files',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Stations',
+    labelKey: 'stations',
     href: '/admin/jobs',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -49,7 +31,7 @@ const adminLinks = [
     ),
   },
   {
-    label: 'Machines',
+    labelKey: 'machines',
     href: '/admin/machines',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -58,7 +40,7 @@ const adminLinks = [
     ),
   },
   {
-    label: 'Training',
+    labelKey: 'training',
     href: '/admin/training',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -67,7 +49,28 @@ const adminLinks = [
     ),
   },
   {
-    label: 'Settings',
+    labelKey: 'tickets',
+    href: '/admin/tickets',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+];
+
+const adminBottomLinks = [
+  {
+    labelKey: 'files',
+    href: '/admin/files',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+      </svg>
+    ),
+  },
+  {
+    labelKey: 'settings',
     href: '/admin/settings',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -80,7 +83,7 @@ const adminLinks = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <DashboardShell requiredRole="admin" links={adminLinks}>
+    <DashboardShell requiredRole="admin" links={adminLinks} bottomLinks={adminBottomLinks}>
       {children}
     </DashboardShell>
   );

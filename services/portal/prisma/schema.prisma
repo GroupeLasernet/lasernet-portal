@@ -24,6 +24,7 @@ model User {
   company     String?
   phone       String?
   photo       String?  @db.Text // base64 data URL or null
+  language    String   @default("fr") // "fr" or "en"
   status      String   @default("invited") // "invited" or "active"
   inviteToken String?  @db.Text
   createdAt   DateTime @default(now())
@@ -80,7 +81,7 @@ model Contact {
   managedClient   ManagedClient @relation(fields: [managedClientId], references: [id], onDelete: Cascade)
 
   name    String
-  email   String  @unique
+  email   String
   phone   String?
   role    String?
   photo   String? @db.Text // base64 data URL or null

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { t as translate, Language } from '@/lib/translations';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
@@ -69,26 +70,39 @@ export async function POST(request: NextRequest) {
           const companyName = event.managedClient?.companyName || '';
 
           await Promise.allSettled(
-            attendees.map((a: { name: string; email: string }) =>
-              transporter.sendMail({
+            attendees.map(async (a: { name: string; email: string }) => {
+              // Look up recipient's language preference
+              const user = await prisma.user.findFirst({
+                where: { email: a.email },
+                select: { language: true },
+              });
+              const lang = (user?.language as Language) || 'fr';
+
+              const subject = translate('emails', 'trainingSubject', lang) + title;
+              const greeting = translate('emails', 'trainingGreeting', lang);
+              const scheduled = translate('emails', 'trainingScheduled', lang);
+              const dateLabel = translate('emails', 'trainingDate', lang);
+              const companyLabel = translate('emails', 'trainingCompany', lang);
+
+              return transporter.sendMail({
                 from: gmailUser,
                 to: a.email,
-                subject: `Training Scheduled: ${title}`,
+                subject,
                 html: `
 <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;background:#f9fafb;border-radius:12px;">
-  <h2 style="color:#0d9488;margin:0 0 8px;">Training Scheduled</h2>
-  <p style="color:#374151;margin:0 0 16px;">Hi ${a.name},</p>
-  <p style="color:#374151;margin:0 0 16px;">You have been scheduled for a training session:</p>
+  <h2 style="color:#0d9488;margin:0 0 8px;">${translate('emails', 'trainingSubject', lang)}</h2>
+  <p style="color:#374151;margin:0 0 16px;">${greeting} ${a.name},</p>
+  <p style="color:#374151;margin:0 0 16px;">${scheduled}</p>
   <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:0 0 16px;">
     <p style="margin:0 0 6px;"><strong>${title}</strong></p>
     ${description ? `<p style="color:#6b7280;margin:0 0 6px;">${description}</p>` : ''}
-    <p style="color:#6b7280;margin:0 0 4px;">Date: <strong>${eventDate}${durationText}</strong></p>
-    ${companyName ? `<p style="color:#6b7280;margin:0;">Company: <strong>${companyName}</strong></p>` : ''}
+    <p style="color:#6b7280;margin:0 0 4px;">${dateLabel} <strong>${eventDate}${durationText}</strong></p>
+    ${companyName ? `<p style="color:#6b7280;margin:0;">${companyLabel} <strong>${companyName}</strong></p>` : ''}
   </div>
   <p style="color:#9ca3af;font-size:12px;margin:0;">— Atelier DSM</p>
 </div>`,
-              })
-            )
+              });
+            })
           );
         } catch (emailErr) {
           console.error('Failed to send training notification emails:', emailErr);

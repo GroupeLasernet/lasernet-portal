@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
+import prisma from '@/lib/prisma';
+import { t as translate, Language } from '@/lib/translations';
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'lasernet-secret-change-this-in-production'
@@ -76,6 +78,13 @@ async function sendInvitationEmail(
   }
 
   try {
+    // Look up recipient's language preference
+    const user = await prisma.user.findFirst({
+      where: { email },
+      select: { language: true },
+    });
+    const lang = (user?.language as Language) || 'fr';
+
     // Dynamically import nodemailer (it's optional)
     const nodemailer = await import('nodemailer');
 
@@ -92,6 +101,11 @@ async function sendInvitationEmail(
     const setupUrl = `${baseUrl}/setup-account?token=${encodeURIComponent(
       inviteToken
     )}`;
+
+    const subject = translate('emails', 'inviteSubject', lang);
+    const greeting = translate('emails', 'inviteGreeting', lang);
+    const bodyText = translate('emails', 'inviteBody', lang);
+    const buttonText = translate('emails', 'inviteButton', lang);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -115,35 +129,35 @@ async function sendInvitationEmail(
 <body>
   <div class="container">
     <div class="header">
-      <h1>Welcome to LaserNet Portal</h1>
+      <h1>${lang === 'fr' ? 'Bienvenue au Portail LaserNet' : 'Welcome to LaserNet Portal'}</h1>
     </div>
 
     <div class="content">
-      <p>Hi <strong>${escapeHtml(name)}</strong>,</p>
+      <p>${greeting} <strong>${escapeHtml(name)}</strong>,</p>
 
-      <p>You've been invited to join the <strong>LaserNet Portal</strong> as a <strong>${escapeHtml(role)}</strong> at <strong>${escapeHtml(companyName)}</strong>.</p>
+      <p>${bodyText} ${lang === 'fr' ? 'en tant que' : 'as a'} <strong>${escapeHtml(role)}</strong> ${lang === 'fr' ? 'chez' : 'at'} <strong>${escapeHtml(companyName)}</strong>.</p>
 
-      <p>Set up your account and start accessing your portal today:</p>
+      <p>${lang === 'fr' ? 'Configurez votre compte et commencez à accéder à votre portail dès aujourd\'hui :' : 'Set up your account and start accessing your portal today:'}</p>
 
       <div style="text-align: center;">
-        <a href="${setupUrl}" class="cta-button" style="background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%); color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;"><span style="color: #ffffff !important;">Set Up Your Account</span></a>
+        <a href="${setupUrl}" class="cta-button" style="background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%); color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;"><span style="color: #ffffff !important;">${buttonText}</span></a>
       </div>
 
       <div class="info-box">
-        <div class="info-label">Account Details</div>
-        <div class="info-value">Email: ${escapeHtml(email)}</div>
-        <div class="info-value" style="margin-top: 8px;">Company: ${escapeHtml(companyName)}</div>
-        <div class="info-value" style="margin-top: 8px;">Role: ${escapeHtml(role)}</div>
+        <div class="info-label">${lang === 'fr' ? 'DÉTAILS DU COMPTE' : 'ACCOUNT DETAILS'}</div>
+        <div class="info-value">${lang === 'fr' ? 'Courriel' : 'Email'}: ${escapeHtml(email)}</div>
+        <div class="info-value" style="margin-top: 8px;">${lang === 'fr' ? 'Entreprise' : 'Company'}: ${escapeHtml(companyName)}</div>
+        <div class="info-value" style="margin-top: 8px;">${lang === 'fr' ? 'Rôle' : 'Role'}: ${escapeHtml(role)}</div>
       </div>
 
-      <p>This invitation link will expire in 7 days. If you don't set up your account by then, please contact your administrator for a new invitation.</p>
+      <p>${lang === 'fr' ? 'Ce lien d\'invitation expirera dans 7 jours. Si vous ne configurez pas votre compte d\'ici là, veuillez contacter votre administrateur pour une nouvelle invitation.' : 'This invitation link will expire in 7 days. If you don\'t set up your account by then, please contact your administrator for a new invitation.'}</p>
 
-      <p>If you didn't expect this invitation, you can safely ignore this email.</p>
+      <p>${lang === 'fr' ? 'Si vous n\'aviez pas prévu cette invitation, vous pouvez ignorer cet e-mail en toute sécurité.' : 'If you didn\'t expect this invitation, you can safely ignore this email.'}</p>
     </div>
 
     <div class="footer">
       <p>&copy; 2026 LaserNet Portal. All rights reserved.</p>
-      <p>Questions? Contact your administrator.</p>
+      <p>${lang === 'fr' ? 'Questions ?' : 'Questions?'} ${lang === 'fr' ? 'Contactez votre administrateur.' : 'Contact your administrator.'}</p>
     </div>
   </div>
 </body>
@@ -153,7 +167,7 @@ async function sendInvitationEmail(
     await transporter.sendMail({
       from: gmailUser,
       to: email,
-      subject: "You've been invited to LaserNet Portal",
+      subject,
       html: htmlContent,
     });
 

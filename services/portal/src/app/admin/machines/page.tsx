@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/lib/LanguageContext';
 
 interface Machine {
   id: string;
@@ -35,14 +36,17 @@ type ViewMode = 'list' | 'map';
 type TypeFilter = 'all' | 'robot' | 'laser';
 type StatusFilter = 'all' | 'active' | 'in_repair' | 'refunded' | 'decommissioned';
 
-const statusConfig = {
-  active: { label: 'Active', color: 'bg-green-100 text-green-800', badge: 'bg-green-500' },
-  in_repair: { label: 'In Repair', color: 'bg-yellow-100 text-yellow-800', badge: 'bg-yellow-500' },
-  refunded: { label: 'Refunded', color: 'bg-red-100 text-red-800', badge: 'bg-red-500' },
-  decommissioned: { label: 'Decommissioned', color: 'bg-gray-100 text-gray-800', badge: 'bg-gray-500' },
-};
+function getStatusConfig(t: (section: string, key: string) => string) {
+  return {
+    active: { label: t('machines', 'activeStatus'), color: 'bg-green-100 text-green-800', badge: 'bg-green-500' },
+    in_repair: { label: t('machines', 'inRepair'), color: 'bg-yellow-100 text-yellow-800', badge: 'bg-yellow-500' },
+    refunded: { label: t('machines', 'refunded'), color: 'bg-red-100 text-red-800', badge: 'bg-red-500' },
+    decommissioned: { label: t('machines', 'decommissioned'), color: 'bg-gray-100 text-gray-800', badge: 'bg-gray-500' },
+  };
+}
 
 export default function MachinesPage() {
+  const { t, lang } = useLanguage();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [clients, setClients] = useState<ManagedClient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -160,15 +164,15 @@ export default function MachinesPage() {
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex justify-between items-start mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Machines</h1>
-              <p className="text-gray-600 mt-1">Manage all physical machines (robots and lasers)</p>
+              <h1 className="text-3xl font-bold text-gray-900">{t('machines', 'title')}</h1>
+              <p className="text-gray-600 mt-1">{t('machines', 'subtitle')}</p>
             </div>
             <button
               onClick={() => setShowNewModal(true)}
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              New Machine
+              {t('machines', 'newMachine')}
             </button>
           </div>
 
@@ -181,19 +185,19 @@ export default function MachinesPage() {
                   onClick={() => setTypeFilter('all')}
                   className={`px-3 py-1 rounded font-medium transition ${typeFilter === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
                 >
-                  All
+                  {t('machines', 'allFilter')}
                 </button>
                 <button
                   onClick={() => setTypeFilter('robot')}
                   className={`px-3 py-1 rounded font-medium transition ${typeFilter === 'robot' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
                 >
-                  Robots
+                  {t('machines', 'robots')}
                 </button>
                 <button
                   onClick={() => setTypeFilter('laser')}
                   className={`px-3 py-1 rounded font-medium transition ${typeFilter === 'laser' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
                 >
-                  Lasers
+                  {t('machines', 'lasers')}
                 </button>
               </div>
 
@@ -202,25 +206,25 @@ export default function MachinesPage() {
                   onClick={() => setStatusFilter('all')}
                   className={`px-3 py-1 rounded font-medium transition text-sm ${statusFilter === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
                 >
-                  All Status
+                  {t('machines', 'allStatus')}
                 </button>
                 <button
                   onClick={() => setStatusFilter('active')}
                   className={`px-3 py-1 rounded font-medium transition text-sm ${statusFilter === 'active' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
                 >
-                  Active
+                  {t('machines', 'activeStatus')}
                 </button>
                 <button
                   onClick={() => setStatusFilter('in_repair')}
                   className={`px-3 py-1 rounded font-medium transition text-sm ${statusFilter === 'in_repair' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
                 >
-                  In Repair
+                  {t('machines', 'inRepair')}
                 </button>
                 <button
                   onClick={() => setStatusFilter('refunded')}
                   className={`px-3 py-1 rounded font-medium transition text-sm ${statusFilter === 'refunded' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
                 >
-                  Refunded
+                  {t('machines', 'refunded')}
                 </button>
               </div>
             </div>
@@ -229,7 +233,7 @@ export default function MachinesPage() {
             <div className="flex gap-4 items-center">
               <input
                 type="text"
-                placeholder="Search by serial, model, or client..."
+                placeholder={t('machines', 'searchMachines')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -240,13 +244,13 @@ export default function MachinesPage() {
                   onClick={() => setViewMode('list')}
                   className={`px-3 py-1 rounded font-medium transition ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
                 >
-                  List
+                  {t('machines', 'listView')}
                 </button>
                 <button
                   onClick={() => setViewMode('map')}
                   className={`px-3 py-1 rounded font-medium transition ${viewMode === 'map' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
                 >
-                  Map
+                  {t('machines', 'mapView')}
                 </button>
               </div>
             </div>
@@ -261,9 +265,9 @@ export default function MachinesPage() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
         ) : viewMode === 'list' ? (
-          <ListView machines={filteredMachines} onSelectMachine={setSelectedMachine} />
+          <ListView machines={filteredMachines} onSelectMachine={setSelectedMachine} statusConfig={getStatusConfig(t)} />
         ) : (
-          <MapView machines={filteredMachines} />
+          <MapView machines={filteredMachines} statusConfig={getStatusConfig(t)} />
         )}
       </div>
 
@@ -278,6 +282,7 @@ export default function MachinesPage() {
           onReassign={handleReassign}
           onDelete={handleDeleteMachine}
           clients={clients}
+          statusConfig={getStatusConfig(t)}
         />
       )}
 
@@ -296,12 +301,13 @@ export default function MachinesPage() {
   );
 }
 
-function ListView({ machines, onSelectMachine }: { machines: Machine[]; onSelectMachine: (m: Machine) => void }) {
+function ListView({ machines, onSelectMachine, statusConfig }: { machines: Machine[]; onSelectMachine: (m: Machine) => void; statusConfig: ReturnType<typeof getStatusConfig> }) {
+  const { t } = useLanguage();
   if (machines.length === 0) {
     return (
       <div className="text-center py-12">
         <svg className="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        <p className="text-gray-600 text-lg">No machines found</p>
+        <p className="text-gray-600 text-lg">{t('machines', 'noMachinesFound')}</p>
       </div>
     );
   }
@@ -374,7 +380,8 @@ function ListView({ machines, onSelectMachine }: { machines: Machine[]; onSelect
   );
 }
 
-function MapView({ machines }: { machines: Machine[] }) {
+function MapView({ machines, statusConfig }: { machines: Machine[]; statusConfig: ReturnType<typeof getStatusConfig> }) {
+  const { t } = useLanguage();
   const grouped: { [key: string]: Machine[] } = {};
 
   machines.forEach((m) => {
@@ -400,7 +407,7 @@ function MapView({ machines }: { machines: Machine[] }) {
                 className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                Open Map
+                {t('common', 'download')}
               </a>
             )}
           </div>
@@ -410,7 +417,7 @@ function MapView({ machines }: { machines: Machine[] }) {
               <div key={m.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
                 <div>
                   <p className="font-medium text-gray-900">{m.serialNumber} - {m.model}</p>
-                  <p className="text-sm text-gray-600">{m.client?.displayName || 'Unassigned'}</p>
+                  <p className="text-sm text-gray-600">{m.client?.displayName || t('machines', 'unassigned')}</p>
                 </div>
                 <span className={`px-2 py-1 rounded text-xs font-medium ${statusConfig[m.status].color}`}>
                   {statusConfig[m.status].label}
@@ -424,7 +431,7 @@ function MapView({ machines }: { machines: Machine[] }) {
       {Object.keys(grouped).length === 0 && (
         <div className="text-center py-12">
           <svg className="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <p className="text-gray-600 text-lg">No machines with location data</p>
+          <p className="text-gray-600 text-lg">{t('machines', 'noMachinesLocation')}</p>
         </div>
       )}
     </div>
@@ -440,6 +447,7 @@ function DetailPanel({
   onReassign,
   onDelete,
   clients,
+  statusConfig,
 }: {
   machine: Machine;
   onClose: () => void;
@@ -449,7 +457,9 @@ function DetailPanel({
   onReassign: (id: string, clientId: string) => Promise<void>;
   onDelete: (id: string) => void;
   clients: ManagedClient[];
+  statusConfig: ReturnType<typeof getStatusConfig>;
 }) {
+  const { t } = useLanguage();
   const [showRelocateForm, setShowRelocateForm] = useState(false);
   const [showReassignForm, setShowReassignForm] = useState(false);
   const [relocateData, setRelocateData] = useState({ address: machine.address || '', city: machine.city || '', province: machine.province || '', postalCode: machine.postalCode || '' });
@@ -470,25 +480,25 @@ function DetailPanel({
       <div className="p-6 space-y-6">
         {/* Machine Info */}
         <div>
-          <h3 className="font-semibold text-gray-900 mb-3">Machine Details</h3>
+          <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'machineDetails')}</h3>
           <div className="space-y-2 text-sm">
             <div>
-              <span className="text-gray-600">Type:</span>
+              <span className="text-gray-600">{t('machines', 'type')}:</span>
               <span className="ml-2 font-medium text-gray-900 capitalize">{machine.type}</span>
             </div>
             <div>
-              <span className="text-gray-600">Model:</span>
+              <span className="text-gray-600">{t('machines', 'modelRequired')}:</span>
               <span className="ml-2 font-medium text-gray-900">{machine.model}</span>
             </div>
             {machine.nickname && (
               <div>
-                <span className="text-gray-600">Nickname:</span>
+                <span className="text-gray-600">{t('machines', 'nickname')}:</span>
                 <span className="ml-2 font-medium text-gray-900">{machine.nickname}</span>
               </div>
             )}
             {machine.ipAddress && (
               <div>
-                <span className="text-gray-600">IP Address:</span>
+                <span className="text-gray-600">{t('machines', 'ipAddress')}:</span>
                 <span className="ml-2 font-medium text-gray-900 font-mono">{machine.ipAddress}</span>
               </div>
             )}
@@ -498,7 +508,7 @@ function DetailPanel({
         {/* Address Info */}
         {(machine.address || machine.city || machine.province) && (
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">Location</h3>
+            <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'location')}</h3>
             <div className="space-y-1 text-sm text-gray-600">
               {machine.address && <p>{machine.address}</p>}
               {machine.city && machine.province && <p>{machine.city}, {machine.province}</p>}
@@ -511,7 +521,7 @@ function DetailPanel({
         {/* Client Info */}
         {machine.client && (
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">Client</h3>
+            <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'client')}</h3>
             <div className="p-3 bg-blue-50 rounded-lg">
               <p className="font-medium text-blue-900">{machine.client.displayName}</p>
               <p className="text-sm text-blue-700">{machine.client.companyName}</p>
@@ -522,15 +532,15 @@ function DetailPanel({
         {/* Invoice Info */}
         {machine.invoice && (
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">Invoice</h3>
-            <p className="text-sm text-gray-600">Invoice: {machine.invoice.invoiceNumber}</p>
+            <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'invoice')}</h3>
+            <p className="text-sm text-gray-600">{t('machines', 'invoice')}: {machine.invoice.invoiceNumber}</p>
           </div>
         )}
 
         {/* Status Section */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">Status</h3>
+            <h3 className="font-semibold text-gray-900">{t('common', 'status')}</h3>
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusConfig[machine.status].color}`}>
               {statusConfig[machine.status].label}
             </span>
@@ -543,25 +553,25 @@ function DetailPanel({
                   onClick={() => onStatusChange(machine.id, 'in_repair', { type: 'repair_started' })}
                   className="w-full px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition text-sm font-medium"
                 >
-                  Send to Repair
+                  {t('machines', 'sendToRepair')}
                 </button>
                 <button
                   onClick={() => onStatusChange(machine.id, 'refunded', { type: 'refunded' })}
                   className="w-full px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition text-sm font-medium"
                 >
-                  Refund
+                  {t('machines', 'refund')}
                 </button>
                 <button
                   onClick={() => setShowRelocateForm(true)}
                   className="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition text-sm font-medium"
                 >
-                  Relocate
+                  {t('machines', 'relocate')}
                 </button>
                 <button
                   onClick={() => setShowReassignForm(true)}
                   className="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition text-sm font-medium"
                 >
-                  Reassign to Another Client
+                  {t('machines', 'reassign')}
                 </button>
               </>
             )}
@@ -571,7 +581,7 @@ function DetailPanel({
                 onClick={() => onStatusChange(machine.id, 'active', { type: 'repair_completed' })}
                 className="w-full px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition text-sm font-medium"
               >
-                Reactivate
+                {t('machines', 'reactivate')}
               </button>
             )}
           </div>
@@ -580,31 +590,31 @@ function DetailPanel({
         {/* Relocate Form */}
         {showRelocateForm && (
           <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-            <h4 className="font-semibold text-gray-900 text-sm">New Location</h4>
+            <h4 className="font-semibold text-gray-900 text-sm">{t('machines', 'newLocation')}</h4>
             <input
               type="text"
-              placeholder="Address"
+              placeholder={t('machines', 'address')}
               value={relocateData.address}
               onChange={(e) => setRelocateData({ ...relocateData, address: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
             />
             <input
               type="text"
-              placeholder="City"
+              placeholder={t('machines', 'city')}
               value={relocateData.city}
               onChange={(e) => setRelocateData({ ...relocateData, city: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
             />
             <input
               type="text"
-              placeholder="Province"
+              placeholder={t('machines', 'province')}
               value={relocateData.province}
               onChange={(e) => setRelocateData({ ...relocateData, province: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
             />
             <input
               type="text"
-              placeholder="Postal Code"
+              placeholder={t('machines', 'postalCode')}
               value={relocateData.postalCode}
               onChange={(e) => setRelocateData({ ...relocateData, postalCode: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
@@ -617,13 +627,13 @@ function DetailPanel({
                 }}
                 className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
               >
-                Confirm
+                {t('common', 'confirm')}
               </button>
               <button
                 onClick={() => setShowRelocateForm(false)}
                 className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-300"
               >
-                Cancel
+                {t('common', 'cancel')}
               </button>
             </div>
           </div>
@@ -632,13 +642,13 @@ function DetailPanel({
         {/* Reassign Form */}
         {showReassignForm && (
           <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-            <h4 className="font-semibold text-gray-900 text-sm">Select New Client</h4>
+            <h4 className="font-semibold text-gray-900 text-sm">{t('machines', 'selectNewClient')}</h4>
             <select
               value={selectedClientId}
               onChange={(e) => setSelectedClientId(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Choose a client...</option>
+              <option value="">{t('machines', 'chooseClient')}</option>
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.displayName} ({c.companyName})
@@ -656,13 +666,13 @@ function DetailPanel({
                 disabled={!selectedClientId}
                 className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                Confirm
+                {t('common', 'confirm')}
               </button>
               <button
                 onClick={() => setShowReassignForm(false)}
                 className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-300"
               >
-                Cancel
+                {t('common', 'cancel')}
               </button>
             </div>
           </div>
@@ -671,7 +681,7 @@ function DetailPanel({
         {/* Events */}
         {machine.recentEvents.length > 0 && (
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">Event History</h3>
+            <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'eventHistory')}</h3>
             <div className="space-y-3">
               {machine.recentEvents.map((event) => (
                 <div key={event.id} className="flex gap-3">
@@ -698,7 +708,7 @@ function DetailPanel({
         {/* Jobs */}
         {machine.jobs.length > 0 && (
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">Linked Stations</h3>
+            <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'linkedStations')}</h3>
             <div className="space-y-2">
               {machine.jobs.map((job) => (
                 <div key={job.id} className="p-2 bg-gray-50 rounded text-sm">
@@ -718,14 +728,14 @@ function DetailPanel({
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-            Edit
+            {t('common', 'edit')}
           </button>
           <button
             onClick={() => onDelete(machine.id)}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition text-sm font-medium"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-            Delete
+            {t('common', 'delete')}
           </button>
         </div>
       </div>
@@ -742,6 +752,7 @@ function NewMachineModal({
   onSuccess: () => void;
   clients: ManagedClient[];
 }) {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     type: 'robot' as 'robot' | 'laser',
     serialNumber: '',
@@ -796,7 +807,7 @@ function NewMachineModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900">New Machine</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('machines', 'newMachine')}</h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 text-2xl"
@@ -808,7 +819,7 @@ function NewMachineModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Type Selection */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-3">Machine Type</label>
+            <label className="block text-sm font-semibold text-gray-900 mb-3">{t('stations', 'machineType')}</label>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -819,7 +830,7 @@ function NewMachineModal({
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as 'robot' | 'laser' })}
                   className="w-4 h-4"
                 />
-                <span className="text-gray-700">Robot</span>
+                <span className="text-gray-700">{t('machines', 'robots')}</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -830,7 +841,7 @@ function NewMachineModal({
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as 'robot' | 'laser' })}
                   className="w-4 h-4"
                 />
-                <span className="text-gray-700">Laser</span>
+                <span className="text-gray-700">{t('machines', 'lasers')}</span>
               </label>
             </div>
           </div>
@@ -838,7 +849,7 @@ function NewMachineModal({
           {/* Basic Info */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">Serial Number *</label>
+              <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'serialNumberRequired')}</label>
               <input
                 type="text"
                 required
@@ -849,7 +860,7 @@ function NewMachineModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">Model *</label>
+              <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'modelRequired')}</label>
               <input
                 type="text"
                 required
@@ -863,7 +874,7 @@ function NewMachineModal({
 
           {/* Nickname */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">Nickname (Optional)</label>
+            <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'nickname')}</label>
             <input
               type="text"
               value={formData.nickname}
@@ -875,7 +886,7 @@ function NewMachineModal({
 
           {/* IP Address */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">IP Address (Optional)</label>
+            <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'ipAddress')}</label>
             <input
               type="text"
               value={formData.ipAddress}
@@ -887,13 +898,13 @@ function NewMachineModal({
 
           {/* Client */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">Client (Optional)</label>
+            <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'clientOptional')}</label>
             <select
               value={formData.clientId}
               onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">Unassigned</option>
+              <option value="">{t('machines', 'unassigned')}</option>
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.displayName} ({c.companyName})
@@ -904,7 +915,7 @@ function NewMachineModal({
 
           {/* Address Fields */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">Address (Optional)</label>
+            <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'address')}</label>
             <input
               type="text"
               value={formData.address}
@@ -916,7 +927,7 @@ function NewMachineModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">City (Optional)</label>
+              <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'city')}</label>
               <input
                 type="text"
                 value={formData.city}
@@ -926,7 +937,7 @@ function NewMachineModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">Province (Optional)</label>
+              <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'province')}</label>
               <input
                 type="text"
                 value={formData.province}
@@ -939,7 +950,7 @@ function NewMachineModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">Postal Code (Optional)</label>
+              <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'postalCode')}</label>
               <input
                 type="text"
                 value={formData.postalCode}
@@ -949,7 +960,7 @@ function NewMachineModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">Country (Optional)</label>
+              <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'country')}</label>
               <input
                 type="text"
                 value={formData.country}
@@ -967,14 +978,14 @@ function NewMachineModal({
               onClick={onClose}
               className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
             >
-              Cancel
+              {t('common', 'cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {loading ? 'Creating...' : 'Create Machine'}
+              {loading ? t('common', 'uploading') : t('machines', 'newMachine')}
             </button>
           </div>
         </form>

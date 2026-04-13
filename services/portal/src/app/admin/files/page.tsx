@@ -1,36 +1,39 @@
 'use client';
 
 import { mockFiles, mockVideos } from '@/lib/mock-data';
+import { useLanguage } from '@/lib/LanguageContext';
 
 export default function AdminFilesPage() {
+  const { t } = useLanguage();
+
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Files & Media</h1>
-          <p className="text-gray-500 mt-1">Manage files and videos shared with clients</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('files', 'title')}</h1>
+          <p className="text-gray-500 mt-1">{t('files', 'subtitle')}</p>
         </div>
         <button className="btn-primary flex items-center gap-2">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
           </svg>
-          Upload File
+          {t('files', 'uploadFile')}
         </button>
       </div>
 
       {/* Files Table */}
       <div className="card mb-6">
-        <h2 className="text-lg font-semibold mb-4">Documents</h2>
+        <h2 className="text-lg font-semibold mb-4">{t('files', 'documents')}</h2>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="border-b border-gray-200">
               <tr>
-                <th className="text-left pb-3 text-xs font-medium text-gray-500 uppercase">File Name</th>
-                <th className="text-left pb-3 text-xs font-medium text-gray-500 uppercase">Type</th>
-                <th className="text-left pb-3 text-xs font-medium text-gray-500 uppercase">Size</th>
-                <th className="text-left pb-3 text-xs font-medium text-gray-500 uppercase">Category</th>
-                <th className="text-left pb-3 text-xs font-medium text-gray-500 uppercase">Uploaded</th>
-                <th className="text-right pb-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="text-left pb-3 text-xs font-medium text-gray-500 uppercase">{t('files', 'fileName')}</th>
+                <th className="text-left pb-3 text-xs font-medium text-gray-500 uppercase">{t('common', 'type')}</th>
+                <th className="text-left pb-3 text-xs font-medium text-gray-500 uppercase">{t('common', 'size')}</th>
+                <th className="text-left pb-3 text-xs font-medium text-gray-500 uppercase">{t('files', 'category')}</th>
+                <th className="text-left pb-3 text-xs font-medium text-gray-500 uppercase">{t('files', 'uploaded')}</th>
+                <th className="text-right pb-3 text-xs font-medium text-gray-500 uppercase">{t('common', 'actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -51,8 +54,8 @@ export default function AdminFilesPage() {
                   </td>
                   <td className="py-3 text-sm text-gray-500">{file.uploadedAt}</td>
                   <td className="py-3 text-right">
-                    <button className="text-brand-600 hover:text-brand-700 text-sm font-medium mr-3">Edit</button>
-                    <button className="text-red-500 hover:text-red-600 text-sm font-medium">Delete</button>
+                    <button className="text-brand-600 hover:text-brand-700 text-sm font-medium mr-3">{t('common', 'edit')}</button>
+                    <button className="text-red-500 hover:text-red-600 text-sm font-medium">{t('common', 'delete')}</button>
                   </td>
                 </tr>
               ))}
@@ -63,7 +66,7 @@ export default function AdminFilesPage() {
 
       {/* Videos */}
       <div className="card">
-        <h2 className="text-lg font-semibold mb-4">Videos</h2>
+        <h2 className="text-lg font-semibold mb-4">{t('files', 'videos')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {mockVideos.map((video) => (
             <div key={video.id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">

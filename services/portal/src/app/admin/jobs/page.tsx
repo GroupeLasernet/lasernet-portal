@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useLanguage } from '@/lib/LanguageContext';
 
 const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onConfirm: () => void; onCancel: () => void; label?: string }) => {
+  const { t } = useLanguage();
   const [holding, setHolding] = useState(false);
   const [progress, setProgress] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -35,7 +37,7 @@ const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onCon
       <div className="bg-white rounded-xl shadow-xl p-5 max-w-xs w-full text-center">
         <p className="text-sm font-medium text-gray-800 mb-4">{label}</p>
         <div className="flex gap-3">
-          <button onClick={onCancel} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition">No</button>
+          <button onClick={onCancel} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition">{t('common', 'no')}</button>
           <button
             onMouseDown={startHold}
             onMouseUp={cancelHold}
@@ -45,7 +47,7 @@ const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onCon
             className="flex-1 px-4 py-2 bg-red-400 text-white rounded-lg text-sm font-medium transition relative overflow-hidden"
           >
             <div className="absolute inset-0 bg-red-600 transition-none" style={{ width: `${progress * 100}%` }} />
-            <span className="relative">{holding ? 'Hold...' : 'Yes (hold 2s)'}</span>
+            <span className="relative">{holding ? t('common', 'holding') : t('common', 'holdConfirm')}</span>
           </button>
         </div>
       </div>
@@ -54,6 +56,7 @@ const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onCon
 };
 
 const HoldToSaveButton = ({ onSave }: { onSave: () => void }) => {
+  const { t } = useLanguage();
   const [holding, setHolding] = useState(false);
   const [progress, setProgress] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -99,7 +102,7 @@ const HoldToSaveButton = ({ onSave }: { onSave: () => void }) => {
       className={`px-3 py-1.5 ${saved ? 'bg-green-700' : 'bg-green-500'} text-white text-xs rounded-lg font-medium transition relative overflow-hidden whitespace-nowrap`}
     >
       <div className="absolute inset-0 bg-green-700 transition-none" style={{ width: `${progress * 100}%` }} />
-      <span className="relative">{saved ? 'Saved!' : holding ? 'Hold...' : 'Save (hold 2s)'}</span>
+      <span className="relative">{saved ? t('common', 'saved') : holding ? t('common', 'holding') : `${t('common', 'save')} (hold 2s)`}</span>
     </button>
   );
 };
@@ -170,6 +173,7 @@ const MachineItems = ({ editingJob, setEditingJob, handleUpdateJob }: {
   setEditingJob: (job: Job) => void;
   handleUpdateJob: (updates: Partial<Job>) => Promise<void>;
 }) => {
+  const { t } = useLanguage();
   let meta: Record<string, unknown> = {};
   try { meta = JSON.parse(editingJob.notes || '{}'); } catch { /* not JSON */ }
   const items: { description: string; quantity: number; model?: string; sourceInvoiceNumber?: string }[] = (meta.items as { description: string; quantity: number; model?: string; sourceInvoiceNumber?: string }[]) || [];
@@ -190,7 +194,7 @@ const MachineItems = ({ editingJob, setEditingJob, handleUpdateJob }: {
   }, [editingJob.id]);
 
   if (items.length === 0) {
-    return <p className="text-sm text-gray-500">No machines (no invoice items linked)</p>;
+    return <p className="text-sm text-gray-500">{t('stations', 'noMachines')}</p>;
   }
 
   const saveMachineField = (index: number, field: string, value: string) => {
@@ -245,27 +249,27 @@ const MachineItems = ({ editingJob, setEditingJob, handleUpdateJob }: {
 
             {/* Machine Type Dropdown */}
             <div className="mb-3">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Machine Type</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t('stations', 'machineType')}</label>
               <select
                 value={md.machineType || ''}
                 onChange={(e) => saveMachineField(i, 'machineType', e.target.value)}
                 className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="">Select type...</option>
-                <option value="cobot">Cobot</option>
-                <option value="laser">Laser Machine</option>
+                <option value="">{t('stations', 'selectType')}</option>
+                <option value="cobot">{t('stations', 'cobot')}</option>
+                <option value="laser">{t('stations', 'laserMachine')}</option>
               </select>
             </div>
 
             {/* Serial Number with Hold-to-Save */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Serial Number</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t('stations', 'serialNumber')}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={serialInputs[i] || ''}
                   onChange={(e) => setSerialInputs(prev => ({ ...prev, [i]: e.target.value }))}
-                  placeholder="Enter serial number..."
+                  placeholder={t('stations', 'enterSerial')}
                   className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <HoldToSaveButton
@@ -278,7 +282,7 @@ const MachineItems = ({ editingJob, setEditingJob, handleUpdateJob }: {
               {md.serialNumber && (
                 <div className="mt-1 text-xs text-green-600 flex items-center gap-1">
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  Saved: {md.serialNumber}
+                  {t('common', 'save')}: {md.serialNumber}
                 </div>
               )}
             </div>
@@ -304,6 +308,7 @@ interface QBInvoice {
 }
 
 export default function AdminJobsPage() {
+  const { t } = useLanguage();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -401,7 +406,7 @@ export default function AdminJobsPage() {
   const handleCreateJob = async () => {
     try {
       if (!newJobForm.clientId || !newJobForm.title.trim()) {
-        setError('Client and title are required');
+        setError(t('stations', 'clientRequired'));
         return;
       }
 
@@ -561,15 +566,15 @@ export default function AdminJobsPage() {
       const items = meta.items || [];
       const machineData: { serialNumber?: string; machineType?: string }[] = meta.machineData || [];
 
-      if (items.length === 0) return 'No machines';
+      if (items.length === 0) return t('stations', 'noMachines');
 
       const cobots = machineData.filter(md => md?.machineType === 'cobot').length;
       const lasers = machineData.filter(md => md?.machineType === 'laser').length;
       const untyped = items.length - cobots - lasers;
 
       const parts = [];
-      if (cobots > 0) parts.push(`${cobots} cobot${cobots !== 1 ? 's' : ''}`);
-      if (lasers > 0) parts.push(`${lasers} laser${lasers !== 1 ? 's' : ''}`);
+      if (cobots > 0) parts.push(`${cobots} ${t('stations', 'cobot')}${cobots !== 1 ? 's' : ''}`);
+      if (lasers > 0) parts.push(`${lasers} ${t('stations', 'laserMachine')}${lasers !== 1 ? 's' : ''}`);
       if (untyped > 0) parts.push(`${untyped} unassigned`);
 
       // Show serial numbers if any
@@ -580,7 +585,7 @@ export default function AdminJobsPage() {
 
       return parts.length > 0 ? parts.join(', ') : `${items.length} machine${items.length !== 1 ? 's' : ''}`;
     } catch {
-      return 'No machines';
+      return t('stations', 'noMachines');
     }
   };
 
@@ -630,12 +635,12 @@ export default function AdminJobsPage() {
       <div className="w-80 border-r border-gray-200 bg-white flex flex-col">
         {/* Header with Search */}
         <div className="border-b border-gray-200 p-4">
-          <h1 className="text-xl font-bold text-gray-900 mb-3">Stations</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-3">{t('stations', 'title')}</h1>
           <div className="relative">
             <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             <input
               type="text"
-              placeholder="Search by business name..."
+              placeholder={t('stations', 'searchStations')}
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -659,7 +664,7 @@ export default function AdminJobsPage() {
             </div>
           ) : filteredJobs.length === 0 ? (
             <div className="p-4 text-center text-gray-500">
-              <p className="text-sm">{searchFilter ? 'No stations match your search' : 'No stations yet'}</p>
+              <p className="text-sm">{searchFilter ? t('stations', 'noStationsMatch') : t('stations', 'noStationsYet')}</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
@@ -710,13 +715,13 @@ export default function AdminJobsPage() {
           <div className="p-6 max-w-4xl">
             {/* Job Info Section */}
             <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Station Info</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-4">{t('stations', 'stationInfo')}</h2>
 
               <div className="space-y-4">
                 {/* Title */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Station Name
+                    {t('stations', 'stationNameLabel')}
                   </label>
                   <input
                     type="text"
@@ -735,7 +740,7 @@ export default function AdminJobsPage() {
                 {/* Status */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
+                    {t('stations', 'statusLabel')}
                   </label>
                   <select
                     value={editingJob.status}
@@ -751,17 +756,17 @@ export default function AdminJobsPage() {
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="not_configured">Not fully configured</option>
-                    <option value="waiting_pairing">Configured / Waiting for first pairing</option>
-                    <option value="in_trouble">In trouble</option>
-                    <option value="active">Working / Active</option>
+                    <option value="not_configured">{t('stations', 'notConfigured')}</option>
+                    <option value="waiting_pairing">{t('stations', 'waitingPairing')}</option>
+                    <option value="in_trouble">{t('stations', 'inTrouble')}</option>
+                    <option value="active">{t('stations', 'active')}</option>
                   </select>
                 </div>
 
                 {/* Client */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Client
+                    {t('stations', 'clientLabel')}
                   </label>
                   <div className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
                     {editingJob.client.displayName}
@@ -771,7 +776,7 @@ export default function AdminJobsPage() {
                 {/* Description */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
+                    {t('stations', 'descriptionLabel')}
                   </label>
                   <textarea
                     value={(() => { try { const m = JSON.parse(editingJob.notes || '{}'); return m.description || ''; } catch { return editingJob.notes || ''; } })()}
@@ -785,7 +790,7 @@ export default function AdminJobsPage() {
                     onBlur={() =>
                       handleUpdateJob({ notes: editingJob.notes })
                     }
-                    placeholder="Add a description for this station..."
+                    placeholder={`${t('stations', 'descriptionLabel')}...`}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                   />
@@ -804,7 +809,7 @@ export default function AdminJobsPage() {
                       return (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Linked Invoice{invoices.length > 1 ? 's' : ''}
+                            {invoices.length > 1 ? t('stations', 'linkedInvoices') : t('stations', 'linkInvoice')}
                           </label>
                           <div className="space-y-1">
                             {invoices.map((inv, idx) => (
@@ -824,7 +829,7 @@ export default function AdminJobsPage() {
 
             {/* Machines Section (from invoice items) */}
             <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Machines</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-4">{t('stations', 'machinesSection')}</h2>
 
               <MachineItems editingJob={editingJob} setEditingJob={setEditingJob} handleUpdateJob={handleUpdateJob} />
             </div>
@@ -832,11 +837,11 @@ export default function AdminJobsPage() {
             {/* Robot Status Section */}
             <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">
-                Robot Status
+                {t('stations', 'robotStatus')}
               </h2>
 
               {editingJob.robotPrograms.length === 0 ? (
-                <p className="text-sm text-gray-500">No robot status entries</p>
+                <p className="text-sm text-gray-500">{t('stations', 'noRobotStatus')}</p>
               ) : (
                 <div className="space-y-2">
                   {editingJob.robotPrograms.map((program) => (
@@ -866,11 +871,11 @@ export default function AdminJobsPage() {
             {/* Laser Status Section */}
             <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">
-                Laser Status
+                {t('stations', 'laserStatus')}
               </h2>
 
               {editingJob.laserPresets.length === 0 ? (
-                <p className="text-sm text-gray-500">No laser status entries</p>
+                <p className="text-sm text-gray-500">{t('stations', 'noLaserStatus')}</p>
               ) : (
                 <div className="space-y-2">
                   {editingJob.laserPresets.map((preset) => (
@@ -904,14 +909,14 @@ export default function AdminJobsPage() {
                 className="px-3 py-1.5 bg-red-400 text-white text-xs rounded-lg hover:bg-red-500 transition flex items-center gap-1.5"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                Delete
+                {t('common', 'delete')}
               </button>
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <p className="text-gray-500">Select a station to view details</p>
+              <p className="text-gray-500">{t('stations', 'selectStation')}</p>
             </div>
           </div>
         )}
@@ -922,7 +927,7 @@ export default function AdminJobsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">New Station</h2>
+              <h2 className="text-lg font-bold text-gray-900">{t('stations', 'newStation')}</h2>
               <button
                 onClick={() => setShowNewJobModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -935,7 +940,7 @@ export default function AdminJobsPage() {
               {/* Client */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Client *
+                  {t('stations', 'clientLabel')} *
                 </label>
                 <select
                   value={newJobForm.clientId}
@@ -944,7 +949,7 @@ export default function AdminJobsPage() {
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="">Select a client</option>
+                  <option value="">{t('stations', 'selectClient')}</option>
                   {clients.map((client) => (
                     <option key={client.id} value={client.id}>
                       {client.qbClient.displayName}
@@ -956,7 +961,7 @@ export default function AdminJobsPage() {
               {/* Title */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Title *
+                  {t('stations', 'titleRequired')}
                 </label>
                 <input
                   type="text"
@@ -972,14 +977,14 @@ export default function AdminJobsPage() {
               {/* Notes */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes
+                  {t('stations', 'notes')}
                 </label>
                 <textarea
                   value={newJobForm.notes}
                   onChange={(e) =>
                     setNewJobForm({ ...newJobForm, notes: e.target.value })
                   }
-                  placeholder="Optional notes"
+                  placeholder={`${t('common', 'optional')} ${t('stations', 'notes').toLowerCase()}`}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                 />
@@ -991,13 +996,13 @@ export default function AdminJobsPage() {
                 onClick={() => setShowNewJobModal(false)}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
               >
-                Cancel
+                {t('common', 'cancel')}
               </button>
               <button
                 onClick={handleCreateJob}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
               >
-                Create Station
+                {t('stations', 'createNewStation')}
               </button>
             </div>
           </div>
@@ -1007,7 +1012,7 @@ export default function AdminJobsPage() {
       {/* Delete Confirmation */}
       {confirmDeleteId && (
         <HoldToConfirm
-          label="Delete this station?"
+          label={t('stations', 'deleteStationConfirm')}
           onConfirm={() => { handleDeleteJob(); setConfirmDeleteId(null); }}
           onCancel={() => setConfirmDeleteId(null)}
         />
@@ -1018,7 +1023,7 @@ export default function AdminJobsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">Add Machine</h2>
+              <h2 className="text-lg font-bold text-gray-900">{t('stations', 'addMachine')}</h2>
               <button
                 onClick={() => setShowAddMachineModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -1030,7 +1035,7 @@ export default function AdminJobsPage() {
             <div className="max-h-96 overflow-y-auto mb-6">
               {getAvailableMachines().length === 0 ? (
                 <p className="text-sm text-gray-500">
-                  All machines are already assigned
+                  {t('stations', 'noMachinesAvailable')}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -1067,7 +1072,7 @@ export default function AdminJobsPage() {
               onClick={() => setShowAddMachineModal(false)}
               className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
             >
-              Close
+              {t('common', 'close')}
             </button>
           </div>
         </div>
@@ -1078,7 +1083,7 @@ export default function AdminJobsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">Link Invoice</h2>
+              <h2 className="text-lg font-bold text-gray-900">{t('stations', 'linkInvoice')}</h2>
               <button
                 onClick={() => setShowLinkInvoiceModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -1089,7 +1094,7 @@ export default function AdminJobsPage() {
 
             <div className="max-h-96 overflow-y-auto mb-6">
               {getAvailableInvoices().length === 0 ? (
-                <p className="text-sm text-gray-500">No available invoices</p>
+                <p className="text-sm text-gray-500">{t('stations', 'noInvoicesAvailable')}</p>
               ) : (
                 <div className="space-y-2">
                   {getAvailableInvoices().map((invoice) => (
@@ -1121,7 +1126,7 @@ export default function AdminJobsPage() {
               onClick={() => setShowLinkInvoiceModal(false)}
               className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
             >
-              Close
+              {t('common', 'close')}
             </button>
           </div>
         </div>

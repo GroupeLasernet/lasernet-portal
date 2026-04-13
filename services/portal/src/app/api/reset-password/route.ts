@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SignJWT, jwtVerify } from 'jose';
 import { getUserByEmail, updateUser } from '@/lib/users';
+import prisma from '@/lib/prisma';
+import { t as translate, Language } from '@/lib/translations';
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'lasernet-secret-change-this-in-production'
@@ -124,6 +126,13 @@ async function sendResetEmail(
   }
 
   try {
+    // Look up recipient's language preference
+    const user = await prisma.user.findFirst({
+      where: { email },
+      select: { language: true },
+    });
+    const lang = (user?.language as Language) || 'fr';
+
     const nodemailer = await import('nodemailer');
 
     const transporter = nodemailer.default.createTransport({
@@ -137,6 +146,11 @@ async function sendResetEmail(
     const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
+
+    const subject = translate('emails', 'resetSubject', lang);
+    const greeting = translate('emails', 'resetGreeting', lang);
+    const body = translate('emails', 'resetBody', lang);
+    const buttonText = translate('emails', 'resetButton', lang);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -157,26 +171,24 @@ async function sendResetEmail(
 <body>
   <div class="container">
     <div class="header">
-      <h1>Password Reset</h1>
+      <h1>${subject}</h1>
     </div>
 
     <div class="content">
-      <p>Hi <strong>${escapeHtml(name)}</strong>,</p>
+      <p>${greeting} <strong>${escapeHtml(name)}</strong>,</p>
 
-      <p>We received a request to reset your password for the <strong>LaserNet Portal</strong>.</p>
-
-      <p>Click the button below to set a new password:</p>
+      <p>${body}</p>
 
       <div style="text-align: center;">
-        <a href="${resetUrl}" class="cta-button" style="background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%); color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;"><span style="color: #ffffff !important;">Reset My Password</span></a>
+        <a href="${resetUrl}" class="cta-button" style="background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%); color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;"><span style="color: #ffffff !important;">${buttonText}</span></a>
       </div>
 
       <div class="warning-box">
-        <strong>This link expires in 1 hour.</strong><br>
-        If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
+        <strong>${lang === 'fr' ? 'Ce lien expire dans 1 heure.' : 'This link expires in 1 hour.'}</strong><br>
+        ${lang === 'fr' ? 'Si vous n\'avez pas demandé une réinitialisation de mot de passe, vous pouvez ignorer cet e-mail en toute sécurité. Votre mot de passe restera inchangé.' : 'If you didn\'t request a password reset, you can safely ignore this email. Your password will remain unchanged.'}
       </div>
 
-      <p style="font-size: 12px; color: #999;">If the button doesn't work, copy and paste this URL into your browser:</p>
+      <p style="font-size: 12px; color: #999;">${lang === 'fr' ? 'Si le bouton ne fonctionne pas, copiez et collez cette URL dans votre navigateur :' : 'If the button doesn\'t work, copy and paste this URL into your browser:'}</p>
       <p style="font-size: 11px; color: #666; word-break: break-all;">${resetUrl}</p>
     </div>
 
@@ -191,7 +203,7 @@ async function sendResetEmail(
     await transporter.sendMail({
       from: gmailUser,
       to: email,
-      subject: 'Reset Your Password - LaserNet Portal',
+      subject,
       html: htmlContent,
     });
 

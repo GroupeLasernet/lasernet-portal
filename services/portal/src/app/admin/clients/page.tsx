@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { type QBClient, type ManagedClient, type ContactPerson } from '@/lib/mock-data';
+import { useLanguage } from '@/lib/LanguageContext';
 import Avatar from '@/components/Avatar';
 import StreetView from '@/components/StreetView';
 
@@ -15,6 +16,7 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
 );
 
 const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onConfirm: () => void; onCancel: () => void; label?: string }) => {
+  const { t } = useLanguage();
   const [holding, setHolding] = useState(false);
   const [progress, setProgress] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -47,7 +49,7 @@ const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onCon
       <div className="bg-white rounded-xl shadow-xl p-5 max-w-xs w-full text-center">
         <p className="text-sm font-medium text-gray-800 mb-4">{label}</p>
         <div className="flex gap-3">
-          <button onClick={onCancel} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition">No</button>
+          <button onClick={onCancel} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition">{t('common', 'no')}</button>
           <button
             onMouseDown={startHold}
             onMouseUp={cancelHold}
@@ -57,7 +59,7 @@ const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onCon
             className="flex-1 px-4 py-2 bg-red-400 text-white rounded-lg text-sm font-medium transition relative overflow-hidden"
           >
             <div className="absolute inset-0 bg-red-600 transition-none" style={{ width: `${progress * 100}%` }} />
-            <span className="relative">{holding ? 'Hold...' : 'Yes (hold 2s)'}</span>
+            <span className="relative">{holding ? t('common', 'holding') : t('common', 'holdConfirm')}</span>
           </button>
         </div>
       </div>
@@ -90,6 +92,7 @@ interface Station {
 }
 
 export default function AdminClientsPage() {
+  const { t } = useLanguage();
   const [qbClients, setQbClients] = useState<QBClient[]>([]);
   const [qbSearch, setQbSearch] = useState('');
   const [qbConnected, setQbConnected] = useState(false);
@@ -176,7 +179,7 @@ export default function AdminClientsPage() {
         body: JSON.stringify({ email, name }),
       });
       const data = await response.json();
-      setResetMessage(data.emailSent ? `Reset email sent to ${email}` : (data.message || 'Reset link generated (email not configured)'));
+      setResetMessage(data.emailSent ? `${t('clients', 'resetSent')} ${email}` : (data.message || 'Reset link generated (email not configured)'));
       setResetLockouts((prev) => ({ ...prev, [email]: Date.now() + 120000 }));
     } catch { setResetMessage('Failed to send reset email'); }
     setResetSending(false);
@@ -647,8 +650,8 @@ export default function AdminClientsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
-        <p className="text-gray-500 mt-1">Import clients from QuickBooks and manage their contacts</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('clients', 'title')}</h1>
+        <p className="text-gray-500 mt-1">{t('clients', 'subtitle')}</p>
       </div>
 
       <div className="flex gap-6 h-[calc(100vh-180px)]">
@@ -664,17 +667,17 @@ export default function AdminClientsPage() {
                   <div className={`w-6 h-6 ${qbConnected && dataSource === 'quickbooks' ? 'bg-green-100' : 'bg-yellow-100'} rounded flex items-center justify-center`}>
                     <span className={`${qbConnected && dataSource === 'quickbooks' ? 'text-green-600' : 'text-yellow-600'} text-xs font-bold`}>QB</span>
                   </div>
-                  <h2 className="font-semibold text-sm">QuickBooks Clients</h2>
+                  <h2 className="font-semibold text-sm">{t('clients', 'qbClients')}</h2>
                 </div>
                 {(!qbConnected || (qbConnected && dataSource === 'mock')) && !qbLoading && (
                   <button onClick={handleConnectQB} className="text-[10px] bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded transition-colors">
-                    {qbConnected && dataSource === 'mock' ? 'Reconnect' : 'Connect'}
+                    {qbConnected && dataSource === 'mock' ? t('clients', 'reconnect') : t('clients', 'connect')}
                   </button>
                 )}
               </div>
               {!credentialsConfigured && (
                 <p className="text-[10px] text-red-600 bg-red-50 px-2 py-1 rounded mb-2">
-                  QuickBooks credentials are missing. Add QUICKBOOKS_CLIENT_ID and QUICKBOOKS_CLIENT_SECRET in Vercel, then redeploy.
+                  {t('clients', 'credentialsMissing')}
                 </p>
               )}
               {connectError && (
@@ -682,15 +685,15 @@ export default function AdminClientsPage() {
               )}
               {dataSource === 'mock' && credentialsConfigured && (
                 <p className="text-[10px] text-yellow-600 bg-yellow-50 px-2 py-1 rounded mb-2">
-                  {qbConnected ? 'QuickBooks session expired \u2014 click Reconnect' : 'Showing demo data \u2014 connect QuickBooks for real clients'}
+                  {qbConnected ? t('clients', 'sessionExpired') : t('clients', 'demoData')}
                 </p>
               )}
               {dataSource === 'quickbooks' && (
-                <p className="text-[10px] text-green-600 bg-green-50 px-2 py-1 rounded mb-2">Connected \u2014 showing live QuickBooks data</p>
+                <p className="text-[10px] text-green-600 bg-green-50 px-2 py-1 rounded mb-2">{t('clients', 'connected')}</p>
               )}
               <input
                 type="text"
-                placeholder="Search QuickBooks clients..."
+                placeholder={t('clients', 'searchQB')}
                 value={qbSearch}
                 onChange={(e) => setQbSearch(e.target.value)}
                 className="input-field text-sm !py-2"
@@ -710,11 +713,11 @@ export default function AdminClientsPage() {
                           <p className="text-xs text-gray-500 truncate">{client.companyName}</p>
                         </div>
                       </div>
-                      <button onClick={() => handleAddClient(client)} className="flex-shrink-0 ml-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">Add</button>
+                      <button onClick={() => handleAddClient(client)} className="flex-shrink-0 ml-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">{t('common', 'add')}</button>
                     </div>
                   ))
                 ) : (
-                  <div className="p-3 text-center text-sm text-gray-400">No matching clients</div>
+                  <div className="p-3 text-center text-sm text-gray-400">{t('clients', 'noMatchingClients')}</div>
                 )}
               </div>
             )}
@@ -727,7 +730,7 @@ export default function AdminClientsPage() {
                 <svg className="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
-                Enrolment
+                {t('clients', 'enrolment')}
               </h2>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -760,14 +763,14 @@ export default function AdminClientsPage() {
                   <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  <p className="text-sm text-gray-400">No clients enrolled yet</p>
-                  <p className="text-xs text-gray-400 mt-1">Search QuickBooks above to add clients</p>
+                  <p className="text-sm text-gray-400">{t('clients', 'noClientsEnrolled')}</p>
+                  <p className="text-xs text-gray-400 mt-1">{t('clients', 'searchQBAbove')}</p>
                 </div>
               )}
             </div>
             <div className="p-3 border-t border-gray-100 bg-gray-50">
               <p className="text-xs text-gray-500 text-center">
-                {managedClients.length} client{managedClients.length !== 1 ? 's' : ''} enrolled
+                {managedClients.length} {t('clients', 'clientsEnrolled')}
               </p>
             </div>
           </div>
@@ -797,7 +800,7 @@ export default function AdminClientsPage() {
                         </p>
                       </div>
                     </div>
-                    <button onClick={() => setConfirmDelete({ type: 'client', id: selectedClient.id, label: 'Remove this client?' })} className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">Remove</button>
+                    <button onClick={() => setConfirmDelete({ type: 'client', id: selectedClient.id, label: t('clients', 'removeClient') })} className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">{t('common', 'remove')}</button>
                   </div>
                 </div>
 
@@ -810,7 +813,7 @@ export default function AdminClientsPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      <span className="text-sm font-medium text-gray-700">Street View</span>
+                      <span className="text-sm font-medium text-gray-700">{t('clients', 'streetView')}</span>
                     </button>
                     {streetViewOpen && (
                       <div className="px-5 pb-4">
@@ -828,10 +831,10 @@ export default function AdminClientsPage() {
                       <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                       </svg>
-                      <span className="text-sm font-semibold text-gray-900">Main Contact</span>
+                      <span className="text-sm font-semibold text-gray-900">{t('clients', 'mainContact')}</span>
                     </button>
                     {!selectedClient.responsiblePerson && mainContactOpen && (
-                      <button onClick={() => openContactForm('responsible')} className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ Set Main Contact</button>
+                      <button onClick={() => openContactForm('responsible')} className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ {t('clients', 'setMainContact')}</button>
                     )}
                   </div>
                   {mainContactOpen && (
@@ -849,7 +852,7 @@ export default function AdminClientsPage() {
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="w-14 flex flex-col items-center gap-1">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">Training</span>
+                              <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">{t('clients', 'trainingCol')}</span>
                               {selectedClient.responsiblePerson.trainingCompleted ? (
                                 <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                               ) : (
@@ -857,7 +860,7 @@ export default function AdminClientsPage() {
                               )}
                             </div>
                             <div className="w-14 flex flex-col items-center gap-1">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">Booklet</span>
+                              <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">{t('clients', 'bookletCol')}</span>
                               {selectedClient.responsiblePerson.trainingPhoto ? (
                                 <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                               ) : (
@@ -866,12 +869,12 @@ export default function AdminClientsPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
-                            <button onClick={() => openEditForm('responsible', selectedClient.responsiblePerson!)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title="Edit"><EditIcon /></button>
-                            <button onClick={() => setConfirmDelete({ type: 'responsible', id: selectedClient.id, label: 'Remove the main contact?' })} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title="Remove"><TrashIcon /></button>
+                            <button onClick={() => openEditForm('responsible', selectedClient.responsiblePerson!)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'edit')}><EditIcon /></button>
+                            <button onClick={() => setConfirmDelete({ type: 'responsible', id: selectedClient.id, label: t('clients', 'removeMainContact') })} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'remove')}><TrashIcon /></button>
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-gray-400 italic">No main contact assigned yet</p>
+                        <p className="text-sm text-gray-400 italic">{t('clients', 'noMainContact')}</p>
                       )}
                     </div>
                   )}
@@ -885,11 +888,11 @@ export default function AdminClientsPage() {
                       <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      <span className="text-sm font-semibold text-gray-900">Staff</span>
+                      <span className="text-sm font-semibold text-gray-900">{t('clients', 'staff')}</span>
                       {selectedClient.subEmployees.length > 0 && <span className="text-xs text-gray-400 ml-1">({selectedClient.subEmployees.length})</span>}
                     </button>
                     {staffOpen && (
-                      <button onClick={() => openContactForm('employee')} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ Add Staff</button>
+                      <button onClick={() => openContactForm('employee')} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ {t('clients', 'addStaff')}</button>
                     )}
                   </div>
                   {staffOpen && (
@@ -908,7 +911,7 @@ export default function AdminClientsPage() {
                               </div>
                               <div className="flex items-center gap-3">
                                 <div className="w-14 flex flex-col items-center gap-1">
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">Training</span>
+                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">{t('clients', 'trainingCol')}</span>
                                   {emp.trainingCompleted ? (
                                     <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                   ) : (
@@ -916,7 +919,7 @@ export default function AdminClientsPage() {
                                   )}
                                 </div>
                                 <div className="w-14 flex flex-col items-center gap-1">
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">Booklet</span>
+                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">{t('clients', 'bookletCol')}</span>
                                   {emp.trainingPhoto ? (
                                     <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                   ) : (
@@ -925,14 +928,14 @@ export default function AdminClientsPage() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">
-                                <button onClick={() => openEditForm('employee', emp)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title="Edit"><EditIcon /></button>
-                                <button onClick={() => setConfirmDelete({ type: 'employee', id: selectedClient.id, id2: emp.id, label: 'Remove this staff member?' })} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title="Remove"><TrashIcon size="w-4 h-4" /></button>
+                                <button onClick={() => openEditForm('employee', emp)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'edit')}><EditIcon /></button>
+                                <button onClick={() => setConfirmDelete({ type: 'employee', id: selectedClient.id, id2: emp.id, label: t('clients', 'removeStaff') })} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'remove')}><TrashIcon size="w-4 h-4" /></button>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-gray-400 italic">No staff members added yet</p>
+                        <p className="text-sm text-gray-400 italic">{t('clients', 'noStaff')}</p>
                       )}
                     </div>
                   )}
@@ -947,12 +950,12 @@ export default function AdminClientsPage() {
                       <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      Invoices
+                      {t('clients', 'invoices')}
                       {clientInvoices.length > 0 && <span className="text-xs text-gray-400 font-normal">({clientInvoices.length})</span>}
                     </h3>
                     <div className="flex items-center gap-2">
-                      {invoicesSource === 'mock' && <span className="text-[10px] text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded">Demo data</span>}
-                      <span className="text-[10px] text-purple-500">Click an invoice to create Stations</span>
+                      {invoicesSource === 'mock' && <span className="text-[10px] text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded">{t('clients', 'demoData')}</span>}
+                      <span className="text-[10px] text-purple-500">{t('clients', 'clickInvoice')}</span>
                     </div>
                   </div>
                 </div>
@@ -960,15 +963,15 @@ export default function AdminClientsPage() {
                   {invoicesLoading ? (
                     <div className="p-6 text-center">
                       <div className="animate-spin w-6 h-6 border-2 border-purple-200 border-t-purple-600 rounded-full mx-auto mb-2"></div>
-                      <p className="text-sm text-gray-400">Loading invoices...</p>
+                      <p className="text-sm text-gray-400">{t('clients', 'loadingInvoices')}</p>
                     </div>
                   ) : clientInvoices.length > 0 ? (
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-100 text-left">
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Items</th>
+                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('clients', 'invoiceNumber')}</th>
+                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common', 'date')}</th>
+                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">{t('clients', 'items')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -986,13 +989,13 @@ export default function AdminClientsPage() {
                       <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      <p className="text-sm text-gray-400">No invoices found for this client</p>
+                      <p className="text-sm text-gray-400">{t('clients', 'noInvoices')}</p>
                     </div>
                   )}
                 </div>
                 {clientInvoices.length > 0 && (
                   <div className="p-3 border-t border-gray-100 bg-gray-50">
-                    <p className="text-xs text-gray-500 text-center">{clientInvoices.length} invoice{clientInvoices.length !== 1 ? 's' : ''}</p>
+                    <p className="text-xs text-gray-500 text-center">{clientInvoices.length} {clientInvoices.length === 1 ? 'invoice' : 'invoices'}</p>
                   </div>
                 )}
               </div>
@@ -1005,7 +1008,7 @@ export default function AdminClientsPage() {
                       <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                       </svg>
-                      Stations
+                      {t('clients', 'stationsSection')}
                       {clientStations.length > 0 && <span className="text-xs text-gray-400 font-normal">({clientStations.length})</span>}
                     </h3>
                     <ChevronIcon open={stationsOpen} />
@@ -1045,12 +1048,12 @@ export default function AdminClientsPage() {
                                     {stationStatusLabel(station.status)}
                                   </span>
                                 </div>
-                                <p className="text-xs text-gray-400 mt-0.5">From invoice {station.invoiceNumber} — {formatDate(station.createdAt)}</p>
+                                <p className="text-xs text-gray-400 mt-0.5">{t('clients', 'fromInvoice')} {station.invoiceNumber} — {formatDate(station.createdAt)}</p>
                                 {station.description && (
                                   <p className="text-xs text-gray-500 mt-1">{station.description}</p>
                                 )}
                               </div>
-                              <button onClick={() => setConfirmDelete({ type: 'station', id: station.id, label: 'Delete this station?' })} className="text-gray-300 hover:text-red-500 transition-colors p-1 ml-3" title="Delete station">
+                              <button onClick={() => setConfirmDelete({ type: 'station', id: station.id, label: t('clients', 'deleteStation') })} className="text-gray-300 hover:text-red-500 transition-colors p-1 ml-3" title={t('common', 'delete')}>
                                 <TrashIcon size="w-4 h-4" />
                               </button>
                             </div>
@@ -1062,8 +1065,8 @@ export default function AdminClientsPage() {
                         <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                         </svg>
-                        <p className="text-sm text-gray-400">No stations created yet</p>
-                        <p className="text-xs text-gray-400 mt-1">Click an invoice above to select line items and create stations</p>
+                        <p className="text-sm text-gray-400">{t('clients', 'noStations')}</p>
+                        <p className="text-xs text-gray-400 mt-1">{t('clients', 'clickInvoiceStations')}</p>
                       </div>
                     )}
                   </div>
@@ -1080,7 +1083,7 @@ export default function AdminClientsPage() {
                         <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                         </svg>
-                        Training Agenda
+                        {t('clients', 'trainingAgenda')}
                         {clientTrainings.length > 0 && <span className="text-xs text-gray-400 font-normal">({clientTrainings.length})</span>}
                       </h3>
                     </button>
@@ -1090,7 +1093,7 @@ export default function AdminClientsPage() {
                         className="text-xs bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                        New Training
+                        {t('clients', 'newTraining')}
                       </button>
                     )}
                   </div>
@@ -1137,8 +1140,8 @@ export default function AdminClientsPage() {
                         <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                         </svg>
-                        <p className="text-sm text-gray-400">No trainings yet</p>
-                        <p className="text-xs text-gray-400 mt-1">Click + New Training to schedule one</p>
+                        <p className="text-sm text-gray-400">{t('clients', 'noTrainings')}</p>
+                        <p className="text-xs text-gray-400 mt-1">{t('clients', 'clickNewTraining')}</p>
                       </div>
                     )}
                   </div>
@@ -1151,7 +1154,7 @@ export default function AdminClientsPage() {
                 <svg className="w-16 h-16 text-gray-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                <p className="text-gray-400 text-sm">Select a client from Enrolment to manage</p>
+                <p className="text-gray-400 text-sm">{t('clients', 'selectClient')}</p>
               </div>
             </div>
           )}
@@ -1190,17 +1193,17 @@ export default function AdminClientsPage() {
             {/* Line Items */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="mb-3">
-                <h3 className="text-sm font-semibold text-gray-700">Line Items</h3>
-                <p className="text-xs text-gray-400 mt-1">Select the items you want to assign to a Station</p>
+                <h3 className="text-sm font-semibold text-gray-700">{t('clients', 'lineItems')}</h3>
+                <p className="text-xs text-gray-400 mt-1">{t('clients', 'selectItems')}</p>
               </div>
 
               {/* Column headers */}
               <div className="flex items-center gap-2 px-4 py-2 text-[10px] font-medium text-gray-400 uppercase tracking-wider border-b border-gray-100 mb-2">
                 <div className="w-6" />
-                <div className="w-24">Model</div>
-                <div className="flex-1">Description</div>
-                <div className="w-20 text-center">Stations Created</div>
-                <div className="w-20 text-center">Stations Available</div>
+                <div className="w-24">{t('clients', 'model')}</div>
+                <div className="flex-1">{t('common', 'description')}</div>
+                <div className="w-20 text-center">{t('clients', 'stationsCreated')}</div>
+                <div className="w-20 text-center">{t('clients', 'stationsAvailable')}</div>
               </div>
 
               <div className="space-y-2">
@@ -1248,7 +1251,7 @@ export default function AdminClientsPage() {
                       {/* Quantity selector for multi-unit items */}
                       {selectedItems.has(index) && available > 1 && (
                         <div className="mt-3 ml-8 flex items-center gap-3 bg-white rounded-lg p-2 border border-purple-200">
-                          <span className="text-xs text-gray-500">How many stations for this item?</span>
+                          <span className="text-xs text-gray-500">{t('clients', 'howManyStations')}</span>
                           <select
                             value={itemQuantities[index] || 1}
                             onChange={(e) => setItemQuantities(prev => ({ ...prev, [index]: parseInt(e.target.value) }))}
@@ -1281,7 +1284,7 @@ export default function AdminClientsPage() {
                           onChange={() => setStationMode('existing')}
                           className="text-purple-600 focus:ring-purple-500"
                         />
-                        <span className="text-sm text-gray-700">Add to existing station</span>
+                        <span className="text-sm text-gray-700">{t('clients', 'addToExisting')}</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -1291,7 +1294,7 @@ export default function AdminClientsPage() {
                           onChange={() => setStationMode('new')}
                           className="text-purple-600 focus:ring-purple-500"
                         />
-                        <span className="text-sm text-gray-700">Create new station</span>
+                        <span className="text-sm text-gray-700">{t('clients', 'createNewStation')}</span>
                       </label>
                     </div>
                   )}
@@ -1313,7 +1316,7 @@ export default function AdminClientsPage() {
                   {stationMode === 'new' && (
                     <input
                       type="text"
-                      placeholder={`Station name (default: Station — ${previewInvoice.invoiceNumber})`}
+                      placeholder={`${t('clients', 'stationNameDefault')} ${previewInvoice.invoiceNumber})`}
                       value={stationName}
                       onChange={(e) => setStationName(e.target.value)}
                       className="input-field text-sm !py-2 w-full"
@@ -1321,7 +1324,7 @@ export default function AdminClientsPage() {
                   )}
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">{selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected</span>
+                    <span className="text-sm text-gray-500">{selectedItems.size} {t('clients', 'itemsSelected')}</span>
                     <button
                       onClick={handleCreateStation}
                       className="bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors flex items-center gap-2"
@@ -1329,12 +1332,12 @@ export default function AdminClientsPage() {
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
-                      {stationMode === 'existing' ? 'Add to Station' : 'Create Station'}
+                      {stationMode === 'existing' ? t('clients', 'addToStation') : t('clients', 'createStation')}
                     </button>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 text-center">Select line items above to create a Station</p>
+                <p className="text-sm text-gray-400 text-center">{t('clients', 'selectLineItems')}</p>
               )}
             </div>
           </div>
@@ -1357,44 +1360,44 @@ export default function AdminClientsPage() {
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-lg font-semibold">
                 {editingContactId
-                  ? (contactFormType === 'responsible' ? 'Edit Main Contact' : 'Edit Staff Member')
-                  : (contactFormType === 'responsible' ? 'Set Main Contact' : 'Add Staff Member')}
+                  ? (contactFormType === 'responsible' ? t('clients', 'editMainContact') : t('clients', 'editStaff'))
+                  : (contactFormType === 'responsible' ? t('clients', 'setMainContact') : t('clients', 'addStaffMember'))}
               </h2>
               <p className="text-sm text-gray-500 mt-1">
-                {contactFormType === 'responsible' ? 'The main contact person for this client' : 'A staff member at this client\'s company'}
+                {contactFormType === 'responsible' ? t('clients', 'mainContactDesc') : t('clients', 'staffDesc')}
               </p>
             </div>
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-4">
                 <Avatar photo={contactForm.photo} name={contactForm.name || '?'} size="xl" editable onPhotoChange={(base64) => setContactForm({ ...contactForm, photo: base64 })} />
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Profile Photo</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Click the avatar to upload a photo</p>
-                  <p className="text-xs text-gray-400">Or leave empty for auto-generated initials</p>
+                  <p className="text-sm font-medium text-gray-700">{t('clients', 'profilePhoto')}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{t('clients', 'clickAvatar')}</p>
+                  <p className="text-xs text-gray-400">{t('clients', 'leaveEmptyInitials')}</p>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'fullName')}</label>
                 <input className="input-field" value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} placeholder="e.g. Pierre Martin" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'emailRequired')}</label>
                 <input className="input-field" type="email" value={contactForm.email} onChange={(e) => { setContactForm({ ...contactForm, email: e.target.value }); setContactError(null); }} placeholder="e.g. pierre@company.ca" />
                 {contactError && <p className="text-xs text-red-600 mt-1">{contactError}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'phoneLabel')}</label>
                 <input className="input-field" value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="e.g. 514-555-0000" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'roleLabel')}</label>
                 <input className="input-field" value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} placeholder="e.g. IT Manager, Receptionist, Owner" />
               </div>
 
               {/* QR Code for self-edit profile */}
               {editingContactId && contactForm.email && (
                 <div className="pt-3 border-t border-gray-100">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Profile QR Code</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('clients', 'profileQRCode')}</label>
                   <div className="flex items-center gap-3">
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
@@ -1405,7 +1408,7 @@ export default function AdminClientsPage() {
                     />
                     <div className="flex flex-col gap-2">
                       <div className="text-xs text-gray-500">
-                        <p>Scan to open self-edit profile page.</p>
+                        <p>{t('clients', 'scanToEdit')}</p>
                       </div>
                       <button
                         type="button"
@@ -1420,7 +1423,7 @@ export default function AdminClientsPage() {
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
-                        Send to {contactForm.name.split(' ')[0] || 'contact'}
+                        {t('clients', 'sendTo')} {contactForm.name.split(' ')[0] || 'contact'}
                       </button>
                     </div>
                   </div>
@@ -1431,8 +1434,8 @@ export default function AdminClientsPage() {
                 <div className="pt-2 border-t border-gray-100">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-700">Password</p>
-                      <p className="text-xs text-gray-400">Send a password reset email to this contact</p>
+                      <p className="text-sm font-medium text-gray-700">{t('clients', 'passwordSection')}</p>
+                      <p className="text-xs text-gray-400">{t('clients', 'sendResetEmail')}</p>
                     </div>
                     <button type="button" onClick={() => handleResetPassword(contactForm.email, contactForm.name)}
                       disabled={resetSending || (!!resetCountdowns[contactForm.email] && resetCountdowns[contactForm.email] > 0)}
@@ -1440,7 +1443,7 @@ export default function AdminClientsPage() {
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                       </svg>
-                      {resetSending ? 'Sending...' : resetCountdowns[contactForm.email] && resetCountdowns[contactForm.email] > 0 ? `Wait ${resetCountdowns[contactForm.email]}s` : 'Reset Password'}
+                      {resetSending ? t('clients', 'resetSending') : resetCountdowns[contactForm.email] && resetCountdowns[contactForm.email] > 0 ? `${t('clients', 'waitSeconds')} ${resetCountdowns[contactForm.email]}s` : t('clients', 'resetPassword')}
                     </button>
                   </div>
                   {resetMessage && <p className={`text-xs mt-2 ${resetMessage.includes('sent') ? 'text-green-600' : 'text-yellow-600'}`}>{resetMessage}</p>}
@@ -1448,9 +1451,9 @@ export default function AdminClientsPage() {
               )}
             </div>
             <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
-              <button onClick={() => { setShowContactForm(false); setEditingContactId(null); }} className="btn-secondary">Cancel</button>
+              <button onClick={() => { setShowContactForm(false); setEditingContactId(null); }} className="btn-secondary">{t('common', 'cancel')}</button>
               <button onClick={handleSaveContact} disabled={!contactForm.name.trim() || !contactForm.email.trim()} className="btn-primary disabled:opacity-50">
-                {editingContactId ? 'Save Changes' : (contactFormType === 'responsible' ? 'Set as Main Contact' : 'Add Staff Member')}
+                {editingContactId ? t('clients', 'saveChanges') : (contactFormType === 'responsible' ? t('clients', 'setAsMainContact') : t('clients', 'addStaffMember'))}
               </button>
             </div>
           </div>
@@ -1468,9 +1471,9 @@ export default function AdminClientsPage() {
                     <svg className="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
-                    New Training
+                    {t('clients', 'newTraining')}
                   </h2>
-                  <p className="text-sm text-gray-500 mt-1">For {selectedClient.qbClient.companyName}</p>
+                  <p className="text-sm text-gray-500 mt-1">{t('clients', 'forCompany')} {selectedClient.qbClient.companyName}</p>
                 </div>
                 <button onClick={() => setShowTrainingForm(false)} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1480,7 +1483,7 @@ export default function AdminClientsPage() {
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* Template link */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Training Template</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'trainingTemplate')}</label>
                 {trainingTemplates.length > 0 ? (
                   <select
                     value={trainingForm.templateId}
@@ -1490,39 +1493,39 @@ export default function AdminClientsPage() {
                     }}
                     className="input-field text-sm"
                   >
-                    <option value="">— No template —</option>
+                    <option value="">{t('clients', 'noTemplate')}</option>
                     {trainingTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 ) : (
                   <div className="bg-yellow-50 text-yellow-700 text-xs rounded-lg px-3 py-2">
-                    No templates found. Create templates in <strong>Settings &gt; Training Templates</strong> before adding.
+                    {t('clients', 'noTemplatesWarning')}
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'titleRequired')}</label>
                 <input className="input-field" value={trainingForm.title} onChange={(e) => setTrainingForm({ ...trainingForm, title: e.target.value })} placeholder="e.g. Laser Safety Training" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('common', 'description')}</label>
                 <textarea className="input-field text-sm" rows={2} value={trainingForm.description} onChange={(e) => setTrainingForm({ ...trainingForm, description: e.target.value })} placeholder="Optional details..." />
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'dateRequired')}</label>
                   <input type="datetime-local" className="input-field text-sm" value={trainingForm.date} onChange={(e) => setTrainingForm({ ...trainingForm, date: e.target.value })} />
                 </div>
                 <div className="w-32">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (min)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'durationMin')}</label>
                   <input type="number" className="input-field text-sm" value={trainingForm.duration} onChange={(e) => setTrainingForm({ ...trainingForm, duration: e.target.value })} placeholder="60" />
                 </div>
               </div>
 
               {/* Attendees — pick from client's staff */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Attendees</label>
-                <p className="text-xs text-gray-400 mb-2">Add staff from {selectedClient.qbClient.companyName}</p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'attendees')}</label>
+                <p className="text-xs text-gray-400 mb-2">{t('clients', 'addStaffFrom')} {selectedClient.qbClient.companyName}</p>
                 <div className="space-y-1 max-h-40 overflow-y-auto">
                   {/* Main contact */}
                   {selectedClient.responsiblePerson && (
@@ -1559,18 +1562,18 @@ export default function AdminClientsPage() {
                     </div>
                   ))}
                   {!selectedClient.responsiblePerson && selectedClient.subEmployees.length === 0 && (
-                    <p className="text-xs text-gray-400 italic py-2">No contacts to add. Add staff or a main contact first.</p>
+                    <p className="text-xs text-gray-400 italic py-2">{t('clients', 'noContactsToAdd')}</p>
                   )}
                 </div>
                 {trainingAttendees.length > 0 && (
-                  <p className="text-xs text-teal-600 mt-2 font-medium">{trainingAttendees.length} attendee{trainingAttendees.length !== 1 ? 's' : ''} selected</p>
+                  <p className="text-xs text-teal-600 mt-2 font-medium">{trainingAttendees.length} {t('clients', 'attendeesSelected')}</p>
                 )}
               </div>
 
               {/* File upload */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Files</label>
-                <p className="text-xs text-gray-400 mb-2">Attach training booklet photos, documents, or videos</p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'filesSection')}</label>
+                <p className="text-xs text-gray-400 mb-2">{t('clients', 'attachBooklet')}</p>
                 {trainingFiles.length > 0 && (
                   <div className="space-y-1 mb-2">
                     {trainingFiles.map((f, idx) => (
@@ -1587,19 +1590,19 @@ export default function AdminClientsPage() {
                 )}
                 <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 cursor-pointer transition-colors">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                  Upload Files
+                  {t('clients', 'uploadFiles')}
                   <input type="file" multiple className="hidden" onChange={handleTrainingFileUpload} />
                 </label>
               </div>
             </div>
             <div className="p-6 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0">
-              <button onClick={() => setShowTrainingForm(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setShowTrainingForm(false)} className="btn-secondary">{t('common', 'cancel')}</button>
               <button
                 onClick={handleCreateTraining}
                 disabled={!trainingForm.title.trim() || !trainingForm.date || trainingSaving}
                 className="bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
               >
-                {trainingSaving ? 'Creating...' : 'Create Training'}
+                {trainingSaving ? t('clients', 'creating') : t('clients', 'createTraining')}
               </button>
             </div>
           </div>
@@ -1643,7 +1646,7 @@ export default function AdminClientsPage() {
               )}
               {trainingDetail.attendees?.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-2">Attendees ({trainingDetail.attendees.length})</p>
+                  <p className="text-xs font-medium text-gray-500 mb-2">{t('clients', 'attendees')} ({trainingDetail.attendees.length})</p>
                   <div className="space-y-1">
                     {trainingDetail.attendees.map((a: any) => (
                       <div key={a.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
@@ -1659,7 +1662,7 @@ export default function AdminClientsPage() {
               )}
               {trainingDetail.files?.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-2">Files ({trainingDetail.files.length})</p>
+                  <p className="text-xs font-medium text-gray-500 mb-2">{t('clients', 'filesSection')} ({trainingDetail.files.length})</p>
                   <div className="space-y-1">
                     {trainingDetail.files.map((f: any) => (
                       <div key={f.id} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-1.5 text-sm">
@@ -1683,7 +1686,7 @@ export default function AdminClientsPage() {
                       setTrainingDetail({ ...trainingDetail, status: 'completed' });
                     }}
                     className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors"
-                  >Mark Completed</button>
+                  >{t('clients', 'markComplete')}</button>
                   <button
                     onClick={async () => {
                       await fetch(`/api/training/events/${trainingDetail.id}`, {
@@ -1694,12 +1697,12 @@ export default function AdminClientsPage() {
                       setTrainingDetail({ ...trainingDetail, status: 'cancelled' });
                     }}
                     className="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-lg transition-colors"
-                  >Cancel Training</button>
+                  >{t('clients', 'deleteTraining')}</button>
                 </div>
               )}
             </div>
             <div className="p-4 border-t border-gray-100 flex justify-end flex-shrink-0">
-              <button onClick={() => setTrainingDetail(null)} className="btn-secondary text-sm">Close</button>
+              <button onClick={() => setTrainingDetail(null)} className="btn-secondary text-sm">{t('common', 'close')}</button>
             </div>
           </div>
         </div>

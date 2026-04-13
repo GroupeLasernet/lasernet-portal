@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useLanguage } from '@/lib/LanguageContext';
 
 interface Attendee {
   id: string;
@@ -46,6 +47,7 @@ interface Contact {
 }
 
 export default function TrainingPage() {
+  const { t } = useLanguage();
   const [events, setEvents] = useState<TrainingEvent[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -249,12 +251,12 @@ export default function TrainingPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Training Agenda</h1>
+        <h1 className="text-2xl font-bold text-gray-800">{t('trainingPage', 'title')}</h1>
         <button
           onClick={() => { setShowCreate(true); setSelectedEvent(null); }}
           className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
         >
-          + New Training Event
+          {t('trainingPage', 'newEvent')}
         </button>
       </div>
 
@@ -264,12 +266,12 @@ export default function TrainingPage() {
           {/* Upcoming */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="p-3 border-b border-gray-200">
-              <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Upcoming</h2>
+              <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{t('trainingPage', 'upcoming')}</h2>
             </div>
             {loading ? (
-              <div className="p-4 text-sm text-gray-400">Loading...</div>
+              <div className="p-4 text-sm text-gray-400">{t('common', 'loading')}</div>
             ) : upcomingEvents.length === 0 ? (
-              <div className="p-4 text-sm text-gray-400">No upcoming trainings</div>
+              <div className="p-4 text-sm text-gray-400">{t('trainingPage', 'noUpcoming')}</div>
             ) : (
               <div className="divide-y divide-gray-50">
                 {upcomingEvents.map((event) => (
@@ -287,7 +289,7 @@ export default function TrainingPage() {
                         {event.status}
                       </span>
                       <span className="text-xs text-gray-400">
-                        {event.attendees.length} attendee{event.attendees.length !== 1 ? 's' : ''}
+                        {event.attendees.length} {event.attendees.length !== 1 ? t('trainingPage', 'attendeesLabel') : t('trainingPage', 'attendeesLabel')}
                       </span>
                     </div>
                   </button>
@@ -300,7 +302,7 @@ export default function TrainingPage() {
           {pastEvents.length > 0 && (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200">
               <div className="p-3 border-b border-gray-200">
-                <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Past / Completed</h2>
+                <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{t('trainingPage', 'pastCompleted')}</h2>
               </div>
               <div className="divide-y divide-gray-50">
                 {pastEvents.map((event) => (
@@ -328,31 +330,31 @@ export default function TrainingPage() {
           {showCreate ? (
             /* Create Event Form */
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">New Training Event</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">{t('trainingPage', 'newTrainingEvent')}</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('trainingPage', 'titleLabel')}</label>
                   <input
                     type="text"
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
-                    placeholder="e.g. Cobot Safety Training - Spring 2026"
+                    placeholder={t('trainingPage', 'cobotSafetyExample')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('trainingPage', 'descriptionLabel')}</label>
                   <textarea
                     value={formDesc}
                     onChange={(e) => setFormDesc(e.target.value)}
                     rows={3}
-                    placeholder="Training details..."
+                    placeholder={t('trainingPage', 'trainingDetails')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('trainingPage', 'dateLabel')}</label>
                     <input
                       type="datetime-local"
                       value={formDate}
@@ -361,15 +363,15 @@ export default function TrainingPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Template (optional)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('trainingPage', 'templateOptional')}</label>
                     <select
                       value={formTemplateId}
                       onChange={(e) => setFormTemplateId(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">No template</option>
-                      {templates.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
+                      <option value="">{t('trainingPage', 'noTemplateOption')}</option>
+                      {templates.map((template) => (
+                        <option key={template.id} value={template.id}>{template.name}</option>
                       ))}
                     </select>
                   </div>
@@ -377,13 +379,13 @@ export default function TrainingPage() {
 
                 {/* Attendee picker */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Attendees</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('trainingPage', 'attendeesLabel')}</label>
                   <div className="relative">
                     <input
                       type="text"
                       value={contactSearch}
                       onChange={(e) => setContactSearch(e.target.value)}
-                      placeholder="Search contacts by name, email, or company..."
+                      placeholder={t('trainingPage', 'searchContacts')}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                     />
                     {filteredContacts.length > 0 && (
@@ -420,10 +422,10 @@ export default function TrainingPage() {
 
                 <div className="flex gap-2 pt-2">
                   <button onClick={handleCreate} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
-                    Create Event
+                    {t('trainingPage', 'createEvent')}
                   </button>
                   <button onClick={resetForm} className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300">
-                    Cancel
+                    {t('common', 'cancel')}
                   </button>
                 </div>
               </div>
@@ -441,7 +443,7 @@ export default function TrainingPage() {
                     <div className="flex items-center gap-3 mt-3">
                       <span className="text-sm text-gray-600">{formatDate(selectedEvent.date)}</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(selectedEvent.status)}`}>
-                        {selectedEvent.status}
+                        {t('trainingPage', selectedEvent.status as 'scheduled' | 'completed' | 'cancelled')}
                       </span>
                       {selectedEvent.template && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
@@ -456,7 +458,7 @@ export default function TrainingPage() {
                         onClick={() => handleUpdateStatus(selectedEvent.id, 'completed')}
                         className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
                       >
-                        Mark Complete
+                        {t('trainingPage', 'markComplete')}
                       </button>
                     )}
                     {selectedEvent.status === 'scheduled' && (
@@ -464,7 +466,7 @@ export default function TrainingPage() {
                         onClick={() => handleUpdateStatus(selectedEvent.id, 'cancelled')}
                         className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300"
                       >
-                        Cancel
+                        {t('common', 'cancel')}
                       </button>
                     )}
                     <button
@@ -482,10 +484,10 @@ export default function TrainingPage() {
               {/* Attendees */}
               <div className="p-6 border-b border-gray-200">
                 <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">
-                  Attendees ({selectedEvent.attendees.length})
+                  {t('trainingPage', 'attendeesLabel')} ({selectedEvent.attendees.length})
                 </h3>
                 {selectedEvent.attendees.length === 0 ? (
-                  <p className="text-sm text-gray-400">No attendees assigned</p>
+                  <p className="text-sm text-gray-400">{t('trainingPage', 'noAttendees')}</p>
                 ) : (
                   <div className="space-y-2">
                     {selectedEvent.attendees.map((att) => (
@@ -496,11 +498,11 @@ export default function TrainingPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           {att.confirmed ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Confirmed</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">{t('trainingPage', 'confirmed')}</span>
                           ) : att.inviteSent ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">Invited</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">{t('trainingPage', 'invited')}</span>
                           ) : (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Pending</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{t('trainingPage', 'pending')}</span>
                           )}
                         </div>
                       </div>
@@ -512,7 +514,7 @@ export default function TrainingPage() {
               {/* Files */}
               <div className="p-6">
                 <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">
-                  Files ({selectedEvent.files.length})
+                  {t('common', 'download')} ({selectedEvent.files.length})
                 </h3>
                 {selectedEvent.files.length > 0 && (
                   <div className="space-y-1 mb-3">
@@ -528,7 +530,7 @@ export default function TrainingPage() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  {uploading ? 'Uploading...' : 'Attach file'}
+                  {uploading ? t('common', 'uploading') : t('trainingPage', 'attachFile')}
                   <input
                     type="file"
                     className="hidden"
@@ -548,7 +550,7 @@ export default function TrainingPage() {
               <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
-              <p className="text-gray-400 text-lg">Select a training event or create a new one</p>
+              <p className="text-gray-400 text-lg">{t('trainingPage', 'selectOrCreate')}</p>
             </div>
           )}
         </div>

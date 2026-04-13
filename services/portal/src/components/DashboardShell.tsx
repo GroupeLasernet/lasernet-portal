@@ -7,10 +7,11 @@ import Sidebar from './Sidebar';
 interface DashboardShellProps {
   children: React.ReactNode;
   requiredRole: 'admin' | 'client';
-  links: { label: string; href: string; icon: React.ReactNode }[];
+  links: { labelKey: string; href: string; icon: React.ReactNode }[];
+  bottomLinks?: { labelKey: string; href: string; icon: React.ReactNode }[];
 }
 
-export default function DashboardShell({ children, requiredRole, links }: DashboardShellProps) {
+export default function DashboardShell({ children, requiredRole, links, bottomLinks }: DashboardShellProps) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -48,7 +49,7 @@ export default function DashboardShell({ children, requiredRole, links }: Dashbo
 
   return (
     <div className="min-h-screen flex bg-gray-50">
-      <Sidebar links={links} userName={user?.name || ''} userRole={user?.role || ''} />
+      <Sidebar links={links} bottomLinks={bottomLinks} userName={user?.name || ''} userRole={user?.role || ''} />
       <main className="flex-1 p-8 overflow-auto">
         {children}
       </main>
