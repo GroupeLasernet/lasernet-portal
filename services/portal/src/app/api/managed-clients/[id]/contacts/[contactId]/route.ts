@@ -12,6 +12,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { name, email, phone, role, photo, trainingPhoto, trainingInvoiceId, trainingCompleted } = body;
 
+    // Check email uniqueness if email is being changed
+    if (email !== undefined) {
+      const existingContact = await prisma.contact.findUnique({
+        where: { email },
+        include: { managedClient: true },
+      });
+      if (existingContact && existingContact.id !== contactId) {
+        const businessName = existingContact.managedClient?.displayName || 'another business';
+        return NextResponse.json(
+          { error: `This email is already assigned to ${existingContact.name} at ${businessName}` },
+          { status: 409 }
+        );
+      }
+    }
+
     const contact = await prisma.contact.update({
       where: { id: contactId },
       data: {

@@ -110,6 +110,7 @@ export default function AdminClientsPage() {
     photo: null, name: '', email: '', phone: '', role: '',
   });
 
+  const [contactError, setContactError] = useState<string | null>(null);
   const [streetViewOpen, setStreetViewOpen] = useState(true);
   const [mainContactOpen, setMainContactOpen] = useState(true);
   const [staffOpen, setStaffOpen] = useState(true);
@@ -312,23 +313,25 @@ export default function AdminClientsPage() {
   const openContactForm = (type: 'responsible' | 'employee') => {
     setContactFormType(type); setEditingContactId(null);
     setContactForm({ photo: null, name: '', email: '', phone: '', role: '' });
-    setShowContactForm(true);
+    setContactError(null); setShowContactForm(true);
   };
 
   const openEditForm = (type: 'responsible' | 'employee', contact: ContactPerson) => {
     setContactFormType(type); setEditingContactId(contact.id);
     setContactForm({ photo: contact.photo, name: contact.name, email: contact.email, phone: contact.phone, role: contact.role });
-    setResetMessage(null); setShowContactForm(true);
+    setContactError(null); setResetMessage(null); setShowContactForm(true);
   };
 
   const handleSaveContact = async () => {
     if (!selectedClient || !contactForm.name.trim() || !contactForm.email.trim()) return;
+    setContactError(null);
     if (editingContactId) {
       try {
         const res = await fetch(`/api/managed-clients/${selectedClient.id}/contacts/${editingContactId}`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contactForm),
         });
         const data = await res.json();
+        if (res.status === 409) { setContactError(data.error); return; }
         if (data.contact) {
           setManagedClients(managedClients.map((mc) => {
             if (mc.id !== selectedClient.id) return mc;
@@ -345,6 +348,7 @@ export default function AdminClientsPage() {
           body: JSON.stringify({ ...contactForm, type: contactFormType }),
         });
         const data = await res.json();
+        if (res.status === 409) { setContactError(data.error); return; }
         if (data.contact) {
           setManagedClients(managedClients.map((mc) => {
             if (mc.id !== selectedClient.id) return mc;
@@ -843,21 +847,21 @@ export default function AdminClientsPage() {
                               <span>{selectedClient.responsiblePerson.phone}</span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <div className="flex flex-col items-center gap-0.5">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium">Training</span>
+                          <div className="flex items-center gap-3">
+                            <div className="w-14 flex flex-col items-center gap-1">
+                              <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">Training</span>
                               {selectedClient.responsiblePerson.trainingCompleted ? (
-                                <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                               ) : (
-                                <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                               )}
                             </div>
-                            <div className="flex flex-col items-center gap-0.5">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium">Booklet</span>
+                            <div className="w-14 flex flex-col items-center gap-1">
+                              <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">Booklet</span>
                               {selectedClient.responsiblePerson.trainingPhoto ? (
-                                <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                               ) : (
-                                <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                               )}
                             </div>
                           </div>
@@ -902,21 +906,21 @@ export default function AdminClientsPage() {
                                   <span>{emp.email}</span><span>{emp.phone}</span>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-4">
-                                <div className="flex flex-col items-center gap-0.5">
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium">Training</span>
+                              <div className="flex items-center gap-3">
+                                <div className="w-14 flex flex-col items-center gap-1">
+                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">Training</span>
                                   {emp.trainingCompleted ? (
-                                    <svg className="w-4.5 h-4.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                    <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                   ) : (
-                                    <svg className="w-4.5 h-4.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                    <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                   )}
                                 </div>
-                                <div className="flex flex-col items-center gap-0.5">
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium">Booklet</span>
+                                <div className="w-14 flex flex-col items-center gap-1">
+                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">Booklet</span>
                                   {emp.trainingPhoto ? (
-                                    <svg className="w-4.5 h-4.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                    <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                   ) : (
-                                    <svg className="w-4.5 h-4.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                    <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                   )}
                                 </div>
                               </div>
@@ -1375,7 +1379,8 @@ export default function AdminClientsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                <input className="input-field" type="email" value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="e.g. pierre@company.ca" />
+                <input className="input-field" type="email" value={contactForm.email} onChange={(e) => { setContactForm({ ...contactForm, email: e.target.value }); setContactError(null); }} placeholder="e.g. pierre@company.ca" />
+                {contactError && <p className="text-xs text-red-600 mt-1">{contactError}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>

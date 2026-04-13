@@ -19,6 +19,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Check email uniqueness across all contacts
+    const existingContact = await prisma.contact.findUnique({
+      where: { email },
+      include: { managedClient: true },
+    });
+    if (existingContact) {
+      const businessName = existingContact.managedClient?.displayName || 'another business';
+      return NextResponse.json(
+        { error: `This email is already assigned to ${existingContact.name} at ${businessName}` },
+        { status: 409 }
+      );
+    }
+
     // If adding a responsible person, remove existing one first
     if (type === 'responsible') {
       await prisma.contact.deleteMany({
