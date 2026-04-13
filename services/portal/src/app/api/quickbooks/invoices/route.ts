@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
           ?.filter((l) => l.DetailType === 'SalesItemLineDetail')
           .map((l) => ({
             description: l.Description || '',
+            model: l.SalesItemLineDetail?.ItemRef?.name || '',
             quantity: l.SalesItemLineDetail?.Qty || 1,
             rate: l.SalesItemLineDetail?.UnitPrice || l.Amount || 0,
             amount: l.Amount || 0,

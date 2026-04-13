@@ -75,7 +75,7 @@ interface QBInvoice {
   status: string;
   date: string;
   dueDate: string;
-  items: { description: string; quantity: number; rate: number; amount: number }[];
+  items: { description: string; model?: string; quantity: number; rate: number; amount: number }[];
 }
 
 interface Station {
@@ -952,9 +952,10 @@ export default function AdminClientsPage() {
               {/* Column headers */}
               <div className="flex items-center gap-2 px-4 py-2 text-[10px] font-medium text-gray-400 uppercase tracking-wider border-b border-gray-100 mb-2">
                 <div className="w-6" />
-                <div className="flex-1">Description / Model</div>
-                <div className="w-20 text-center">Created</div>
-                <div className="w-20 text-center">Available</div>
+                <div className="flex-1">Description</div>
+                <div className="w-24 text-center">Model</div>
+                <div className="w-20 text-center">Stations Created</div>
+                <div className="w-20 text-center">Stations Available</div>
               </div>
 
               <div className="space-y-2">
@@ -965,11 +966,6 @@ export default function AdminClientsPage() {
                     s.items.some(si => si.description === item.description)
                   ).length;
                   const available = Math.max(0, item.quantity - stationsForItem);
-
-                  // Extract model from description (first line or before newline)
-                  const descParts = item.description.split(/\n|\\n/);
-                  const mainDesc = descParts[0] || item.description;
-                  const model = descParts.length > 1 ? descParts.slice(1).join(' ').trim() : '';
 
                   return (
                     <div
@@ -988,8 +984,10 @@ export default function AdminClientsPage() {
                           className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">{mainDesc}</p>
-                          {model && <p className="text-xs text-gray-400 mt-0.5">{model}</p>}
+                          <p className="text-sm font-medium text-gray-900">{item.description}</p>
+                        </div>
+                        <div className="w-24 text-center">
+                          <span className="text-xs text-gray-500">{item.model || '—'}</span>
                         </div>
                         <div className="w-20 text-center">
                           <span className={`text-xs font-medium ${stationsForItem > 0 ? 'text-green-600' : 'text-gray-300'}`}>
