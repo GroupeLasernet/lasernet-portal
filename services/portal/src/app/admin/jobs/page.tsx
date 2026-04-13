@@ -56,11 +56,15 @@ const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onCon
 const HoldToSaveButton = ({ onSave }: { onSave: () => void }) => {
   const [holding, setHolding] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [saved, setSaved] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startRef = useRef(0);
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
 
   const startHold = () => {
     setHolding(true);
+    setSaved(false);
     startRef.current = Date.now();
     intervalRef.current = setInterval(() => {
       const elapsed = Date.now() - startRef.current;
@@ -70,7 +74,9 @@ const HoldToSaveButton = ({ onSave }: { onSave: () => void }) => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         setHolding(false);
         setProgress(0);
-        onSave();
+        setSaved(true);
+        onSaveRef.current();
+        setTimeout(() => setSaved(false), 2000);
       }
     }, 30);
   };
@@ -90,10 +96,10 @@ const HoldToSaveButton = ({ onSave }: { onSave: () => void }) => {
       onMouseLeave={cancelHold}
       onTouchStart={startHold}
       onTouchEnd={cancelHold}
-      className="px-3 py-1.5 bg-green-500 text-white text-xs rounded-lg font-medium transition relative overflow-hidden whitespace-nowrap"
+      className={`px-3 py-1.5 ${saved ? 'bg-green-700' : 'bg-green-500'} text-white text-xs rounded-lg font-medium transition relative overflow-hidden whitespace-nowrap`}
     >
       <div className="absolute inset-0 bg-green-700 transition-none" style={{ width: `${progress * 100}%` }} />
-      <span className="relative">{holding ? 'Hold...' : 'Save (hold 2s)'}</span>
+      <span className="relative">{saved ? 'Saved!' : holding ? 'Hold...' : 'Save (hold 2s)'}</span>
     </button>
   );
 };
@@ -157,6 +163,126 @@ interface Job {
   createdAt: string;
   updatedAt: string;
 }
+
+// Extracted Machine Items component with proper state management
+const MachineItems = ({ editingJob, setEditingJob, handleUpdateJob }: {
+  editingJob: Job;
+  setEditingJob: (job: Job) => void;
+  handleUpdateJob: (updates: Partial<Job>) => Promise<void>;
+}) => {
+  let meta: Record<string, unknown> = {};
+  try { meta = JSON.parse(editingJob.notes || '{}'); } catch { /* not JSON */ }
+  const items: { description: string; quantity: number; model?: string }[] = (meta.items as { description: string; quantity: number; model?: string }[]) || [];
+  const machineData: { serialNumber?: string; machineType?: string }[] = (meta.machineData as { serialNumber?: string; machineType?: string }[]) || [];
+
+  // Local state for serial number inputs
+  const [serialInputs, setSerialInputs] = useState<Record<number, string>>({});
+
+  // Initialize serial inputs from saved data
+  useEffect(() => {
+    const initial: Record<number, string> = {};
+    items.forEach((_, i) => {
+      const md = machineData[i];
+      if (md?.serialNumber) initial[i] = md.serialNumber;
+    });
+    setSerialInputs(initial);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingJob.id]);
+
+  if (items.length === 0) {
+    return <p className="text-sm text-gray-500">No machines (no invoice items linked)</p>;
+  }
+
+  const saveMachineField = (index: number, field: string, value: string) => {
+    const freshMeta = { ...meta };
+    if (!freshMeta.machineData) freshMeta.machineData = [];
+    const md = freshMeta.machineData as { serialNumber?: string; machineType?: string }[];
+    while (md.length <= index) md.push({});
+    md[index] = { ...md[index], [field]: value };
+
+    // Auto-update status: if all serial numbers filled → waiting_pairing
+    const allFilled = items.every((_, i) => {
+      const m = md[i];
+      return m && m.serialNumber && m.serialNumber.trim() !== '';
+    });
+
+    const newNotes = JSON.stringify(freshMeta);
+    const updated = { ...editingJob, notes: newNotes };
+    setEditingJob(updated);
+
+    if (allFilled && editingJob.status === 'not_configured') {
+      handleUpdateJob({ notes: newNotes, status: 'waiting_pairing' as Job['status'] });
+    } else {
+      handleUpdateJob({ notes: newNotes });
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {items.map((item, i) => {
+        const md = machineData[i] || {};
+        return (
+          <div key={i} className="p-4 border border-gray-200 rounded-lg">
+            {/* Model (left) + Description (right) */}
+            <div className="flex items-start gap-3 mb-3">
+              {(md.machineType === 'laser') ? (
+                <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              ) : (
+                <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
+              )}
+              <div className="flex items-start gap-4 flex-1 min-w-0">
+                {item.model && (
+                  <div className="bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wide whitespace-nowrap">{item.model}</div>
+                )}
+                <div className="text-sm font-medium text-gray-900 pt-0.5">{item.description}</div>
+              </div>
+            </div>
+
+            {/* Machine Type Dropdown */}
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Machine Type</label>
+              <select
+                value={md.machineType || ''}
+                onChange={(e) => saveMachineField(i, 'machineType', e.target.value)}
+                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select type...</option>
+                <option value="cobot">Cobot</option>
+                <option value="laser">Laser Machine</option>
+              </select>
+            </div>
+
+            {/* Serial Number with Hold-to-Save */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Serial Number</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={serialInputs[i] || ''}
+                  onChange={(e) => setSerialInputs(prev => ({ ...prev, [i]: e.target.value }))}
+                  placeholder="Enter serial number..."
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <HoldToSaveButton
+                  onSave={() => {
+                    const val = serialInputs[i] || '';
+                    if (val.trim()) saveMachineField(i, 'serialNumber', val.trim());
+                  }}
+                />
+              </div>
+              {md.serialNumber && (
+                <div className="mt-1 text-xs text-green-600 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  Saved: {md.serialNumber}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 interface ManagedClient {
   id: string;
@@ -423,16 +549,34 @@ export default function AdminJobsPage() {
     }
   };
 
-  // Helper to count machines by type
+  // Helper to count machines from notes JSON (invoice items + machineData)
   const getMachineCount = (job: Job) => {
-    const robots = job.machines.filter((m) => m.type === 'robot').length;
-    const lasers = job.machines.filter((m) => m.type === 'laser').length;
+    try {
+      const meta = JSON.parse(job.notes || '{}');
+      const items = meta.items || [];
+      const machineData: { serialNumber?: string; machineType?: string }[] = meta.machineData || [];
 
-    const parts = [];
-    if (robots > 0) parts.push(`${robots} robot${robots !== 1 ? 's' : ''}`);
-    if (lasers > 0) parts.push(`${lasers} laser${lasers !== 1 ? 's' : ''}`);
+      if (items.length === 0) return 'No machines';
 
-    return parts.length > 0 ? parts.join(', ') : 'No machines';
+      const cobots = machineData.filter(md => md?.machineType === 'cobot').length;
+      const lasers = machineData.filter(md => md?.machineType === 'laser').length;
+      const untyped = items.length - cobots - lasers;
+
+      const parts = [];
+      if (cobots > 0) parts.push(`${cobots} cobot${cobots !== 1 ? 's' : ''}`);
+      if (lasers > 0) parts.push(`${lasers} laser${lasers !== 1 ? 's' : ''}`);
+      if (untyped > 0) parts.push(`${untyped} unassigned`);
+
+      // Show serial numbers if any
+      const serials = machineData.filter(md => md?.serialNumber).length;
+      if (serials > 0) {
+        return `${parts.join(', ')} (${serials}/${items.length} serial#)`;
+      }
+
+      return parts.length > 0 ? parts.join(', ') : `${items.length} machine${items.length !== 1 ? 's' : ''}`;
+    } catch {
+      return 'No machines';
+    }
   };
 
   // Get available machines (not yet in job)
@@ -677,104 +821,7 @@ export default function AdminJobsPage() {
             <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Machines</h2>
 
-              {(() => {
-                try {
-                  const meta = JSON.parse(editingJob.notes || '{}');
-                  const items = meta.items || [];
-                  if (items.length === 0) {
-                    return <p className="text-sm text-gray-500">No machines (no invoice items linked)</p>;
-                  }
-
-                  // Machine data stored in meta.machineData[index]
-                  const machineData: { serialNumber?: string; machineType?: string }[] = meta.machineData || [];
-
-                  const updateMachineData = (index: number, field: string, value: string) => {
-                    const newMeta = { ...meta };
-                    if (!newMeta.machineData) newMeta.machineData = [];
-                    while (newMeta.machineData.length <= index) newMeta.machineData.push({});
-                    newMeta.machineData[index] = { ...newMeta.machineData[index], [field]: value };
-
-                    // Auto-update status: if all serial numbers filled → waiting_pairing
-                    const allFilled = items.every((_: unknown, i: number) => {
-                      const md = newMeta.machineData[i];
-                      return md && md.serialNumber && md.serialNumber.trim() !== '';
-                    });
-
-                    const updated = { ...editingJob, notes: JSON.stringify(newMeta) };
-                    setEditingJob(updated);
-
-                    if (allFilled && editingJob.status === 'not_configured') {
-                      handleUpdateJob({ notes: JSON.stringify(newMeta), status: 'waiting_pairing' as Job['status'] });
-                    } else {
-                      handleUpdateJob({ notes: JSON.stringify(newMeta) });
-                    }
-                  };
-
-                  return (
-                    <div className="space-y-3">
-                      {items.map((item: { description: string; quantity: number; model?: string }, i: number) => {
-                        const md = machineData[i] || {};
-                        return (
-                          <div key={i} className="p-4 border border-gray-200 rounded-lg">
-                            {/* Model + Description */}
-                            <div className="flex items-start gap-3 mb-3">
-                              {(md.machineType || 'cobot') === 'cobot' ? (
-                                <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
-                              ) : (
-                                <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                {item.model && (
-                                  <div className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-0.5">{item.model}</div>
-                                )}
-                                <div className="text-sm font-medium text-gray-900">{item.description}</div>
-                              </div>
-                            </div>
-
-                            {/* Machine Type Dropdown */}
-                            <div className="mb-3">
-                              <label className="block text-xs font-medium text-gray-500 mb-1">Machine Type</label>
-                              <select
-                                value={md.machineType || ''}
-                                onChange={(e) => updateMachineData(i, 'machineType', e.target.value)}
-                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              >
-                                <option value="">Select type...</option>
-                                <option value="cobot">Cobot</option>
-                                <option value="laser">Laser Machine</option>
-                              </select>
-                            </div>
-
-                            {/* Serial Number with Hold-to-Save */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">Serial Number</label>
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  defaultValue={md.serialNumber || ''}
-                                  id={`serial-${i}`}
-                                  placeholder="Enter serial number..."
-                                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                />
-                                <HoldToSaveButton
-                                  onSave={() => {
-                                    const input = document.getElementById(`serial-${i}`) as HTMLInputElement;
-                                    if (input) updateMachineData(i, 'serialNumber', input.value);
-                                  }}
-                                />
-                              </div>
-                              {md.serialNumber && (
-                                <div className="mt-1 text-xs text-green-600">Saved: {md.serialNumber}</div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                } catch { /* not JSON */ }
-                return <p className="text-sm text-gray-500">No machines</p>;
-              })()}
+              <MachineItems editingJob={editingJob} setEditingJob={setEditingJob} handleUpdateJob={handleUpdateJob} />
             </div>
 
             {/* Robot Status Section */}
