@@ -952,8 +952,8 @@ export default function AdminClientsPage() {
               {/* Column headers */}
               <div className="flex items-center gap-2 px-4 py-2 text-[10px] font-medium text-gray-400 uppercase tracking-wider border-b border-gray-100 mb-2">
                 <div className="w-6" />
+                <div className="w-24">Model</div>
                 <div className="flex-1">Description</div>
-                <div className="w-24 text-center">Model</div>
                 <div className="w-20 text-center">Stations Created</div>
                 <div className="w-20 text-center">Stations Available</div>
               </div>
@@ -981,13 +981,13 @@ export default function AdminClientsPage() {
                           type="checkbox"
                           checked={selectedItems.has(index)}
                           onChange={() => toggleItem(index)}
-                          className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                          className="w-4 h-4 mx-2 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
                         />
+                        <div className="w-24">
+                          <span className="text-xs text-gray-500">{item.model || '—'}</span>
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900">{item.description}</p>
-                        </div>
-                        <div className="w-24 text-center">
-                          <span className="text-xs text-gray-500">{item.model || '—'}</span>
                         </div>
                         <div className="w-20 text-center">
                           <span className={`text-xs font-medium ${stationsForItem > 0 ? 'text-green-600' : 'text-gray-300'}`}>
