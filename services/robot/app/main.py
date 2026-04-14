@@ -22,10 +22,12 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
-from app.database import init_db, get_db, Project, DXFFile, RobotProgram, RobotSettings
+from app.database import init_db, get_db, Project, DXFFile, RobotProgram, RobotSettings, LicenseState
 from app.dxf_parser import parse_dxf, paths_to_svg
 from app.path_planner import generate_waypoints, estimate_travel_distance, estimate_cycle_time
 from app.robot_comm import get_robot
+from app import license as lic_module
+from app import sync as sync_module
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("cobot_studio")
@@ -56,14 +58,134 @@ def startup():
     try:
         init_db()
         logger.info("Database initialized.")
+
+        # Initialize license state if not present
+        from app.database import SessionLocal
+        db = SessionLocal()
+        try:
+            lic = db.query(LicenseState).filter(LicenseState.id == 1).first()
+            if not lic:
+                lic = LicenseState(
+                    id=1,
+                    serial_number=config.ROBOT_SERIAL,
+                    license_mode="unlicensed"
+                )
+                lic.state_hmac = lic.compute_hmac()
+                db.add(lic)
+                db.commit()
+                logger.info(f"Initialized license state for serial {config.ROBOT_SERIAL}")
+            else:
+                logger.info(f"Loaded existing license state: mode={lic.license_mode}, serial={lic.serial_number}")
+
+            # Check initial state
+            valid, reason = lic.is_valid_now()
+            logger.info(f"License check on startup: valid={valid}, reason={reason}")
+            logger.info(f"DEV_SKIP_LICENSE={getattr(config, 'DEV_SKIP_LICENSE', False)}")
+
+            # Start the background heartbeat
+            lic_module.start_background_heartbeat(
+                app,
+                portal_url=config.PORTAL_URL,
+                serial=config.ROBOT_SERIAL,
+                interval_minutes=15
+            )
+
+            # Start the device sync worker (push + pull loops)
+            try:
+                sync_module.start_sync_worker()
+            except Exception as e:
+                logger.error(f"Failed to start sync worker: {e}", exc_info=True)
+        finally:
+            db.close()
     except Exception as e:
-        logger.error(f"Database init failed: {e}")
+        logger.error(f"Startup failed: {e}", exc_info=True)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    try:
+        await sync_module.stop_sync_worker()
+    except Exception as e:
+        logger.warning(f"Sync worker shutdown: {e}")
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error: {exc}", exc_info=True)
     return JSONResponse(status_code=500, content={"detail": str(exc)})
+
+
+# ---------------------------------------------------------------------------
+# License dependency
+# ---------------------------------------------------------------------------
+
+def require_license(db: Session = Depends(get_db)):
+    """
+    Dependency that checks if the robot is licensed and operational.
+    Returns a tuple (allowed, reason) or raises HTTPException if not allowed.
+    """
+    # Dev bypass: DEV_SKIP_LICENSE=true in environment disables the license gate.
+    if getattr(config, "DEV_SKIP_LICENSE", False):
+        return
+    allowed, reason = lic_module.is_operational(db)
+    if not allowed:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "license_invalid",
+                "reason": reason
+            }
+        )
+
+
+# ---------------------------------------------------------------------------
+# License endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/license")
+def get_license(db: Session = Depends(get_db)):
+    """Read current local license state."""
+    lic = lic_module.get_local_state(db)
+    if not lic:
+        return {"error": "License state not initialized"}
+
+    allowed, grace_reason = lic_module.is_operational(db)
+    valid, validity_reason = lic.is_valid_now()
+
+    return {
+        "serial_number": lic.serial_number,
+        "license_mode": lic.license_mode,
+        "expires_at": lic.expires_at.isoformat() if lic.expires_at else None,
+        "kill_switch_active": lic.kill_switch_active,
+        "last_portal_check_at": lic.last_portal_check_at.isoformat() if lic.last_portal_check_at else None,
+        "last_portal_ok_at": lic.last_portal_ok_at.isoformat() if lic.last_portal_ok_at else None,
+        "is_valid_now": valid,
+        "validity_reason": validity_reason,
+        "is_operational": allowed,
+        "operational_reason": grace_reason,
+        "updated_at": lic.updated_at.isoformat() if lic.updated_at else None,
+    }
+
+
+@app.get("/api/sync/status")
+def get_sync_status():
+    """Observability: pending queue size, last push/pull, clocks. For UI health badge."""
+    return sync_module.sync_status()
+
+
+@app.post("/api/license/refresh")
+def refresh_license(db: Session = Depends(get_db)):
+    """Manually trigger a license sync from the portal."""
+    try:
+        ok, state_dict, err = lic_module.sync_from_portal(config.PORTAL_URL, config.ROBOT_SERIAL)
+        if ok and state_dict:
+            lic_module.apply_portal_state(db, state_dict)
+            return {"ok": True, "message": "License refreshed from portal"}
+        else:
+            return {"ok": False, "error": err}
+    except Exception as e:
+        logger.error(f"License refresh failed: {e}")
+        return {"ok": False, "error": str(e)}
 
 
 # ---------------------------------------------------------------------------
@@ -231,6 +353,7 @@ def delete_dxf(dxf_id: int, db: Session = Depends(get_db)):
 @app.post("/api/programs/generate")
 def generate_program(
     dxf_id: int = Form(...),
+    _license_ok=Depends(require_license),
     name: str = Form("Program"),
     speed: float = Form(50.0),
     acceleration: float = Form(100.0),
@@ -395,7 +518,7 @@ def robot_diagnostic():
 
 
 @app.post("/api/robot/startup")
-def robot_startup():
+def robot_startup(_license_ok=Depends(require_license)):
     """Run the full startup sequence: ConnectToBox → Electrify → StartMaster."""
     robot = get_robot()
     try:
@@ -439,7 +562,7 @@ def robot_test_cmd(cmd: str = "ReadCurFSM", args: str = ""):
 
 
 @app.post("/api/robot/enable")
-def robot_enable():
+def robot_enable(_license_ok=Depends(require_license)):
     robot = get_robot()
     try:
         resp = robot.enable_servo()
@@ -449,7 +572,7 @@ def robot_enable():
 
 
 @app.post("/api/robot/disable")
-def robot_disable():
+def robot_disable(_license_ok=Depends(require_license)):
     robot = get_robot()
     try:
         resp = robot.disable_servo()
@@ -459,7 +582,7 @@ def robot_disable():
 
 
 @app.post("/api/robot/stop")
-def robot_stop():
+def robot_stop(_license_ok=Depends(require_license)):
     robot = get_robot()
     try:
         resp = robot.stop()
@@ -469,7 +592,7 @@ def robot_stop():
 
 
 @app.post("/api/robot/clear-alarm")
-def robot_clear_alarm():
+def robot_clear_alarm(_license_ok=Depends(require_license)):
     robot = get_robot()
     try:
         resp = robot.clear_alarm()
@@ -479,7 +602,7 @@ def robot_clear_alarm():
 
 
 @app.post("/api/robot/run-program/{program_id}")
-def robot_run_program(program_id: int, db: Session = Depends(get_db)):
+def robot_run_program(program_id: int, db: Session = Depends(get_db), _license_ok=Depends(require_license)):
     prog = db.query(RobotProgram).get(program_id)
     if not prog:
         raise HTTPException(404, "Program not found")
@@ -513,7 +636,7 @@ def robot_run_program(program_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/robot/jog")
-def robot_jog(axis: str = Form(...), distance: float = Form(5.0), speed: float = Form(60.0)):
+def robot_jog(axis: str = Form(...), distance: float = Form(5.0), speed: float = Form(60.0), _license_ok=Depends(require_license)):
     """Jog the robot along a single Cartesian axis using WayPoint MoveL."""
     robot = get_robot()
     axis_map = {"x": 0, "y": 1, "z": 2, "rx": 3, "ry": 4, "rz": 5}
@@ -533,7 +656,7 @@ def robot_jog(axis: str = Form(...), distance: float = Form(5.0), speed: float =
 
 
 @app.post("/api/robot/jog-joint")
-def robot_jog_joint(joint: int = Form(...), distance: float = Form(5.0), speed: float = Form(60.0)):
+def robot_jog_joint(joint: int = Form(...), distance: float = Form(5.0), speed: float = Form(60.0), _license_ok=Depends(require_license)):
     """Jog a single robot joint using WayPoint MoveJ."""
     robot = get_robot()
     if joint < 1 or joint > 6:
@@ -555,7 +678,7 @@ def robot_jog_joint(joint: int = Form(...), distance: float = Form(5.0), speed: 
 # ---------------------------------------------------------------------------
 
 @app.post("/api/robot/move-joint-to")
-def robot_move_joint_to(joint: int = Form(...), angle: float = Form(0.0), speed: float = Form(60.0)):
+def robot_move_joint_to(joint: int = Form(...), angle: float = Form(0.0), speed: float = Form(60.0), _license_ok=Depends(require_license)):
     """Move a single joint to an absolute angle. Other joints stay at current position."""
     robot = get_robot()
     if joint < 1 or joint > 6:
@@ -579,7 +702,7 @@ def robot_move_joint_to(joint: int = Form(...), angle: float = Form(0.0), speed:
 
 
 @app.post("/api/robot/move-joints-to")
-def robot_move_joints_to(data: dict):
+def robot_move_joints_to(data: dict, _license_ok=Depends(require_license)):
     """Move all joints to absolute angles simultaneously."""
     robot = get_robot()
     angles = data.get("angles", [0, 0, 0, 0, 0, 0])
@@ -603,7 +726,7 @@ def robot_move_joints_to(data: dict):
 
 
 @app.post("/api/robot/quantum")
-def robot_quantum(speed: float = Form(60.0)):
+def robot_quantum(speed: float = Form(60.0), _license_ok=Depends(require_license)):
     """Move robot to Quantum position — all joints at 0° (pointing straight up)."""
     robot = get_robot()
     speed = min(speed, 180.0)
@@ -618,6 +741,62 @@ def robot_quantum(speed: float = Form(60.0)):
             use_joint=1, joints=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         )
         return {"response": "OK", "message": "Moving to Quantum position (all joints 0°)"}
+    except ConnectionError as e:
+        raise HTTPException(503, f"Robot communication error: {e}")
+
+
+@app.get("/api/robot/travel-position")
+def get_travel_position(db: Session = Depends(get_db)):
+    """Return the saved travel (folded) joint angles."""
+    s = db.query(RobotSettings).first()
+    if not s:
+        s = RobotSettings()
+        db.add(s)
+        db.commit()
+        db.refresh(s)
+    joints = s.travel_joints or [0.0, -90.0, 135.0, 0.0, 45.0, 0.0]
+    return {"joints": joints}
+
+
+@app.post("/api/robot/travel-position/save")
+def save_travel_position(db: Session = Depends(get_db), _license_ok=Depends(require_license)):
+    """Capture the robot's CURRENT joint angles and save them as the travel position."""
+    robot = get_robot()
+    try:
+        current = list(robot.get_state().joint_positions)
+        if len(current) != 6:
+            raise HTTPException(500, "Could not read 6 joint positions from robot")
+        s = db.query(RobotSettings).first()
+        if not s:
+            s = RobotSettings()
+            db.add(s)
+        s.travel_joints = current
+        db.commit()
+        return {"response": "OK", "joints": current}
+    except ConnectionError as e:
+        raise HTTPException(503, f"Robot communication error: {e}")
+
+
+@app.post("/api/robot/travel-position")
+def go_travel_position(speed: float = Form(60.0), db: Session = Depends(get_db), _license_ok=Depends(require_license)):
+    """Move robot to the saved travel (folded) position."""
+    robot = get_robot()
+    speed = min(speed, 180.0)
+    s = db.query(RobotSettings).first()
+    joints = (s.travel_joints if s else None) or [0.0, -90.0, 135.0, 0.0, 45.0, 0.0]
+    if len(joints) != 6:
+        raise HTTPException(500, "Stored travel position does not have 6 joints")
+
+    try:
+        p = list(robot.get_state().cartesian_position)
+        accel = max(speed * 1.5, speed + 20)
+        robot._prepare_motion()
+        robot.move_waypoint(
+            p[0], p[1], p[2], p[3], p[4], p[5],
+            speed=speed, accel=accel, move_type=0,
+            use_joint=1, joints=joints
+        )
+        return {"response": "OK", "message": "Moving to travel position", "joints": joints}
     except ConnectionError as e:
         raise HTTPException(503, f"Robot communication error: {e}")
 

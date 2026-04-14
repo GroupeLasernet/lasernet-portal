@@ -39,3 +39,22 @@ APPROACH_HEIGHT = 20.0
 # --- Server ---
 SERVER_HOST = "0.0.0.0"
 SERVER_PORT = 8080
+
+# --- Licensing ---
+ROBOT_SERIAL = os.getenv("ROBOT_SERIAL", "SERIAL_NOT_SET")
+PORTAL_URL = os.getenv("PORTAL_URL", "https://portal.atelierdsm.com")
+ROBOT_LICENSE_SECRET = os.getenv("ROBOT_LICENSE_SECRET", "")
+LICENSE_STRICT = os.getenv("LICENSE_STRICT", "false").lower() in ("true", "1", "yes")
+# Dev bypass: set DEV_SKIP_LICENSE=true to skip all license gates (useful when
+# no portal is reachable yet). NEVER enable this in production.
+DEV_SKIP_LICENSE = os.getenv("DEV_SKIP_LICENSE", "false").lower() in ("true", "1", "yes")
+
+# --- Device sync (robot ↔ Portal/Neon) ---
+# Every write on the robot is mirrored to Portal keyed by serial_number.
+# Portal acts as backup + restore source + (future) two-way edit origin.
+SYNC_ENABLED = os.getenv("SYNC_ENABLED", "true").lower() in ("true", "1", "yes")
+SYNC_INTERVAL_SEC = int(os.getenv("SYNC_INTERVAL_SEC", "10"))      # push + pull cadence
+SYNC_BATCH_SIZE = int(os.getenv("SYNC_BATCH_SIZE", "100"))         # events per push
+SYNC_MAX_ATTEMPTS = int(os.getenv("SYNC_MAX_ATTEMPTS", "20"))      # give up after N failures per event
+SYNC_PUSH_PATH = "/api/sync/push"
+SYNC_PULL_PATH = "/api/sync/pull"

@@ -471,6 +471,82 @@ async function goQuantum() {
 }
 
 // ---------------------------------------------------------------------------
+// Travel position (tap = go, hold 2s = save current pose)
+// ---------------------------------------------------------------------------
+const TRAVEL_HOLD_MS = 2000;
+let _travelHoldTimer = null;
+let _travelHoldStart = 0;
+let _travelProgressTimer = null;
+let _travelDidSave = false;
+
+function _travelSetBar(pct) {
+    const bar = document.getElementById("travelHoldBar");
+    if (bar) bar.style.width = pct + "%";
+}
+
+function travelPressStart() {
+    _travelDidSave = false;
+    _travelHoldStart = Date.now();
+    const btn = document.getElementById("travelBtn");
+    if (btn) btn.classList.add("saving");
+
+    // Progress bar animation
+    _travelProgressTimer = setInterval(() => {
+        const elapsed = Date.now() - _travelHoldStart;
+        const pct = Math.min(100, (elapsed / TRAVEL_HOLD_MS) * 100);
+        _travelSetBar(pct);
+    }, 50);
+
+    // Save trigger after full hold
+    _travelHoldTimer = setTimeout(async () => {
+        _travelDidSave = true;
+        _travelSetBar(100);
+        try {
+            const res = await api("/api/robot/travel-position/save", { method: "POST" });
+            toast("Travel position saved", "success");
+            console.log("Saved travel joints:", res.joints);
+        } catch (e) { /* api() toasts the error */ }
+    }, TRAVEL_HOLD_MS);
+}
+
+async function travelPressEnd() {
+    const wasHoldSave = _travelDidSave;
+    travelPressCancel(); // clears timers + bar
+    if (wasHoldSave) return; // already handled the save
+
+    // Short tap — go to saved travel position
+    const speedPct = parseInt(document.getElementById("speedSlider").value) || 10;
+    const speed = (speedPct / 100) * 180;
+    try {
+        await api("/api/robot/travel-position", {
+            method: "POST",
+            body: formData({ speed: speed }),
+        });
+        toast("Moving to travel position", "success");
+    } catch (e) { /* handled by api() */ }
+}
+
+function travelPressCancel() {
+    if (_travelHoldTimer) { clearTimeout(_travelHoldTimer); _travelHoldTimer = null; }
+    if (_travelProgressTimer) { clearInterval(_travelProgressTimer); _travelProgressTimer = null; }
+    _travelSetBar(0);
+    const btn = document.getElementById("travelBtn");
+    if (btn) btn.classList.remove("saving");
+}
+
+// ---------------------------------------------------------------------------
+// Emergency Stop — sends GrpStop
+// ---------------------------------------------------------------------------
+async function emergencyStop() {
+    const caller = event && event.currentTarget;
+    flashBtn(caller);
+    try {
+        await api("/api/robot/stop", { method: "POST" });
+        toast("Motion stopped", "warning");
+    } catch (e) { /* handled by api() */ }
+}
+
+// ---------------------------------------------------------------------------
 // Projects
 // ---------------------------------------------------------------------------
 
