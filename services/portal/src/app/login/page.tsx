@@ -61,19 +61,19 @@ export default function LoginPage() {
           <img
             src="/logo-dsm.png"
             alt="DSM"
-            style={{ height: '80px', width: 'auto', flexShrink: 0 }}
+            style={{ height: '160px', width: 'auto', flexShrink: 0 }}
             className="object-contain opacity-90"
           />
           <img
             src="/logo-lasernet.png"
             alt="LaserNet"
-            style={{ height: '168px', width: 'auto', flexShrink: 0 }}
+            style={{ height: '336px', width: 'auto', flexShrink: 0 }}
             className="object-contain opacity-90"
           />
           <img
             src="/logo-summumliner.png"
             alt="Summum Liner"
-            style={{ height: '40px', width: 'auto', flexShrink: 0 }}
+            style={{ height: '80px', width: 'auto', flexShrink: 0 }}
             className="object-contain opacity-90"
           />
         </div>
