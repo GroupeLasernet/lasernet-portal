@@ -41,7 +41,7 @@ export default function Sidebar({ links, bottomLinks, userName, userRole }: Side
           <img
             src="/prisma-logo.svg"
             alt="Prisma"
-            className="w-full h-auto max-h-40 object-contain"
+            className="w-full h-auto max-h-[120px] object-contain"
           />
         </div>
         <p className="text-xs text-center text-gray-500 mt-1">{portalLabel}</p>

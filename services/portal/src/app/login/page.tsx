@@ -48,14 +48,13 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <img
-            src="/prisma-logo-icon.svg"
+            src="/prisma-logo-light.svg"
             alt="Prisma"
-            className="h-48 w-auto mx-auto mb-4"
+            className="h-56 w-auto mx-auto"
           />
-          <h1 className="text-5xl font-extralight tracking-[0.3em] text-white">PRISMA</h1>
-          <p className="text-brand-200 mt-3">{t('login', 'signInToPortal')}</p>
+          <p className="text-brand-200 mt-2">{t('login', 'signInToPortal')}</p>
         </div>
 
         {/* Login Form */}
