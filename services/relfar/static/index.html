@@ -219,8 +219,73 @@
 <header>
   <div class="logo"><div class="logo-icon"></div>RELFAR V4</div>
   <span class="brand">Groupe Laser Net</span>
+  <button id="btnDiscover" class="discover-btn" title="Scan local network for the controller">🔍 Find controller</button>
   <div class="conn"><span class="dot" id="dot"></span><span id="status">connecting…</span></div>
 </header>
+
+<!-- Discovery modal -->
+<div id="discoverModal" class="disc-modal">
+  <div class="disc-panel">
+    <div class="disc-head">
+      <h3>Find Relfar controller</h3>
+      <button id="discClose" class="disc-close">✕</button>
+    </div>
+    <div class="disc-body">
+      <div class="disc-row">
+        <label>Subnet (CIDR)</label>
+        <input id="discCidr" type="text" placeholder="auto-detect (192.168.x.0/24)">
+        <button id="discStart" class="disc-scan">Scan</button>
+      </div>
+      <div id="discStatus" class="disc-status">Ready.</div>
+      <div id="discResults" class="disc-results"></div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .discover-btn{margin-left:auto;background:var(--panel2);color:var(--txt);
+    border:1px solid var(--line);padding:6px 14px;border-radius:20px;
+    font-size:13px;cursor:pointer;transition:.2s;font-family:inherit}
+  .discover-btn:hover{border-color:var(--acc);color:var(--acc)}
+  .conn{margin-left:12px !important}
+
+  .disc-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;
+    display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+  .disc-modal.show{display:flex}
+  .disc-panel{background:linear-gradient(180deg,var(--panel) 0%,var(--panel2) 100%);
+    border:1px solid var(--line);border-radius:14px;width:min(720px,92vw);
+    max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 80px rgba(0,0,0,.6)}
+  .disc-head{padding:18px 22px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between}
+  .disc-head h3{margin:0;font-size:14px;letter-spacing:2px;text-transform:uppercase;color:var(--txt)}
+  .disc-close{background:none;border:none;color:var(--mute);font-size:20px;cursor:pointer}
+  .disc-close:hover{color:var(--err)}
+  .disc-body{padding:20px 22px;overflow-y:auto}
+  .disc-row{display:grid;grid-template-columns:110px 1fr auto;gap:10px;align-items:center;margin-bottom:14px}
+  .disc-row label{color:var(--mute);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .disc-row input{background:rgba(0,0,0,.25);border:1px solid var(--line);color:var(--txt);
+    padding:8px 10px;border-radius:6px;font-family:'SF Mono',Consolas,monospace;font-size:13px}
+  .disc-row input:focus{outline:none;border-color:var(--acc)}
+  .disc-scan{background:var(--acc);color:#001018;border:none;padding:9px 18px;
+    border-radius:6px;cursor:pointer;font-weight:600;font-size:13px}
+  .disc-scan:hover{filter:brightness(1.1)}
+  .disc-scan:disabled{opacity:.5;cursor:not-allowed}
+  .disc-status{color:var(--mute);font-size:12px;font-family:monospace;margin:8px 0 14px}
+  .disc-results{display:flex;flex-direction:column;gap:8px}
+  .disc-item{background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:8px;
+    padding:12px 14px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;
+    cursor:pointer;transition:.15s}
+  .disc-item:hover{border-color:var(--acc);background:rgba(93,198,255,.08)}
+  .disc-item .ip{font-family:'SF Mono',Consolas,monospace;font-size:16px;color:var(--txt);font-weight:600}
+  .disc-item .mac{font-family:monospace;font-size:11px;color:var(--mute);margin-top:2px}
+  .disc-item .badge{padding:3px 10px;border-radius:10px;font-size:10px;text-transform:uppercase;
+    letter-spacing:1px;font-weight:700}
+  .disc-item.high  .badge{background:rgba(61,220,151,.2);color:var(--ok);border:1px solid var(--ok)}
+  .disc-item.medium .badge{background:rgba(93,198,255,.2);color:var(--acc);border:1px solid var(--acc)}
+  .disc-item.low   .badge{background:rgba(255,181,71,.2);color:var(--warn);border:1px solid var(--warn)}
+  .disc-item.weak  .badge{background:rgba(125,138,160,.15);color:var(--mute);border:1px solid var(--mute)}
+  .disc-empty{color:var(--mute);text-align:center;padding:30px 0;font-size:13px}
+</style>
 
 <main>
   <!-- COL 1: LIVE STATS -->
@@ -707,6 +772,99 @@ document.addEventListener("keyup", e => {
 
 refresh();
 setInterval(refresh, 500);
+
+// ===== Network discovery =====
+const discModal   = $("discoverModal");
+const discCidr    = $("discCidr");
+const discStatus  = $("discStatus");
+const discResults = $("discResults");
+const discStart   = $("discStart");
+
+$("btnDiscover").addEventListener("click", async () => {
+  discModal.classList.add("show");
+  discResults.innerHTML = "";
+  discStatus.textContent = "Ready. Press Scan to sweep your network.";
+  // Pre-fill the subnet field from the server's local IP guess
+  try {
+    const r = await fetch("/api/local-ip");
+    const j = await r.json();
+    if (j.suggested_cidr) discCidr.placeholder = "auto: " + j.suggested_cidr;
+  } catch(e) {}
+});
+
+$("discClose").addEventListener("click", () => discModal.classList.remove("show"));
+discModal.addEventListener("click", (e) => {
+  if (e.target === discModal) discModal.classList.remove("show");
+});
+
+discStart.addEventListener("click", async () => {
+  discStart.disabled = true;
+  discResults.innerHTML = "";
+  discStatus.textContent = "Scanning... (this takes 5-15 seconds)";
+  const body = {};
+  if (discCidr.value.trim()) body.cidr = discCidr.value.trim();
+
+  try {
+    const r = await fetch("/api/discover", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (j.error) { discStatus.textContent = "Error: " + j.error; return; }
+
+    discStatus.textContent = `Scanned ${j.scanned} IPs on ${j.cidr} in ${j.duration_s}s — ${j.candidates.length} candidate(s)`;
+
+    if (!j.candidates.length) {
+      discResults.innerHTML = '<div class="disc-empty">No devices answered on TCP:123.<br>The controller may be on a different subnet, or blocked by AP isolation.</div>';
+      return;
+    }
+
+    for (const c of j.candidates) {
+      const item = document.createElement("div");
+      item.className = "disc-item " + (c.confidence || "weak");
+      const label = ({
+        "high":   "✓ Relfar (confirmed)",
+        "medium": "Relfar protocol",
+        "low":    "Relfar MAC only",
+        "weak":   "Port open",
+      })[c.confidence] || c.confidence;
+      const macLine = c.mac
+        ? `MAC: ${c.mac}${c.oui_label ? "  •  " + c.oui_label : ""}`
+        : "MAC: (not in ARP cache)";
+      item.innerHTML = `
+        <div>
+          <div class="ip">${c.ip}</div>
+          <div class="mac">${macLine}</div>
+        </div>
+        <div class="badge">${label}</div>`;
+      item.addEventListener("click", async () => {
+        // Apply this host and reconnect
+        discStatus.textContent = `Connecting to ${c.ip}...`;
+        try {
+          await fetch("/api/config", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({host: c.ip, persist: true}),
+          });
+          // Small delay so the poll loop can reconnect, then close modal
+          setTimeout(() => {
+            discModal.classList.remove("show");
+            toast("Switched to " + c.ip, "ok");
+            refresh();
+          }, 400);
+        } catch(e) {
+          discStatus.textContent = "Failed to set host: " + e;
+        }
+      });
+      discResults.appendChild(item);
+    }
+  } catch(e) {
+    discStatus.textContent = "Network error: " + e;
+  } finally {
+    discStart.disabled = false;
+  }
+});
 </script>
 </body>
 </html>

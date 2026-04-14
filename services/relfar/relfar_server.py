@@ -10,21 +10,36 @@ import os
 import time
 import threading
 import logging
+from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
+
+# Load .env from this service's directory BEFORE reading env vars below.
+# NSSM doesn't inherit a shell's environment, so each station PC's per-device
+# config (controller IP, bind NIC, etc.) lives in services/relfar/.env.
+try:
+    from dotenv import load_dotenv
+    _ENV_PATH = Path(__file__).resolve().parent / ".env"
+    load_dotenv(_ENV_PATH)
+except ImportError:
+    # python-dotenv not installed — fall back to process-inherited env only
+    pass
 
 from relfar_protocol import (
     RelfarClient, KNOWN_REGISTERS, read_cleaning_params, params_from_cache,
     CMD_READ_RESP, CMD_WRITE,
 )
+from discover import scan as discover_scan, detect_local_ip
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("relfar")
 
 # ---- Config (override via env if needed) ---------------------------------
-HOST    = os.environ.get("RELFAR_HOST",    "192.168.1.5")
+# Default to "not configured" — user sets host via the Find controller button
+# or by setting RELFAR_HOST. Bind defaults to auto (let Windows pick).
+HOST    = os.environ.get("RELFAR_HOST",    "").strip()
 PORT    = int(os.environ.get("RELFAR_PORT", "123"))
-BIND_IP = os.environ.get("RELFAR_BIND",    "192.168.1.2")  # local NIC
+BIND_IP = os.environ.get("RELFAR_BIND",    "").strip() or None
 POLL_S  = float(os.environ.get("RELFAR_POLL", "0.5"))
 
 # ---- App state -----------------------------------------------------------
@@ -74,6 +89,12 @@ def poll_loop():
     """Background poll: keep connection alive and refresh state every POLL_S."""
     backoff = 1.0
     while not poll_stop.is_set():
+        # If no host is configured yet, idle quietly — user will set one via the UI.
+        if not state["host"]:
+            state["last_error"] = None
+            state["connected"]  = False
+            poll_stop.wait(1.0)
+            continue
         try:
             with client_lock:
                 if not state["connected"] or client is None:
@@ -122,15 +143,68 @@ def api_status():
     })
 
 
+_ENV_FILE = Path(__file__).resolve().parent / ".env"
+
+
+def _write_env_var(path: Path, key: str, value: str) -> None:
+    """Idempotently upsert KEY=VALUE in a .env file. Creates the file if missing."""
+    lines = []
+    if path.exists():
+        lines = path.read_text(encoding="utf-8").splitlines()
+    prefix = f"{key}="
+    replaced = False
+    new_line = f"{key}={value}"
+    for i, ln in enumerate(lines):
+        if ln.strip().startswith(prefix) or ln.strip().startswith("#" + prefix):
+            lines[i] = new_line
+            replaced = True
+            break
+    if not replaced:
+        lines.append(new_line)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 @app.route("/api/config", methods=["POST"])
 def api_config():
-    """Change controller IP / bind IP at runtime."""
+    """Change controller IP / bind IP at runtime.
+
+    Body: {"host": "192.168.20.55", "bind": "192.168.20.224", "persist": true}
+
+    If 'bind' isn't specified but 'host' is, clear bind so Windows auto-picks
+    the interface (avoids stale lab-network bind breaking a new network).
+
+    If 'persist' is true, also write the values into services/relfar/.env so
+    the service reconnects to the same controller after restart/reboot.
+    """
     data = request.get_json(force=True) or {}
-    if "host" in data: state["host"] = data["host"]
-    if "bind" in data: state["bind"] = data["bind"] or None
+    host_changed = False
+    if "host" in data:
+        state["host"] = (data["host"] or "").strip()
+        host_changed = True
+    if "bind" in data:
+        state["bind"] = (data["bind"] or None)
+    elif host_changed:
+        state["bind"] = None
+
+    persisted = False
+    if data.get("persist"):
+        try:
+            _write_env_var(_ENV_FILE, "RELFAR_HOST", state["host"] or "")
+            _write_env_var(_ENV_FILE, "RELFAR_BIND", state["bind"] or "")
+            persisted = True
+            log.info("Persisted RELFAR_HOST=%s RELFAR_BIND=%s to %s",
+                     state["host"], state["bind"], _ENV_FILE)
+        except Exception as e:
+            log.warning("Failed to persist config: %s", e)
+
     with client_lock:
         close_client()
-    return jsonify({"ok": True, "host": state["host"], "bind": state["bind"]})
+    return jsonify({
+        "ok": True,
+        "host": state["host"],
+        "bind": state["bind"],
+        "persisted": persisted,
+    })
 
 
 @app.route("/api/read", methods=["POST"])
@@ -207,6 +281,31 @@ def api_reconnect():
     with client_lock:
         close_client()
     return jsonify({"ok": True})
+
+
+@app.route("/api/discover", methods=["POST"])
+def api_discover():
+    """
+    Scan the local subnet for Relfar controllers.
+    Optional body: {"cidr": "192.168.0.0/24", "bind_ip": "192.168.0.47"}
+    Auto-detects both if not supplied.
+    """
+    data = request.get_json(silent=True) or {}
+    cidr    = data.get("cidr")
+    bind_ip = data.get("bind_ip")
+    try:
+        result = discover_scan(cidr=cidr, bind_ip=bind_ip)
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+    return jsonify(result)
+
+
+@app.route("/api/local-ip")
+def api_local_ip():
+    """Report the PC's primary IP so the UI can show the scan target subnet."""
+    ip = detect_local_ip()
+    return jsonify({"local_ip": ip, "suggested_cidr":
+                    (".".join(ip.split(".")[:3]) + ".0/24") if ip else None})
 
 
 # ---- Main ---------------------------------------------------------------
