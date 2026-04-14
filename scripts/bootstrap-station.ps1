@@ -91,7 +91,7 @@ Write-Step "Installing Python dependencies"
 pip install --upgrade pip | Out-Null
 pip install -q -r "$PrismaPath\services\robot\requirements.txt"
 pip install -q -r "$PrismaPath\services\relfar\requirements.txt"
-pip install -q httpx  # belt-and-braces: sync worker needs it
+pip install -q httpx python-dotenv  # belt-and-braces: sync worker + .env loader
 
 # ---------------------------------------------------------------------------
 # 4. Install NSSM (service wrapper)

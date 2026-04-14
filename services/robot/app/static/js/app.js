@@ -19,14 +19,20 @@ async function api(url, options = {}) {
         const resp = await fetch(url, options);
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({ detail: resp.statusText }));
-            throw new Error(err.detail || resp.statusText);
+            let msg = err.detail ?? resp.statusText;
+            // FastAPI validation errors return detail as an array of dicts;
+            // other endpoints may return a dict. Stringify so the toast is readable.
+            if (typeof msg !== "string") {
+                try { msg = JSON.stringify(msg); } catch { msg = String(msg); }
+            }
+            throw new Error(msg);
         }
         const ct = resp.headers.get("content-type") || "";
         if (ct.includes("json")) return resp.json();
         if (ct.includes("svg") || ct.includes("html")) return resp.text();
         return resp.json();
     } catch (e) {
-        toast(e.message, "error");
+        toast(e.message || String(e), "error");
         throw e;
     }
 }

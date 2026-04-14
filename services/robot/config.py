@@ -5,6 +5,15 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Load .env from the service directory so NSSM-wrapped runs pick up the same
+# vars as manual `python run.py` runs. NSSM does NOT auto-load .env files.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(BASE_DIR, ".env"))
+except ImportError:
+    # python-dotenv not installed — fall back to pure OS env (dev/CI paths).
+    pass
+
 # --- Database ---
 DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'data', 'cobot_studio.db')}"
 
