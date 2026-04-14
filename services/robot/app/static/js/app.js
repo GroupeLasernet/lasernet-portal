@@ -92,6 +92,14 @@ function switchTab(tabName) {
     if (tabName === 'visual' && robot3d) {
         setTimeout(() => robot3d._onResize(), 50);
     }
+
+    // Pull the error log as soon as the user opens Settings
+    if (tabName === 'settings') {
+        setTimeout(refreshErrorLog, 50);
+        startErrorLogAutoRefresh();
+    } else {
+        stopErrorLogAutoRefresh();
+    }
 }
 
 function toggleSidebar() {
@@ -905,6 +913,117 @@ async function saveSettings() {
         body: formData(data),
     });
     toast("Settings saved", "success");
+}
+
+// ---------------------------------------------------------------------------
+// Error Log viewer (Settings tab)
+// ---------------------------------------------------------------------------
+
+// Client-side buffer — captures UI errors (toast, JS exceptions, unhandled
+// rejections) that never reach the server log. Merged with server-side
+// stderr.log entries when the panel renders.
+const _clientErrorBuffer = [];
+const CLIENT_ERROR_BUFFER_MAX = 500;
+
+function _pushClientError(msg) {
+    const ts = new Date().toISOString();
+    _clientErrorBuffer.push(`${ts}  CLIENT  ${msg}`);
+    if (_clientErrorBuffer.length > CLIENT_ERROR_BUFFER_MAX) {
+        _clientErrorBuffer.shift();
+    }
+}
+
+// Capture uncaught JS errors
+window.addEventListener("error", (e) => {
+    _pushClientError(`JS error: ${e.message} @ ${e.filename}:${e.lineno}`);
+});
+window.addEventListener("unhandledrejection", (e) => {
+    _pushClientError(`Promise rejection: ${e.reason}`);
+});
+
+// Wrap toast() so every error-type toast is captured into the buffer.
+// Done after toast is defined; safe because this file loads top-to-bottom.
+(function wrapToastForErrorLog() {
+    const _origToast = toast;
+    window.toast = function (msg, type) {
+        if (type === "error") {
+            _pushClientError(`toast: ${msg}`);
+        }
+        return _origToast(msg, type);
+    };
+})();
+
+let _errorLogTimer = null;
+
+async function refreshErrorLog() {
+    const view = document.getElementById("errorLogView");
+    const status = document.getElementById("errorLogStatus");
+    if (!view) return;
+    try {
+        const data = await fetch("/api/robot/errors?limit=300").then(r => r.json());
+        const server = (data.entries || []);
+        // Merge: server entries first (they already include timestamps from
+        // Python logging), then client entries. Sort keeps chronological order
+        // when both timestamp formats are lex-comparable (ISO-ish).
+        const combined = [...server, ..._clientErrorBuffer];
+        view.textContent = combined.length
+            ? combined.join("\n")
+            : "(no errors logged)";
+        // Auto-scroll to bottom (newest)
+        view.scrollTop = view.scrollHeight;
+        if (status) {
+            status.textContent = `${combined.length} entries · ${new Date().toLocaleTimeString()}`;
+        }
+    } catch (e) {
+        view.textContent = `(failed to load: ${e.message})`;
+        if (status) status.textContent = "load failed";
+    }
+}
+
+function clearErrorLog() {
+    _clientErrorBuffer.length = 0;
+    const view = document.getElementById("errorLogView");
+    const status = document.getElementById("errorLogStatus");
+    if (view) view.textContent = "(cleared — click Refresh to re-pull server log)";
+    if (status) status.textContent = "cleared";
+}
+
+async function copyErrorLog() {
+    const view = document.getElementById("errorLogView");
+    if (!view) return;
+    const text = view.textContent || "";
+    const stamped = `# Atelier DSM robot error log\n# Copied at ${new Date().toISOString()}\n\n${text}\n`;
+    try {
+        await navigator.clipboard.writeText(stamped);
+        toast("Error log copied to clipboard", "success");
+    } catch (e) {
+        // Fallback: select the <pre> so the user can Ctrl+C manually
+        const range = document.createRange();
+        range.selectNodeContents(view);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        toast("Clipboard blocked — text selected, press Ctrl+C", "warning");
+    }
+}
+
+function startErrorLogAutoRefresh() {
+    stopErrorLogAutoRefresh();
+    const cb = document.getElementById("errorLogAutoRefresh");
+    if (!cb || !cb.checked) return;
+    _errorLogTimer = setInterval(() => {
+        const active = document.getElementById("tab-settings");
+        if (active && active.classList.contains("active") && cb.checked) {
+            refreshErrorLog();
+        }
+    }, 3000);
+}
+
+function stopErrorLogAutoRefresh() {
+    if (_errorLogTimer) {
+        clearInterval(_errorLogTimer);
+        _errorLogTimer = null;
+    }
 }
 
 // ---------------------------------------------------------------------------

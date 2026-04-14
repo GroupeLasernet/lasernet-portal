@@ -408,6 +408,19 @@
                         This data persists across software updates.
                     </p>
                 </div>
+                <div class="settings-card" style="grid-column: 1 / -1;">
+                    <h2>Error Log</h2>
+                    <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center; flex-wrap:wrap;">
+                        <button class="btn btn-sm btn-primary" onclick="refreshErrorLog()">Refresh</button>
+                        <button class="btn btn-sm btn-warning" onclick="clearErrorLog()">Clear</button>
+                        <button class="btn btn-sm btn-success" onclick="copyErrorLog()">Copy</button>
+                        <label style="color:var(--text-dim); font-size:0.8rem; margin-left:8px;">
+                            <input type="checkbox" id="errorLogAutoRefresh" checked style="vertical-align:middle;"> auto-refresh (3s)
+                        </label>
+                        <span id="errorLogStatus" style="color:var(--text-dim); font-size:0.8rem; margin-left:auto;"></span>
+                    </div>
+                    <pre id="errorLogView" style="max-height:340px; overflow-y:auto; background:#0b0e14; color:#e6e6e6; padding:10px; border:1px solid var(--border, #2a2f3a); border-radius:4px; font-family:Consolas, Menlo, monospace; font-size:0.78rem; line-height:1.45; white-space:pre-wrap; margin:0;">(click Refresh to load)</pre>
+                </div>
             </div>
         </div>
 

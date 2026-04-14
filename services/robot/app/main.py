@@ -591,6 +591,39 @@ def robot_stop(_license_ok=Depends(require_license)):
         raise HTTPException(503, f"Robot communication error: {e}")
 
 
+# ---------------------------------------------------------------------------
+# Error / diagnostic log viewer
+# ---------------------------------------------------------------------------
+@app.get("/api/robot/errors")
+def get_error_log(limit: int = 200):
+    """
+    Return recent WARNING / ERROR lines from the NSSM stderr log for display
+    in the Settings → Error Log panel. Last ~60 KB is scanned so the tail
+    stays cheap even if the log has rotated to 10 MB.
+    """
+    # logs dir is a sibling of the `app/` package, inside services/robot/
+    log_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "logs",
+        "stderr.log",
+    )
+    if not os.path.exists(log_path):
+        return {"entries": [], "source": log_path, "note": "log file not found"}
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - 60_000))
+            tail = f.read()
+        entries = []
+        for line in tail.splitlines():
+            if "WARNING" in line or "ERROR" in line or "Traceback" in line:
+                entries.append(line)
+        return {"entries": entries[-limit:], "source": log_path, "total": len(entries)}
+    except Exception as e:
+        return {"entries": [f"(failed to read log: {e})"], "source": log_path}
+
+
 @app.post("/api/robot/clear-alarm")
 def robot_clear_alarm(_license_ok=Depends(require_license)):
     robot = get_robot()
