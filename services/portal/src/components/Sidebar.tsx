@@ -1,8 +1,10 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import QuickBooksStatus from '@/components/QuickBooksStatus';
 
 interface SidebarLink {
   labelKey: string; // translation key in 'nav' section
@@ -35,7 +37,7 @@ export default function Sidebar({ links, bottomLinks, userName, userRole }: Side
     <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
       {/* Brand Header */}
       <div className="p-4 border-b border-gray-100 bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600">
-        <div className="flex items-center justify-center gap-3 mb-2">
+        <div className="flex flex-col items-center justify-center gap-2 mb-2">
           <img
             src="/logo-dsm.png"
             alt="Atelier DSM"
@@ -45,7 +47,7 @@ export default function Sidebar({ links, bottomLinks, userName, userRole }: Side
           <img
             src="/logo-lasernet.png"
             alt="Groupe Lasernet"
-            className="h-16 w-auto object-contain"
+            className="h-40 w-auto object-contain"
           />
           <img
             src="/logo-summumliner.png"
@@ -61,14 +63,14 @@ export default function Sidebar({ links, bottomLinks, userName, userRole }: Side
         {links.map((link) => {
           const isActive = pathname === link.href;
           return (
-            <a
+            <Link
               key={link.href}
               href={link.href}
               className={isActive ? 'sidebar-link-active' : 'sidebar-link'}
             >
               {link.icon}
               <span>{t('nav', link.labelKey)}</span>
-            </a>
+            </Link>
           );
         })}
       </nav>
@@ -80,17 +82,24 @@ export default function Sidebar({ links, bottomLinks, userName, userRole }: Side
             {bottomLinks.map((link) => {
               const isActive = pathname === link.href;
               return (
-                <a
+                <Link
                   key={link.href}
                   href={link.href}
                   className={isActive ? 'sidebar-link-active' : 'sidebar-link'}
                 >
                   {link.icon}
                   <span>{t('nav', link.labelKey)}</span>
-                </a>
+                </Link>
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* QuickBooks status — admin only */}
+      {userRole === 'admin' && (
+        <div className="px-4 pb-3">
+          <QuickBooksStatus />
         </div>
       )}
 

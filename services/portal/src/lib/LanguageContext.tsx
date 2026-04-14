@@ -15,17 +15,31 @@ const LanguageContext = createContext<LanguageContextType>({
   t: (_section, key) => key,
 });
 
-export function LanguageProvider({ children, initialLang = 'fr' }: { children: ReactNode; initialLang?: Language }) {
-  const [lang, setLangState] = useState<Language>(initialLang);
+const STORAGE_KEY = 'lasernet.lang';
 
-  // On mount, check if there's a saved language preference
+function readCachedLang(fallback: Language): Language {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const cached = window.localStorage.getItem(STORAGE_KEY);
+    if (cached === 'fr' || cached === 'en') return cached;
+  } catch {}
+  return fallback;
+}
+
+export function LanguageProvider({ children, initialLang = 'fr' }: { children: ReactNode; initialLang?: Language }) {
+  // Lazy init so the very first render on the client already uses the cached pref
+  // (avoids a French flash when navigating or hard-reloading).
+  const [lang, setLangState] = useState<Language>(() => readCachedLang(initialLang));
+
+  // On mount, reconcile with the user's DB preference (source of truth across devices).
   useEffect(() => {
-    // Try to get from the auth endpoint (user's DB preference)
     fetch('/api/auth/me')
       .then(r => r.json())
       .then(data => {
-        if (data.user?.language && (data.user.language === 'fr' || data.user.language === 'en')) {
-          setLangState(data.user.language);
+        const dbLang = data?.user?.language;
+        if (dbLang === 'fr' || dbLang === 'en') {
+          setLangState(dbLang);
+          try { window.localStorage.setItem(STORAGE_KEY, dbLang); } catch {}
         }
       })
       .catch(() => {});
@@ -33,7 +47,9 @@ export function LanguageProvider({ children, initialLang = 'fr' }: { children: R
 
   const setLang = useCallback(async (newLang: Language) => {
     setLangState(newLang);
-    // Persist to DB
+    // Cache immediately so the next navigation/reload paints in the chosen language.
+    try { window.localStorage.setItem(STORAGE_KEY, newLang); } catch {}
+    // Persist to DB so the preference follows the user across devices.
     try {
       await fetch('/api/auth/language', {
         method: 'POST',
