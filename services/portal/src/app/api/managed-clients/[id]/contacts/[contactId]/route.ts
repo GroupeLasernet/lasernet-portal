@@ -11,6 +11,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { contactId } = params;
     const body = await request.json();
     const { name, email, phone, role, photo, trainingPhoto, trainingInvoiceId, trainingCompleted } = body;
+    let { type, managedClientId } = body as { type?: string; managedClientId?: string };
 
     // Check email uniqueness if email is being changed
     if (email !== undefined) {
@@ -27,6 +28,42 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Normalize legacy type values
+    if (type === 'responsible') type = 'maincontact';
+    if (type === 'main') type = 'maincontact';
+    if (type === 'employee') type = 'staff';
+    if (type !== undefined && type !== 'maincontact' && type !== 'staff') {
+      return NextResponse.json(
+        { error: 'type must be "maincontact" or "staff"' },
+        { status: 400 }
+      );
+    }
+
+    // Reassignment: moving this contact to a different ManagedClient.
+    // Validate the target client exists so we fail fast with a clear error.
+    if (managedClientId !== undefined) {
+      const target = await prisma.managedClient.findUnique({ where: { id: managedClientId } });
+      if (!target) {
+        return NextResponse.json({ error: 'Target ManagedClient not found' }, { status: 404 });
+      }
+    }
+
+    // If this contact will be the Main Contact on the target client, remove that client's existing main first.
+    if (type === 'maincontact' || managedClientId !== undefined) {
+      const currentContact = await prisma.contact.findUnique({ where: { id: contactId } });
+      const effectiveClientId = managedClientId ?? currentContact?.managedClientId;
+      const effectiveType = type ?? currentContact?.type;
+      if (effectiveClientId && (effectiveType === 'maincontact' || effectiveType === 'responsible')) {
+        await prisma.contact.deleteMany({
+          where: {
+            managedClientId: effectiveClientId,
+            type: { in: ['maincontact', 'responsible'] },
+            id: { not: contactId },
+          },
+        });
+      }
+    }
+
     const contact = await prisma.contact.update({
       where: { id: contactId },
       data: {
@@ -35,6 +72,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ...(phone !== undefined && { phone: phone || null }),
         ...(role !== undefined && { role: role || null }),
         ...(photo !== undefined && { photo: photo || null }),
+        ...(type !== undefined && { type }),
+        ...(managedClientId !== undefined && { managedClientId }),
         ...(trainingPhoto !== undefined && { trainingPhoto: trainingPhoto || null }),
         ...(trainingInvoiceId !== undefined && { trainingInvoiceId: trainingInvoiceId || null }),
         ...(trainingCompleted !== undefined && { trainingCompleted }),

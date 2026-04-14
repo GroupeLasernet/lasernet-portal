@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
           orderBy: { createdAt: 'desc' },
           take: 5,
         },
-        jobs: {
-          include: { job: true },
+        stations: {
+          include: { station: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -63,12 +63,19 @@ export async function GET(request: NextRequest) {
         notes: e.notes,
         createdAt: e.createdAt.toISOString(),
       })),
-      jobs: m.jobs.map((jm) => ({
-        id: jm.job.id,
-        jobNumber: jm.job.jobNumber,
-        title: jm.job.title,
-        status: jm.job.status,
+      stations: m.stations.map((sm) => ({
+        id: sm.station.id,
+        stationNumber: sm.station.stationNumber,
+        title: sm.station.title,
+        status: sm.station.status,
       })),
+      // §9.1 licensing
+      licenseMode: m.licenseMode,
+      expiresAt: m.expiresAt ? m.expiresAt.toISOString() : null,
+      killSwitchActive: m.killSwitchActive,
+      licenseLastCheckedAt: m.licenseLastCheckedAt
+        ? m.licenseLastCheckedAt.toISOString()
+        : null,
       createdAt: m.createdAt.toISOString(),
       updatedAt: m.updatedAt.toISOString(),
     }));

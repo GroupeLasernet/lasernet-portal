@@ -26,7 +26,8 @@ export async function GET() {
         postalCode: mc.postalCode || '',
       },
       responsiblePerson: (() => {
-        const r = mc.contacts.find((c) => c.type === 'responsible');
+        // Contact.type: "maincontact" (new) | "responsible" (legacy pre-2026-04-13)
+        const r = mc.contacts.find((c) => c.type === 'maincontact' || c.type === 'responsible');
         if (!r) return null;
         return {
           id: r.id, name: r.name, email: r.email,
@@ -35,7 +36,7 @@ export async function GET() {
         };
       })(),
       subEmployees: mc.contacts
-        .filter((c) => c.type === 'employee')
+        .filter((c) => c.type === 'staff' || c.type === 'employee')
         .map((c) => ({
           id: c.id, name: c.name, email: c.email,
           phone: c.phone || '', role: c.role || '', photo: c.photo || null,

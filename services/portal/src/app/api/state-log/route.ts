@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
 // GET /api/state-log — Query state logs with filters
+// Accepts either `stationId` (preferred) or legacy `jobId` (kept for
+// backward compatibility with the robot/relfar services until they
+// are updated to speak "station").
 export async function GET(request: NextRequest) {
   try {
     const source = request.nextUrl.searchParams.get('source');
-    const jobId = request.nextUrl.searchParams.get('jobId');
+    const stationId =
+      request.nextUrl.searchParams.get('stationId') ??
+      request.nextUrl.searchParams.get('jobId');
     const from = request.nextUrl.searchParams.get('from');
     const to = request.nextUrl.searchParams.get('to');
     const limit = request.nextUrl.searchParams.get('limit');
@@ -16,8 +21,8 @@ export async function GET(request: NextRequest) {
       where.source = source;
     }
 
-    if (jobId) {
-      where.jobId = jobId;
+    if (stationId) {
+      where.stationId = stationId;
     }
 
     if (from || to) {
@@ -40,7 +45,9 @@ export async function GET(request: NextRequest) {
 
     const result = logs.map((log) => ({
       id: log.id,
-      jobId: log.jobId,
+      stationId: log.stationId,
+      // Back-compat alias so existing clients don't break:
+      jobId: log.stationId,
       source: log.source,
       data: JSON.parse(log.data),
       timestamp: log.timestamp.toISOString(),
@@ -56,29 +63,30 @@ export async function GET(request: NextRequest) {
 export const dynamic = 'force-dynamic';
 
 // POST /api/state-log — Record a state snapshot
+// Accepts either `stationId` (preferred) or legacy `jobId`.
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { jobId, source, data } = body;
+    const { source, data } = body;
+    const stationId: string | undefined = body.stationId ?? body.jobId;
 
     if (!source) {
       return NextResponse.json({ error: 'source is required' }, { status: 400 });
     }
 
-    if (jobId) {
-      // Verify job exists if jobId provided
-      const job = await prisma.job.findUnique({
-        where: { id: jobId },
+    if (stationId) {
+      const station = await prisma.station.findUnique({
+        where: { id: stationId },
       });
 
-      if (!job) {
-        return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+      if (!station) {
+        return NextResponse.json({ error: 'Station not found' }, { status: 404 });
       }
     }
 
     const log = await prisma.machineStateLog.create({
       data: {
-        jobId: jobId || null,
+        stationId: stationId || null,
         source,
         data: typeof data === 'string' ? data : JSON.stringify(data || {}),
       },
@@ -86,7 +94,8 @@ export async function POST(request: NextRequest) {
 
     const result = {
       id: log.id,
-      jobId: log.jobId,
+      stationId: log.stationId,
+      jobId: log.stationId, // back-compat alias
       source: log.source,
       data: JSON.parse(log.data),
       timestamp: log.timestamp.toISOString(),

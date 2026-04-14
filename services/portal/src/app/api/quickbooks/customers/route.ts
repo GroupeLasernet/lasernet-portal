@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchAllCustomers, fetchInvoices, isConnected, getTokensFromCookies, getTokensFromDB, buildTokenCookie, buildClearTokenCookie, clearTokensFromDB, cacheQBData, getCachedCustomers } from '@/lib/quickbooks';
+import { fetchAllCustomers, fetchInvoices, isConnected, getTokensFromDB, buildClearLegacyCookie, clearTokensFromDB, cacheQBData, getCachedCustomers } from '@/lib/quickbooks';
 import { mockQBClients } from '@/lib/mock-data';
 
 function transformCustomers(qbCustomers: any[]) {
@@ -20,13 +20,13 @@ function transformCustomers(qbCustomers: any[]) {
 // Returns all customers from QuickBooks, or cached data, or mock data
 export async function GET(request: NextRequest) {
   try {
-    // Try DB first, fall back to cookies
-    const cookieHeader = request.headers.get('cookie');
-    const tokens = await getTokensFromDB() || getTokensFromCookies(cookieHeader);
+    // DB is the sole source of truth for QB tokens (cookies removed 2026-04-13).
+    // Refreshed tokens are auto-persisted inside ensureValidToken().
+    const tokens = await getTokensFromDB();
 
     // If connected to QuickBooks, fetch real data
     if (isConnected(tokens)) {
-      const { customers: qbCustomers, updatedTokens } = await fetchAllCustomers(tokens!);
+      const { customers: qbCustomers } = await fetchAllCustomers(tokens!);
 
       // Cache customers + invoices in background on every successful fetch
       try {
@@ -37,12 +37,7 @@ export async function GET(request: NextRequest) {
       }
 
       const customers = transformCustomers(qbCustomers);
-      const response = NextResponse.json({ customers, source: 'quickbooks' });
-
-      if (updatedTokens) {
-        response.headers.set('Set-Cookie', buildTokenCookie(updatedTokens));
-      }
-      return response;
+      return NextResponse.json({ customers, source: 'quickbooks' });
     }
 
     // Not connected — try cache before falling back to mock
@@ -69,8 +64,9 @@ export async function GET(request: NextRequest) {
       error: error.message,
       expired: true,
     });
-    response.headers.set('Set-Cookie', buildClearTokenCookie());
+    // Clear DB tokens on hard failure, and scrub any legacy cookie.
     await clearTokensFromDB();
+    response.headers.set('Set-Cookie', buildClearLegacyCookie());
     return response;
   }
 }

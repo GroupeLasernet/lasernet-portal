@@ -20,6 +20,15 @@ interface TrainingTemplate {
   createdAt: string;
 }
 
+interface TeamAdmin {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  status: string;
+  inviteExpiresAt: string | null;
+}
+
 export default function SettingsPage() {
   const { lang, setLang, t } = useLanguage();
   const [templates, setTemplates] = useState<TrainingTemplate[]>([]);
@@ -30,6 +39,107 @@ export default function SettingsPage() {
   const [formDesc, setFormDesc] = useState('');
   const [uploading, setUploading] = useState(false);
   const [langSaved, setLangSaved] = useState(false);
+
+  // Team management
+  const [team, setTeam] = useState<TeamAdmin[]>([]);
+  const [teamLoading, setTeamLoading] = useState(true);
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const fetchTeam = useCallback(async () => {
+    setTeamLoading(true);
+    try {
+      const res = await fetch('/api/admin/team');
+      const data = await res.json();
+      setTeam(data.admins || []);
+    } catch (err) {
+      console.error('Failed to fetch team:', err);
+    } finally {
+      setTeamLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTeam();
+    // Grab current user id so we can disable self-remove in UI.
+    fetch('/api/auth/me')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.user?.userId) setCurrentUserId(d.user.userId); else if (d?.user?.id) setCurrentUserId(d.user.id); })
+      .catch(() => {});
+  }, [fetchTeam]);
+
+  const handleInvite = async () => {
+    setInviteError(null);
+    setLastInviteUrl(null);
+    if (!inviteEmail.trim() || !inviteName.trim()) {
+      setInviteError('Name and email are required.');
+      return;
+    }
+    setInviteBusy(true);
+    try {
+      const res = await fetch('/api/admin/team', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail.trim(), name: inviteName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setInviteError(data.error || 'Failed to invite.');
+      } else {
+        setLastInviteUrl(data.inviteUrl);
+        setInviteEmail('');
+        setInviteName('');
+        fetchTeam();
+      }
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const handleResendInvite = async (id: string) => {
+    const res = await fetch(`/api/admin/team/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resendInvite: true }),
+    });
+    const data = await res.json();
+    if (res.ok && data.inviteUrl) {
+      setLastInviteUrl(data.inviteUrl);
+      fetchTeam();
+    } else {
+      alert(data.error || 'Failed to resend invite.');
+    }
+  };
+
+  const handleToggleStatus = async (admin: TeamAdmin) => {
+    const next = admin.status === 'active' ? 'disabled' : 'active';
+    const res = await fetch(`/api/admin/team/${admin.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: next }),
+    });
+    const data = await res.json();
+    if (!res.ok) alert(data.error || 'Failed to update.');
+    fetchTeam();
+  };
+
+  const handleRemoveAdmin = async (admin: TeamAdmin) => {
+    if (!confirm(`Remove ${admin.email} from the admin team?`)) return;
+    const res = await fetch(`/api/admin/team/${admin.id}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) alert(data.error || 'Failed to remove.');
+    fetchTeam();
+  };
+
+  const copyInviteUrl = () => {
+    if (!lastInviteUrl) return;
+    navigator.clipboard.writeText(lastInviteUrl).catch(() => {});
+  };
 
   const fetchTemplates = useCallback(async () => {
     try {
@@ -182,6 +292,139 @@ export default function SettingsPage() {
           </button>
           {langSaved && (
             <span className="text-sm text-green-600 ml-2">{t('settings', 'languageSaved')}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Team / Admins Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">Team</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Invite people to join the admin team. They&apos;ll get a link to set their password.
+            </p>
+          </div>
+          <button
+            onClick={() => { setShowInvite((v) => !v); setInviteError(null); setLastInviteUrl(null); }}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+          >
+            {showInvite ? 'Cancel' : 'Invite admin'}
+          </button>
+        </div>
+
+        {showInvite && (
+          <div className="p-4 bg-blue-50 border-b border-blue-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                type="text"
+                placeholder="Full name"
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <input
+                type="email"
+                placeholder="Email address"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            {inviteError && <p className="text-sm text-red-600 mt-2">{inviteError}</p>}
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={handleInvite}
+                disabled={inviteBusy}
+                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {inviteBusy ? 'Sending…' : 'Send invite'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {lastInviteUrl && (
+          <div className="p-4 bg-green-50 border-b border-green-100">
+            <p className="text-sm text-green-800 mb-2">
+              Invite link created. Share this with the new admin (valid 48h):
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={lastInviteUrl}
+                className="flex-1 px-3 py-2 border border-green-300 rounded-lg text-xs bg-white font-mono"
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <button
+                onClick={copyInviteUrl}
+                className="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="divide-y divide-gray-100">
+          {teamLoading ? (
+            <div className="p-8 text-center text-gray-400">{t('common', 'loading')}</div>
+          ) : team.length === 0 ? (
+            <div className="p-8 text-center text-gray-400">No admins yet.</div>
+          ) : (
+            team.map((admin) => {
+              const isSelf = admin.id === currentUserId;
+              const statusColor =
+                admin.status === 'active'
+                  ? 'bg-green-100 text-green-700'
+                  : admin.status === 'invited'
+                  ? 'bg-yellow-100 text-yellow-700'
+                  : 'bg-gray-200 text-gray-600';
+              return (
+                <div key={admin.id} className="p-4 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-800">{admin.name}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${statusColor}`}>
+                        {admin.status}
+                      </span>
+                      {isSelf && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">
+                          you
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500">{admin.email}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {admin.status === 'invited' && (
+                      <button
+                        onClick={() => handleResendInvite(admin.id)}
+                        className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded"
+                      >
+                        Resend invite
+                      </button>
+                    )}
+                    {admin.status !== 'invited' && !isSelf && (
+                      <button
+                        onClick={() => handleToggleStatus(admin)}
+                        className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded"
+                      >
+                        {admin.status === 'active' ? 'Deactivate' : 'Reactivate'}
+                      </button>
+                    )}
+                    {!isSelf && (
+                      <button
+                        onClick={() => handleRemoveAdmin(admin)}
+                        className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </div>

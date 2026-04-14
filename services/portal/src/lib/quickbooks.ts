@@ -91,9 +91,12 @@ function getOAuthClient() {
 export { fetchDiscoveryDocument, DISCOVERY_URLS };
 
 // ============================================================
-// TOKEN STORAGE (Cookie-based for Vercel serverless)
-// Tokens are stored in encrypted HTTP-only cookies so they
-// persist across serverless function invocations.
+// TOKEN STORAGE
+// Source of truth: the QBToken row in Postgres (id="singleton").
+// Cookie storage was removed 2026-04-13 per HANDOFF rule §6
+// (Data persistence: no cookies-as-storage). buildClearTokenCookie
+// is kept so admin sessions that still carry the legacy `qb_tokens`
+// cookie can be cleared on the next request.
 // ============================================================
 
 export interface QBTokens {
@@ -103,53 +106,15 @@ export interface QBTokens {
   expiresAt: number;
 }
 
-// Simple XOR encryption with the JWT_SECRET for cookie storage
-function encryptTokens(tokens: QBTokens): string {
-  const json = JSON.stringify(tokens);
-  const key = process.env.JWT_SECRET || 'fallback-key';
-  let result = '';
-  for (let i = 0; i < json.length; i++) {
-    result += String.fromCharCode(json.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-  }
-  return Buffer.from(result, 'binary').toString('base64');
-}
-
-function decryptTokens(encrypted: string): QBTokens | null {
-  try {
-    const key = process.env.JWT_SECRET || 'fallback-key';
-    const decoded = Buffer.from(encrypted, 'base64').toString('binary');
-    let result = '';
-    for (let i = 0; i < decoded.length; i++) {
-      result += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-    }
-    return JSON.parse(result);
-  } catch {
-    return null;
-  }
-}
-
-export { encryptTokens, decryptTokens };
-
-// Helper to read tokens from a cookie string (used in API routes)
-export function getTokensFromCookies(cookieHeader: string | null): QBTokens | null {
-  if (!cookieHeader) return null;
-  const match = cookieHeader.match(/qb_tokens=([^;]+)/);
-  if (!match) return null;
-  return decryptTokens(decodeURIComponent(match[1]));
-}
-
-// Build a Set-Cookie header to store tokens
-export function buildTokenCookie(tokens: QBTokens): string {
-  const encrypted = encryptTokens(tokens);
-  // Cookie expires in 100 days (refresh tokens last longer)
-  const maxAge = 100 * 24 * 60 * 60;
-  return `qb_tokens=${encodeURIComponent(encrypted)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
-}
-
-// Build a Set-Cookie header to clear the tokens
-export function buildClearTokenCookie(): string {
+// Build a Set-Cookie header that clears any stale legacy `qb_tokens` cookie
+// left in admin browsers from before the DB-only migration. Safe to send
+// on any QB API response.
+export function buildClearLegacyCookie(): string {
   return `qb_tokens=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
+
+// Backwards-compat alias — older callsites used buildClearTokenCookie.
+export const buildClearTokenCookie = buildClearLegacyCookie;
 
 // ============================================================
 // DATABASE TOKEN STORAGE — Persistent across deploys/sessions

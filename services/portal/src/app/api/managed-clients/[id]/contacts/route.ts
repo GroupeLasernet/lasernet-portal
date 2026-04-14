@@ -10,11 +10,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = params;
     const body = await request.json();
-    const { name, email, phone, role, photo, type, trainingPhoto, trainingInvoiceId, trainingCompleted } = body;
+    let { type } = body;
+    const { name, email, phone, role, photo, trainingPhoto, trainingInvoiceId, trainingCompleted } = body;
 
     if (!name || !email || !type) {
       return NextResponse.json(
         { error: 'Name, email, and type are required' },
+        { status: 400 }
+      );
+    }
+
+    // Normalize legacy type values to new vocabulary.
+    if (type === 'responsible') type = 'maincontact';
+    if (type === 'main') type = 'maincontact';
+    if (type === 'employee') type = 'staff';
+    if (type !== 'maincontact' && type !== 'staff') {
+      return NextResponse.json(
+        { error: 'type must be "maincontact" or "staff"' },
         { status: 400 }
       );
     }
@@ -32,10 +44,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // If adding a responsible person, remove existing one first
-    if (type === 'responsible') {
+    // Only one Main Contact per client: remove any existing one (new or legacy value) first.
+    if (type === 'maincontact') {
       await prisma.contact.deleteMany({
-        where: { managedClientId: id, type: 'responsible' },
+        where: { managedClientId: id, type: { in: ['maincontact', 'responsible'] } },
       });
     }
 

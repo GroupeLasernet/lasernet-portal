@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchInvoices, fetchAllCustomers, isConnected, getTokensFromCookies, getTokensFromDB, buildTokenCookie, cacheQBData, getCachedInvoices } from '@/lib/quickbooks';
+import { fetchInvoices, fetchAllCustomers, isConnected, getTokensFromDB, cacheQBData, getCachedInvoices } from '@/lib/quickbooks';
 import { mockInvoices } from '@/lib/mock-data';
 
 export const dynamic = 'force-dynamic';
@@ -32,12 +32,11 @@ function transformInvoices(qbInvoices: any[]) {
 export async function GET(request: NextRequest) {
   try {
     const customerId = request.nextUrl.searchParams.get('customerId') || undefined;
-    // Try DB first, fall back to cookies
-    const cookieHeader = request.headers.get('cookie');
-    const tokens = await getTokensFromDB() || getTokensFromCookies(cookieHeader);
+    // DB is the sole source of truth for QB tokens (cookies removed 2026-04-13).
+    const tokens = await getTokensFromDB();
 
     if (isConnected(tokens)) {
-      const { invoices: qbInvoices, updatedTokens } = await fetchInvoices(tokens!, customerId);
+      const { invoices: qbInvoices } = await fetchInvoices(tokens!, customerId);
 
       // Cache all invoices + customers in background on every successful fetch
       if (!customerId) {
@@ -52,12 +51,7 @@ export async function GET(request: NextRequest) {
       }
 
       const invoices = transformInvoices(qbInvoices);
-
-      const response = NextResponse.json({ invoices, source: 'quickbooks' });
-      if (updatedTokens) {
-        response.headers.set('Set-Cookie', buildTokenCookie(updatedTokens));
-      }
-      return response;
+      return NextResponse.json({ invoices, source: 'quickbooks' });
     }
 
     // Not connected — try cache before falling back to mock

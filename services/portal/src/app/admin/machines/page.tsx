@@ -21,7 +21,12 @@ interface Machine {
   client: { id: string; displayName: string; companyName: string } | null;
   invoice: { id: string; invoiceNumber: string } | null;
   recentEvents: { id: string; eventType: string; notes?: string; createdAt: string }[];
-  jobs: { id: string; jobNumber: string; title: string; status: string }[];
+  stations: { id: string; stationNumber: string; title: string; status: string }[];
+  // §9.1 licensing fields
+  licenseMode?: 'unlicensed' | 'sold' | 'rented' | 'killed';
+  expiresAt?: string | null;
+  killSwitchActive?: boolean;
+  licenseLastCheckedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -705,21 +710,24 @@ function DetailPanel({
           </div>
         )}
 
-        {/* Jobs */}
-        {machine.jobs.length > 0 && (
+        {/* Stations */}
+        {machine.stations.length > 0 && (
           <div>
             <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'linkedStations')}</h3>
             <div className="space-y-2">
-              {machine.jobs.map((job) => (
-                <div key={job.id} className="p-2 bg-gray-50 rounded text-sm">
-                  <p className="font-medium text-gray-900">{job.jobNumber}</p>
-                  <p className="text-gray-600">{job.title}</p>
-                  <p className="text-xs text-gray-500">{job.status}</p>
+              {machine.stations.map((station) => (
+                <div key={station.id} className="p-2 bg-gray-50 rounded text-sm">
+                  <p className="font-medium text-gray-900">{station.stationNumber}</p>
+                  <p className="text-gray-600">{station.title}</p>
+                  <p className="text-xs text-gray-500">{station.status}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
+
+        {/* §9.1 Licensing panel */}
+        <LicensePanel machine={machine} />
 
         {/* Actions */}
         <div className="flex gap-2 pt-4 border-t border-gray-200">
@@ -990,6 +998,121 @@ function NewMachineModal({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+// =============================================================
+// §9.1 LicensePanel — inline license admin controls on each card.
+// Calls PATCH /api/machines/license/<serialNumber>.
+// =============================================================
+function LicensePanel({ machine }: { machine: Machine }) {
+  const [mode, setMode] = useState<'unlicensed' | 'sold' | 'rented' | 'killed'>(
+    machine.licenseMode || 'unlicensed'
+  );
+  const [expiresAt, setExpiresAt] = useState<string>(
+    machine.expiresAt ? machine.expiresAt.slice(0, 10) : ''
+  );
+  const [killSwitch, setKillSwitch] = useState<boolean>(!!machine.killSwitchActive);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const save = async () => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/machines/license/${encodeURIComponent(machine.serialNumber)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          licenseMode: mode,
+          expiresAt:
+            mode === 'rented' && expiresAt
+              ? new Date(expiresAt + 'T00:00:00Z').toISOString()
+              : null,
+          killSwitchActive: killSwitch,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Update failed');
+      }
+      setMsg('Saved. Robot will sync on next heartbeat.');
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Update failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const badgeColor =
+    mode === 'killed'
+      ? 'bg-red-100 text-red-800'
+      : mode === 'rented'
+      ? 'bg-amber-100 text-amber-800'
+      : mode === 'sold'
+      ? 'bg-green-100 text-green-800'
+      : 'bg-gray-100 text-gray-800';
+
+  return (
+    <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-gray-900">Licensing</h3>
+        <span className={`text-xs px-2 py-0.5 rounded ${badgeColor}`}>{mode}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <label className="flex flex-col">
+          <span className="text-gray-600 mb-1">Mode</span>
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value as typeof mode)}
+            className="border border-gray-300 rounded px-2 py-1"
+          >
+            <option value="unlicensed">Unlicensed</option>
+            <option value="sold">Sold (unlimited)</option>
+            <option value="rented">Rented</option>
+            <option value="killed">Killed</option>
+          </select>
+        </label>
+        <label className="flex flex-col">
+          <span className="text-gray-600 mb-1">Expires (rented only)</span>
+          <input
+            type="date"
+            value={expiresAt}
+            disabled={mode !== 'rented'}
+            onChange={(e) => setExpiresAt(e.target.value)}
+            className="border border-gray-300 rounded px-2 py-1 disabled:bg-gray-100"
+          />
+        </label>
+      </div>
+
+      <label className="flex items-center gap-2 mt-2 text-xs text-gray-700">
+        <input
+          type="checkbox"
+          checked={killSwitch}
+          onChange={(e) => setKillSwitch(e.target.checked)}
+        />
+        Kill-switch active (refuse operation immediately)
+      </label>
+
+      <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+        <span>
+          Last check:{' '}
+          {machine.licenseLastCheckedAt
+            ? new Date(machine.licenseLastCheckedAt).toLocaleString()
+            : 'never'}
+        </span>
+        <button
+          onClick={save}
+          disabled={saving}
+          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+        >
+          {saving ? '…' : 'Save'}
+        </button>
+      </div>
+
+      {msg && <p className="mt-1 text-xs text-gray-600">{msg}</p>}
     </div>
   );
 }

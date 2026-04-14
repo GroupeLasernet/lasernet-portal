@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { handleCallback, buildTokenCookie, fetchInvoices, fetchAllCustomers, cacheQBData } from '@/lib/quickbooks';
+import { handleCallback, buildClearLegacyCookie, fetchInvoices, fetchAllCustomers, cacheQBData } from '@/lib/quickbooks';
 
 // GET /api/quickbooks/callback
 // QuickBooks redirects here after the admin authorizes access
@@ -19,11 +19,14 @@ export async function GET(request: NextRequest) {
       console.error('Failed to cache QB data on callback:', cacheErr);
     }
 
-    // Redirect back to the admin clients page and set the token cookie
+    // Tokens are now persisted in Postgres by handleCallback(). We still
+    // clear any legacy `qb_tokens` cookie so admin browsers don't carry
+    // stale data from before the DB-only migration.
+    void tokens; // tokens already saved; retained for clarity
     const response = NextResponse.redirect(
       new URL('/admin/clients?qb=connected', request.url)
     );
-    response.headers.set('Set-Cookie', buildTokenCookie(tokens));
+    response.headers.set('Set-Cookie', buildClearLegacyCookie());
 
     return response;
   } catch (error: any) {

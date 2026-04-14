@@ -107,7 +107,7 @@ export default function AdminClientsPage() {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
   const [showContactForm, setShowContactForm] = useState(false);
-  const [contactFormType, setContactFormType] = useState<'responsible' | 'employee'>('responsible');
+  const [contactFormType, setContactFormType] = useState<'maincontact' | 'staff'>('maincontact');
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState<Omit<ContactPerson, 'id'>>({
     photo: null, name: '', email: '', phone: '', role: '',
@@ -241,7 +241,7 @@ export default function AdminClientsPage() {
     }).catch(() => { setClientInvoices([]); setInvoicesLoading(false); });
 
     // Load stations for this client (stations are stored as Jobs in the DB)
-    fetch(`/api/jobs?clientId=${selectedClientId}`).then(r => r.json()).then(data => {
+    fetch(`/api/stations?clientId=${selectedClientId}`).then(r => r.json()).then(data => {
       const jobs = data.jobs || [];
       const stations: Station[] = jobs.map((job: Record<string, unknown>) => {
         let items: { description: string; quantity: number; rate: number; amount: number }[] = [];
@@ -313,13 +313,13 @@ export default function AdminClientsPage() {
 
   const selectedClient = managedClients.find((mc) => mc.id === selectedClientId) || null;
 
-  const openContactForm = (type: 'responsible' | 'employee') => {
+  const openContactForm = (type: 'maincontact' | 'staff') => {
     setContactFormType(type); setEditingContactId(null);
     setContactForm({ photo: null, name: '', email: '', phone: '', role: '' });
     setContactError(null); setShowContactForm(true);
   };
 
-  const openEditForm = (type: 'responsible' | 'employee', contact: ContactPerson) => {
+  const openEditForm = (type: 'maincontact' | 'staff', contact: ContactPerson) => {
     setContactFormType(type); setEditingContactId(contact.id);
     setContactForm({ photo: contact.photo, name: contact.name, email: contact.email, phone: contact.phone, role: contact.role });
     setContactError(null); setResetMessage(null); setShowContactForm(true);
@@ -338,7 +338,7 @@ export default function AdminClientsPage() {
         if (data.contact) {
           setManagedClients(managedClients.map((mc) => {
             if (mc.id !== selectedClient.id) return mc;
-            if (contactFormType === 'responsible' && mc.responsiblePerson?.id === editingContactId) return { ...mc, responsiblePerson: { ...data.contact, id: editingContactId } };
+            if (contactFormType === 'maincontact' && mc.responsiblePerson?.id === editingContactId) return { ...mc, responsiblePerson: { ...data.contact, id: editingContactId } };
             return { ...mc, subEmployees: mc.subEmployees.map(e => e.id === editingContactId ? { ...data.contact, id: editingContactId } : e) };
           }));
         }
@@ -355,7 +355,7 @@ export default function AdminClientsPage() {
         if (data.contact) {
           setManagedClients(managedClients.map((mc) => {
             if (mc.id !== selectedClient.id) return mc;
-            if (contactFormType === 'responsible') return { ...mc, responsiblePerson: data.contact };
+            if (contactFormType === 'maincontact') return { ...mc, responsiblePerson: data.contact };
             return { ...mc, subEmployees: [...mc.subEmployees, data.contact] };
           }));
         }
@@ -440,7 +440,7 @@ export default function AdminClientsPage() {
         // Build invoices array for multi-invoice support
         let existingMeta: Record<string, unknown> = {};
         try {
-          const raw = await fetch(`/api/jobs/${selectedExistingStationId}`).then(r => r.json());
+          const raw = await fetch(`/api/stations/${selectedExistingStationId}`).then(r => r.json());
           existingMeta = JSON.parse(raw.job?.notes || '{}');
         } catch { /* fallback */ }
         const invoices: { id: string; number: string }[] = (existingMeta.invoices as { id: string; number: string }[]) || [];
@@ -452,19 +452,19 @@ export default function AdminClientsPage() {
         }
         const notes = JSON.stringify({ ...existingMeta, invoiceId: existingMeta.invoiceId || previewInvoice.id, invoiceNumber: existingMeta.invoiceNumber || previewInvoice.invoiceNumber, invoices, items: updatedItems });
         setClientStations(prev => prev.map(s => s.id !== selectedExistingStationId ? s : { ...s, items: updatedItems }));
-        fetch(`/api/jobs/${selectedExistingStationId}`, {
+        fetch(`/api/stations/${selectedExistingStationId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ notes }),
         }).catch(() => {});
       }
     } else {
-      // Create new station via /api/jobs
+      // Create new station via /api/stations
       const name = stationName.trim() || `Station — ${previewInvoice.invoiceNumber}`;
       const notes = JSON.stringify({ invoiceId: previewInvoice.id, invoiceNumber: previewInvoice.invoiceNumber, items });
 
       try {
-        const res = await fetch('/api/jobs', {
+        const res = await fetch('/api/stations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -498,7 +498,7 @@ export default function AdminClientsPage() {
 
   const handleDeleteStation = (stationId: string) => {
     setClientStations(prev => prev.filter(s => s.id !== stationId));
-    fetch(`/api/jobs/${stationId}`, { method: 'DELETE' }).catch(() => {});
+    fetch(`/api/stations/${stationId}`, { method: 'DELETE' }).catch(() => {});
   };
 
   const [editingStationId, setEditingStationId] = useState<string | null>(null);
@@ -518,8 +518,8 @@ export default function AdminClientsPage() {
     switch (confirmDelete.type) {
       case 'station': handleDeleteStation(confirmDelete.id); break;
       case 'client': handleRemoveClient(confirmDelete.id); break;
-      case 'responsible': handleRemoveResponsible(confirmDelete.id); break;
-      case 'employee': handleRemoveEmployee(confirmDelete.id, confirmDelete.id2 || ''); break;
+      case 'maincontact': handleRemoveResponsible(confirmDelete.id); break;
+      case 'staff': handleRemoveEmployee(confirmDelete.id, confirmDelete.id2 || ''); break;
       case 'training': handleDeleteTraining(confirmDelete.id); break;
     }
     setConfirmDelete(null);
@@ -529,7 +529,7 @@ export default function AdminClientsPage() {
     if (!newName.trim()) return;
     setClientStations(prev => prev.map(s => s.id === stationId ? { ...s, name: newName.trim() } : s));
     setEditingStationId(null);
-    fetch(`/api/jobs/${stationId}`, {
+    fetch(`/api/stations/${stationId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: newName.trim() }),
@@ -834,7 +834,7 @@ export default function AdminClientsPage() {
                       <span className="text-sm font-semibold text-gray-900">{t('clients', 'mainContact')}</span>
                     </button>
                     {!selectedClient.responsiblePerson && mainContactOpen && (
-                      <button onClick={() => openContactForm('responsible')} className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ {t('clients', 'setMainContact')}</button>
+                      <button onClick={() => openContactForm('maincontact')} className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ {t('clients', 'setMainContact')}</button>
                     )}
                   </div>
                   {mainContactOpen && (
@@ -869,8 +869,8 @@ export default function AdminClientsPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
-                            <button onClick={() => openEditForm('responsible', selectedClient.responsiblePerson!)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'edit')}><EditIcon /></button>
-                            <button onClick={() => setConfirmDelete({ type: 'responsible', id: selectedClient.id, label: t('clients', 'removeMainContact') })} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'remove')}><TrashIcon /></button>
+                            <button onClick={() => openEditForm('maincontact', selectedClient.responsiblePerson!)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'edit')}><EditIcon /></button>
+                            <button onClick={() => setConfirmDelete({ type: 'maincontact', id: selectedClient.id, label: t('clients', 'removeMainContact') })} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'remove')}><TrashIcon /></button>
                           </div>
                         </div>
                       ) : (
@@ -892,7 +892,7 @@ export default function AdminClientsPage() {
                       {selectedClient.subEmployees.length > 0 && <span className="text-xs text-gray-400 ml-1">({selectedClient.subEmployees.length})</span>}
                     </button>
                     {staffOpen && (
-                      <button onClick={() => openContactForm('employee')} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ {t('clients', 'addStaff')}</button>
+                      <button onClick={() => openContactForm('staff')} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ {t('clients', 'addStaff')}</button>
                     )}
                   </div>
                   {staffOpen && (
@@ -928,8 +928,8 @@ export default function AdminClientsPage() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">
-                                <button onClick={() => openEditForm('employee', emp)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'edit')}><EditIcon /></button>
-                                <button onClick={() => setConfirmDelete({ type: 'employee', id: selectedClient.id, id2: emp.id, label: t('clients', 'removeStaff') })} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'remove')}><TrashIcon size="w-4 h-4" /></button>
+                                <button onClick={() => openEditForm('staff', emp)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'edit')}><EditIcon /></button>
+                                <button onClick={() => setConfirmDelete({ type: 'staff', id: selectedClient.id, id2: emp.id, label: t('clients', 'removeStaff') })} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'remove')}><TrashIcon size="w-4 h-4" /></button>
                               </div>
                             </div>
                           ))}
@@ -1360,11 +1360,11 @@ export default function AdminClientsPage() {
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-lg font-semibold">
                 {editingContactId
-                  ? (contactFormType === 'responsible' ? t('clients', 'editMainContact') : t('clients', 'editStaff'))
-                  : (contactFormType === 'responsible' ? t('clients', 'setMainContact') : t('clients', 'addStaffMember'))}
+                  ? (contactFormType === 'maincontact' ? t('clients', 'editMainContact') : t('clients', 'editStaff'))
+                  : (contactFormType === 'maincontact' ? t('clients', 'setMainContact') : t('clients', 'addStaffMember'))}
               </h2>
               <p className="text-sm text-gray-500 mt-1">
-                {contactFormType === 'responsible' ? t('clients', 'mainContactDesc') : t('clients', 'staffDesc')}
+                {contactFormType === 'maincontact' ? t('clients', 'mainContactDesc') : t('clients', 'staffDesc')}
               </p>
             </div>
             <div className="p-6 space-y-4">
@@ -1453,7 +1453,7 @@ export default function AdminClientsPage() {
             <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
               <button onClick={() => { setShowContactForm(false); setEditingContactId(null); }} className="btn-secondary">{t('common', 'cancel')}</button>
               <button onClick={handleSaveContact} disabled={!contactForm.name.trim() || !contactForm.email.trim()} className="btn-primary disabled:opacity-50">
-                {editingContactId ? t('clients', 'saveChanges') : (contactFormType === 'responsible' ? t('clients', 'setAsMainContact') : t('clients', 'addStaffMember'))}
+                {editingContactId ? t('clients', 'saveChanges') : (contactFormType === 'maincontact' ? t('clients', 'setAsMainContact') : t('clients', 'addStaffMember'))}
               </button>
             </div>
           </div>

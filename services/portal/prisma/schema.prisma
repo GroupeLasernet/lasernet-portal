@@ -19,14 +19,15 @@ model User {
   id          String   @id @default(cuid())
   email       String   @unique
   name        String
-  password    String?  // Hashed with bcrypt
-  role        String   @default("client") // "admin" or "client"
+  password    String?  // bcrypt hash (legacy rows may still be plaintext — rehashed on next successful login)
+  role        String   @default("client") // "client" | "admin"
   company     String?
   phone       String?
   photo       String?  @db.Text // base64 data URL or null
   language    String   @default("fr") // "fr" or "en"
-  status      String   @default("invited") // "invited" or "active"
+  status      String   @default("invited") // "invited" | "active" | "disabled"
   inviteToken String?  @db.Text
+  inviteExpiresAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -67,13 +68,15 @@ model ManagedClient {
   // Relations
   contacts        Contact[]
   tickets         Ticket[]
-  jobs            Job[]
+  stations        Station[]
   machines        Machine[]
   trainingEvents  TrainingEvent[]
 }
 
 // ============================================================
-// CONTACTS — Responsible person + sub-employees for a client
+// CONTACTS — Main contact + staff for a client
+// Email is the stable natural ID (unique across the whole system).
+// A contact belongs to ONE ManagedClient at a time; reassigning = updating managedClientId.
 // ============================================================
 model Contact {
   id              String        @id @default(cuid())
@@ -85,7 +88,7 @@ model Contact {
   phone   String?
   role    String?
   photo   String? @db.Text // base64 data URL or null
-  type    String  // "responsible" or "employee"
+  type    String  // "maincontact" or "staff"  (legacy values: "responsible"/"employee" migrated via 20260413_rename_contact_type.sql)
 
   // Training fields
   trainingPhoto     String?  @db.Text // base64 of training booklet photo
@@ -143,11 +146,12 @@ model TicketAttachment {
 }
 
 // ============================================================
-// JOB MANAGEMENT — Central concept for machine programming
+// STATIONS — Central concept for machine programming
+// (Renamed from "Job" on 2026-04-13 via 20260413_jobs_to_stations.sql)
 // ============================================================
-model Job {
+model Station {
   id              String   @id @default(cuid())
-  jobNumber       String   @unique
+  stationNumber   String   @unique
   managedClientId String
   managedClient   ManagedClient @relation(fields: [managedClientId], references: [id], onDelete: Cascade)
 
@@ -159,20 +163,21 @@ model Job {
   updatedAt DateTime @updatedAt
 
   // Relations
-  invoices         JobInvoice[]
-  machines         JobMachine[]
-  robotPrograms    JobRobotProgram[]
-  laserPresets     JobLaserPreset[]
+  invoices         StationInvoice[]
+  machines         StationMachine[]
+  robotPrograms    StationRobotProgram[]
+  laserPresets     StationLaserPreset[]
   stateLog         MachineStateLog[]
 }
 
 // ============================================================
-// JOB INVOICES — Links jobs to QuickBooks invoices (main anchor)
+// STATION INVOICES — Links stations to QuickBooks invoices (main anchor)
+// Also carries optional line-item selection metadata (8.4C).
 // ============================================================
-model JobInvoice {
+model StationInvoice {
   id           String @id @default(cuid())
-  jobId        String
-  job          Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  stationId    String
+  station      Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
 
   qbInvoiceId   String
   invoiceNumber String
@@ -180,23 +185,28 @@ model JobInvoice {
   amount        Float?
   linkedAt      DateTime @default(now())
 
+  // Optional: JSON array of selected line items from the QB invoice
+  //   [{ lineIndex: 0, description, quantity, amount, model? }, ...]
+  // Null/absent = entire invoice is linked (legacy behaviour).
+  lineItemsJson String? @db.Text
+
   // Machines sold on this invoice
   machines     Machine[]
 }
 
 // ============================================================
-// JOB-MACHINE LINK — Many-to-many: which machines are in a job
+// STATION-MACHINE LINK — Many-to-many: which machines are in a station
 // ============================================================
-model JobMachine {
+model StationMachine {
   id        String @id @default(cuid())
-  jobId     String
-  job       Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  stationId String
+  station   Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
   machineId String
   machine   Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
 
   assignedAt DateTime @default(now())
 
-  @@unique([jobId, machineId])
+  @@unique([stationId, machineId])
 }
 
 // ============================================================
@@ -224,22 +234,34 @@ model Machine {
   // Status
   status          String   @default("active") // "active", "in_repair", "refunded", "decommissioned"
 
+  // ---------- Licensing / kill-switch (§9.1, added 2026-04-13 session 3) ----------
+  // licenseMode: "unlicensed" (default), "sold", "rented", "killed".
+  //   sold     = runs indefinitely
+  //   rented   = expires at expiresAt
+  //   killed   = kill-switch flipped, robot refuses operation immediately
+  licenseMode        String    @default("unlicensed")
+  expiresAt          DateTime? // null for sold/unlicensed; set for rented
+  killSwitchActive   Boolean   @default(false)
+  // When the robot last successfully fetched its license from the portal.
+  licenseLastCheckedAt DateTime?
+  // --------------------------------------------------------------------------------
+
   // Current owner
   managedClientId String?
   managedClient   ManagedClient? @relation(fields: [managedClientId], references: [id], onDelete: SetNull)
 
   // Original invoice this machine was sold on
   invoiceId       String?
-  invoice         JobInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  invoice         StationInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   events          MachineEvent[]
-  jobs            JobMachine[]
-  robotPrograms   JobRobotProgram[]
-  laserPresets    JobLaserPreset[]
+  stations        StationMachine[]
+  robotPrograms   StationRobotProgram[]
+  laserPresets    StationLaserPreset[]
   stateLog        MachineStateLog[]
 }
 
@@ -269,12 +291,12 @@ model MachineEvent {
 }
 
 // ============================================================
-// JOB ROBOT PROGRAMS — Saved robot pathways/programs
+// STATION ROBOT PROGRAMS — Saved robot pathways/programs
 // ============================================================
-model JobRobotProgram {
+model StationRobotProgram {
   id          String @id @default(cuid())
-  jobId       String
-  job         Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  stationId   String
+  station     Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
   machineId   String?
   machine     Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
 
@@ -309,12 +331,12 @@ model JobRobotProgram {
 }
 
 // ============================================================
-// JOB LASER PRESETS — Saved laser controller configurations
+// STATION LASER PRESETS — Saved laser controller configurations
 // ============================================================
-model JobLaserPreset {
+model StationLaserPreset {
   id          String @id @default(cuid())
-  jobId       String
-  job         Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  stationId   String
+  station     Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
   machineId   String?
   machine     Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
 
@@ -340,8 +362,8 @@ model JobLaserPreset {
 // ============================================================
 model MachineStateLog {
   id        String @id @default(cuid())
-  jobId     String?
-  job       Job?   @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  stationId String?
+  station   Station? @relation(fields: [stationId], references: [id], onDelete: SetNull)
   machineId String?
   machine   Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
 

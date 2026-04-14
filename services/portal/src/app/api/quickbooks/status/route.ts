@@ -1,12 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { isConnected, getTokensFromCookies, getTokensFromDB, validateCredentials } from '@/lib/quickbooks';
+import { NextResponse } from 'next/server';
+import { isConnected, getTokensFromDB, validateCredentials } from '@/lib/quickbooks';
 
 // GET /api/quickbooks/status
 // Check if QuickBooks is connected and credentials are configured
-export async function GET(request: NextRequest) {
-  // Try DB first, fall back to cookies
-  const cookieHeader = request.headers.get('cookie');
-  const tokens = await getTokensFromDB() || getTokensFromCookies(cookieHeader);
+export async function GET() {
+  // DB is the sole source of truth for QB tokens (cookies removed 2026-04-13)
+  const tokens = await getTokensFromDB();
   const connected = isConnected(tokens);
   const { valid: credentialsConfigured, missing } = validateCredentials();
 

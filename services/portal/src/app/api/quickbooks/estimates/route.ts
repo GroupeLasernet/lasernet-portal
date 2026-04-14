@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchEstimates, isConnected, getTokensFromCookies, getTokensFromDB, buildTokenCookie } from '@/lib/quickbooks';
+import { fetchEstimates, isConnected, getTokensFromDB } from '@/lib/quickbooks';
 import { mockQuotes } from '@/lib/mock-data';
 
 // GET /api/quickbooks/estimates?customerId=123
@@ -7,12 +7,11 @@ import { mockQuotes } from '@/lib/mock-data';
 export async function GET(request: NextRequest) {
   try {
     const customerId = request.nextUrl.searchParams.get('customerId') || undefined;
-    // Try DB first, fall back to cookies
-    const cookieHeader = request.headers.get('cookie');
-    const tokens = await getTokensFromDB() || getTokensFromCookies(cookieHeader);
+    // DB is the sole source of truth for QB tokens (cookies removed 2026-04-13).
+    const tokens = await getTokensFromDB();
 
     if (isConnected(tokens)) {
-      const { estimates: qbEstimates, updatedTokens } = await fetchEstimates(tokens!, customerId);
+      const { estimates: qbEstimates } = await fetchEstimates(tokens!, customerId);
 
       const quotes = qbEstimates.map((est) => ({
         id: `q-${est.Id}`,
@@ -33,11 +32,7 @@ export async function GET(request: NextRequest) {
           })) || [],
       }));
 
-      const response = NextResponse.json({ quotes, source: 'quickbooks' });
-      if (updatedTokens) {
-        response.headers.set('Set-Cookie', buildTokenCookie(updatedTokens));
-      }
-      return response;
+      return NextResponse.json({ quotes, source: 'quickbooks' });
     }
 
     return NextResponse.json({ quotes: mockQuotes, source: 'mock' });
