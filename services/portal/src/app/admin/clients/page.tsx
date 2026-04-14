@@ -242,30 +242,30 @@ export default function AdminClientsPage() {
       setInvoicesLoading(false);
     }).catch(() => { setClientInvoices([]); setInvoicesLoading(false); });
 
-    // Load stations for this client (stations are stored as Jobs in the DB)
+    // Load stations for this client
     fetch(`/api/stations?clientId=${selectedClientId}`).then(r => r.json()).then(data => {
-      const jobs = data.jobs || [];
-      const stations: Station[] = jobs.map((job: Record<string, unknown>) => {
+      const rows = data.stations || [];
+      const stations: Station[] = rows.map((row: Record<string, unknown>) => {
         let items: { description: string; quantity: number; rate: number; amount: number }[] = [];
         let invoiceId = '';
         let invoiceNumber = '';
         let description = '';
         try {
-          const meta = JSON.parse((job.notes as string) || '{}');
+          const meta = JSON.parse((row.notes as string) || '{}');
           items = meta.items || [];
           invoiceId = meta.invoiceId || '';
           invoiceNumber = meta.invoiceNumber || '';
           description = meta.description || '';
         } catch { /* notes not JSON, that's fine */ }
         return {
-          id: job.id as string,
-          name: job.title as string,
+          id: row.id as string,
+          name: row.title as string,
           description,
           invoiceId,
           invoiceNumber,
           items,
-          status: (job.status as 'not_configured' | 'waiting_pairing' | 'in_trouble' | 'active') || 'not_configured',
-          createdAt: job.createdAt as string,
+          status: (row.status as 'not_configured' | 'waiting_pairing' | 'in_trouble' | 'active') || 'not_configured',
+          createdAt: row.createdAt as string,
         };
       });
       setClientStations(stations);
@@ -465,7 +465,7 @@ export default function AdminClientsPage() {
         let existingMeta: Record<string, unknown> = {};
         try {
           const raw = await fetch(`/api/stations/${selectedExistingStationId}`).then(r => r.json());
-          existingMeta = JSON.parse(raw.job?.notes || '{}');
+          existingMeta = JSON.parse(raw.station?.notes || '{}');
         } catch { /* fallback */ }
         const invoices: { id: string; number: string }[] = (existingMeta.invoices as { id: string; number: string }[]) || [];
         if (existingMeta.invoiceId && !invoices.find((inv: { id: string }) => inv.id === existingMeta.invoiceId)) {
@@ -498,15 +498,15 @@ export default function AdminClientsPage() {
           }),
         });
         const data = await res.json();
-        if (data.job) {
+        if (data.station) {
           setClientStations(prev => [...prev, {
-            id: data.job.id,
-            name: data.job.title,
+            id: data.station.id,
+            name: data.station.title,
             invoiceId: previewInvoice.id,
             invoiceNumber: previewInvoice.invoiceNumber,
             items,
             status: 'not_configured',
-            createdAt: data.job.createdAt,
+            createdAt: data.station.createdAt,
           }]);
         }
       } catch (err) {
