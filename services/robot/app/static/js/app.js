@@ -1080,12 +1080,19 @@ async function refreshErrorLog() {
     }
 }
 
-function clearErrorLog() {
+async function clearErrorLog() {
     _clientErrorBuffer.length = 0;
     const view = document.getElementById("errorLogView");
     const status = document.getElementById("errorLogStatus");
-    if (view) view.textContent = "(cleared — click Refresh to re-pull server log)";
-    if (status) status.textContent = "cleared";
+    if (view) view.textContent = "(clearing…)";
+    if (status) status.textContent = "clearing…";
+    try {
+        // Truncate the server-side stderr.log so historical errors are gone
+        await fetch("/api/robot/errors/clear", { method: "POST" });
+    } catch (_) { /* ignore */ }
+    // Re-pull (should now be empty except for anything logged since truncation)
+    await refreshErrorLog();
+    toast("Error log cleared", "success");
 }
 
 async function copyErrorLog() {

@@ -709,6 +709,24 @@ def restart_robot_service():
 # ---------------------------------------------------------------------------
 # Error / diagnostic log viewer
 # ---------------------------------------------------------------------------
+@app.post("/api/robot/errors/clear")
+def clear_error_log():
+    """Truncate stderr.log so the Error Log panel shows a fresh slate."""
+    log_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "logs",
+        "stderr.log",
+    )
+    try:
+        # Open in write mode truncates. If the file is held open by NSSM it
+        # may reopen / continue to append — that's fine, we just want history gone.
+        with open(log_path, "w", encoding="utf-8") as f:
+            f.write("")
+        return {"ok": True, "cleared": log_path}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 @app.get("/api/robot/errors")
 def get_error_log(limit: int = 200):
     """
