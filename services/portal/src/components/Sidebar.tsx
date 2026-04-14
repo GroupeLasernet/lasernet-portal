@@ -34,18 +34,26 @@ export default function Sidebar({ links, bottomLinks, userName, userRole }: Side
   return (
     <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
       {/* Brand Header */}
-      <div className="p-6 border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center">
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div>
-            <h2 className="font-bold text-gray-900">LaserNet</h2>
-            <p className="text-xs text-gray-500">{portalLabel}</p>
-          </div>
+      <div className="p-4 border-b border-gray-100 bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600">
+        <div className="flex items-center justify-center gap-3 mb-2">
+          <img
+            src="/logo-dsm.png"
+            alt="Atelier DSM"
+            className="h-10 w-auto object-contain"
+            style={{ filter: 'brightness(0) invert(1)' }}
+          />
+          <img
+            src="/logo-lasernet.png"
+            alt="Groupe Lasernet"
+            className="h-16 w-auto object-contain"
+          />
+          <img
+            src="/logo-summumliner.png"
+            alt="Summum Liner"
+            className="h-8 w-auto object-contain"
+          />
         </div>
+        <p className="text-xs text-center text-brand-200">{portalLabel}</p>
       </div>
 
       {/* Navigation Links */}
