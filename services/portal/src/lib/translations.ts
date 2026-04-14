@@ -155,6 +155,10 @@ const translations = {
     saveChanges: { fr: 'Enregistrer les modifications', en: 'Save Changes' },
     setAsMainContact: { fr: 'Définir comme contact principal', en: 'Set as Main Contact' },
     emailAlreadyUsed: { fr: 'Ce courriel est déjà assigné à', en: 'This email is already assigned to' },
+    // Reassignment
+    reassignSection: { fr: 'Réaffecter à un autre client', en: 'Reassign to another client' },
+    reassignDesc: { fr: 'Déplacer ce contact vers un autre client géré', en: 'Move this contact to another managed client' },
+    reassignKeep: { fr: '— Garder le client actuel —', en: '— Keep current client —' },
     // Training/Booklet columns
     trainingCol: { fr: 'Formation', en: 'Training' },
     bookletCol: { fr: 'Livret', en: 'Booklet' },

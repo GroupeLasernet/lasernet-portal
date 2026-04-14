@@ -115,6 +115,7 @@ export default function AdminClientsPage() {
   });
 
   const [contactError, setContactError] = useState<string | null>(null);
+  const [reassignTargetId, setReassignTargetId] = useState<string>('');
   const [streetViewOpen, setStreetViewOpen] = useState(true);
   const [mainContactOpen, setMainContactOpen] = useState(true);
   const [staffOpen, setStaffOpen] = useState(true);
@@ -317,34 +318,56 @@ export default function AdminClientsPage() {
   const openContactForm = (type: 'maincontact' | 'staff') => {
     setContactFormType(type); setEditingContactId(null);
     setContactForm({ photo: null, name: '', email: '', phone: '', role: '' });
-    setContactError(null); setShowContactForm(true);
+    setContactError(null); setReassignTargetId(''); setShowContactForm(true);
   };
 
   const openEditForm = (type: 'maincontact' | 'staff', contact: ContactPerson) => {
     setContactFormType(type); setEditingContactId(contact.id);
     setContactForm({ photo: contact.photo, name: contact.name, email: contact.email, phone: contact.phone, role: contact.role });
-    setContactError(null); setResetMessage(null); setShowContactForm(true);
+    setContactError(null); setResetMessage(null); setReassignTargetId(''); setShowContactForm(true);
   };
 
   const handleSaveContact = async () => {
     if (!selectedClient || !contactForm.name.trim() || !contactForm.email.trim()) return;
     setContactError(null);
     if (editingContactId) {
+      const reassigning = reassignTargetId && reassignTargetId !== selectedClient.id;
       try {
         const res = await fetch(`/api/managed-clients/${selectedClient.id}/contacts/${editingContactId}`, {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contactForm),
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reassigning ? { ...contactForm, managedClientId: reassignTargetId } : contactForm),
         });
         const data = await res.json();
         if (res.status === 409) { setContactError(data.error); return; }
         if (data.contact) {
-          setManagedClients(managedClients.map((mc) => {
-            if (mc.id !== selectedClient.id) return mc;
-            if (contactFormType === 'maincontact' && mc.responsiblePerson?.id === editingContactId) return { ...mc, responsiblePerson: { ...data.contact, id: editingContactId } };
-            return { ...mc, subEmployees: mc.subEmployees.map(e => e.id === editingContactId ? { ...data.contact, id: editingContactId } : e) };
-          }));
+          const updatedContact = { ...data.contact, id: editingContactId };
+          if (reassigning) {
+            // Remove from source client, add to target client.
+            setManagedClients(managedClients.map((mc) => {
+              if (mc.id === selectedClient.id) {
+                if (contactFormType === 'maincontact' && mc.responsiblePerson?.id === editingContactId) {
+                  return { ...mc, responsiblePerson: null };
+                }
+                return { ...mc, subEmployees: mc.subEmployees.filter(e => e.id !== editingContactId) };
+              }
+              if (mc.id === reassignTargetId) {
+                if (contactFormType === 'maincontact') return { ...mc, responsiblePerson: updatedContact };
+                return { ...mc, subEmployees: [...mc.subEmployees, updatedContact] };
+              }
+              return mc;
+            }));
+            setSelectedClientId(reassignTargetId);
+          } else {
+            setManagedClients(managedClients.map((mc) => {
+              if (mc.id !== selectedClient.id) return mc;
+              if (contactFormType === 'maincontact' && mc.responsiblePerson?.id === editingContactId) return { ...mc, responsiblePerson: updatedContact };
+              return { ...mc, subEmployees: mc.subEmployees.map(e => e.id === editingContactId ? updatedContact : e) };
+            }));
+          }
         }
       } catch (error) { console.error('Error updating contact:', error); }
-      setShowContactForm(false); setEditingContactId(null);
+      setShowContactForm(false); setEditingContactId(null); setReassignTargetId('');
     } else {
       try {
         const res = await fetch(`/api/managed-clients/${selectedClient.id}/contacts`, {
@@ -1428,6 +1451,29 @@ export default function AdminClientsPage() {
                 </div>
               )}
 
+              {editingContactId && managedClients.length > 1 && (
+                <div className="pt-3 border-t border-gray-100">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('clients', 'reassignSection')}
+                  </label>
+                  <p className="text-xs text-gray-400 mb-2">{t('clients', 'reassignDesc')}</p>
+                  <select
+                    className="input-field"
+                    value={reassignTargetId}
+                    onChange={(e) => setReassignTargetId(e.target.value)}
+                  >
+                    <option value="">{t('clients', 'reassignKeep')}</option>
+                    {managedClients
+                      .filter((mc) => mc.id !== selectedClient?.id)
+                      .map((mc) => (
+                        <option key={mc.id} value={mc.id}>
+                          {mc.qbClient.companyName}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
               {editingContactId && contactForm.email && (
                 <div className="pt-2 border-t border-gray-100">
                   <div className="flex items-center justify-between">
@@ -1449,7 +1495,7 @@ export default function AdminClientsPage() {
               )}
             </div>
             <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
-              <button onClick={() => { setShowContactForm(false); setEditingContactId(null); }} className="btn-secondary">{t('common', 'cancel')}</button>
+              <button onClick={() => { setShowContactForm(false); setEditingContactId(null); setReassignTargetId(''); }} className="btn-secondary">{t('common', 'cancel')}</button>
               <button onClick={handleSaveContact} disabled={!contactForm.name.trim() || !contactForm.email.trim()} className="btn-primary disabled:opacity-50">
                 {editingContactId ? t('clients', 'saveChanges') : (contactFormType === 'maincontact' ? t('clients', 'setAsMainContact') : t('clients', 'addStaffMember'))}
               </button>
