@@ -615,10 +615,38 @@ def get_error_log(limit: int = 200):
             size = f.tell()
             f.seek(max(0, size - 60_000))
             tail = f.read()
+
+        # Keep each WARNING/ERROR line, and for Tracebacks keep all the indented
+        # stack frames that follow (until the next non-indented, non-empty line).
+        lines = tail.splitlines()
         entries = []
-        for line in tail.splitlines():
-            if "WARNING" in line or "ERROR" in line or "Traceback" in line:
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            is_alert = ("WARNING" in line or "ERROR" in line
+                        or line.startswith("Traceback"))
+            if is_alert:
                 entries.append(line)
+                # Capture the following traceback body: indented lines +
+                # the final "ExceptionType: message" line.
+                if line.startswith("Traceback"):
+                    j = i + 1
+                    while j < len(lines):
+                        nxt = lines[j]
+                        if nxt.startswith((" ", "\t")) or nxt.startswith("  "):
+                            entries.append(nxt)
+                            j += 1
+                        elif nxt and not nxt.startswith(("INFO", "WARNING", "ERROR", "DEBUG")):
+                            # Final exception summary line
+                            entries.append(nxt)
+                            j += 1
+                            break
+                        else:
+                            break
+                    i = j
+                    continue
+            i += 1
+
         return {"entries": entries[-limit:], "source": log_path, "total": len(entries)}
     except Exception as e:
         return {"entries": [f"(failed to read log: {e})"], "source": log_path}
