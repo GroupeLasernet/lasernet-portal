@@ -169,8 +169,8 @@ export default function MachinesPage() {
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex justify-between items-start mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{t('machines', 'title')}</h1>
-              <p className="text-gray-600 mt-1">{t('machines', 'subtitle')}</p>
+              <h1 className="text-2xl font-bold text-gray-900">{t('machines', 'title')}</h1>
+              <p className="text-gray-500 mt-1">{t('machines', 'subtitle')}</p>
             </div>
             <button
               onClick={() => setShowNewModal(true)}

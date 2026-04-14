@@ -57,12 +57,16 @@ export default function QuickBooksStatus() {
     <button
       type="button"
       onClick={() => router.push('/admin/clients')}
-      title="Go to QuickBooks connection"
+      title="Go to client data server connection"
       className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border border-gray-200 transition-colors ${s.bg}`}
     >
       <span className="flex items-center gap-2 font-medium text-gray-700">
-        <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">QB</span>
-        QuickBooks
+        <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <ellipse cx="12" cy="5" rx="8" ry="3" />
+          <path d="M4 5v6c0 1.657 3.582 3 8 3s8-1.343 8-3V5" />
+          <path d="M4 11v6c0 1.657 3.582 3 8 3s8-1.343 8-3v-6" />
+        </svg>
+        Clients&rsquo; data server
       </span>
       <span className={`flex items-center gap-1.5 ${s.text}`}>
         <span className={`w-2 h-2 rounded-full ${s.dot}`} />

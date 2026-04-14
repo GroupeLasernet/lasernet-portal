@@ -122,7 +122,7 @@ export default function AdminTicketsPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">{t('tickets', 'title')}</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('tickets', 'title')}</h1>
         <div className="text-sm text-gray-600">
           {t('tickets', 'totalTickets')} <span className="font-semibold">{filteredTickets.length}</span>
         </div>

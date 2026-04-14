@@ -260,7 +260,7 @@ export default function ClientTicketsPage() {
   if (!isRegistered) {
     return (
       <div className="p-6 max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Complete Your Profile</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Complete Your Profile</h1>
         <div className="card">
           <p className="text-gray-600 mb-6">
             Before you can create support tickets, please register as the contact person for{' '}
@@ -346,8 +346,8 @@ export default function ClientTicketsPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Support Tickets</h1>
-          <p className="text-gray-600 mt-1">{managedClient.qbClient.companyName}</p>
+          <h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1>
+          <p className="text-gray-500 mt-1">{managedClient.qbClient.companyName}</p>
         </div>
         {!showCreateForm && (
           <button onClick={() => setShowCreateForm(true)} className="btn-primary">
