@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAdmin } from '@/lib/requireAdmin';
 import { generateInviteToken } from '@/lib/password';
+import { sendAdminInviteEmail, sendPasswordResetEmail } from '@/lib/email';
 
 const INVITE_TTL_MS = 48 * 60 * 60 * 1000;
 
@@ -43,6 +44,8 @@ export async function PATCH(
 
   const updates: any = {};
   let newInviteUrl: string | null = null;
+  let emailSent: boolean | null = null;
+  let action: 'resendInvite' | 'resetPassword' | null = null;
 
   // Field: name
   if (typeof body.name === 'string' && body.name.trim()) {
@@ -71,17 +74,37 @@ export async function PATCH(
     updates.status = body.status;
   }
 
-  // Action: resend invite (fresh token + expiry)
+  // Action: resend invite (fresh token + expiry) — only for non-active users.
   if (body.resendInvite === true) {
     if (target.status === 'active') {
       return NextResponse.json(
-        { error: 'User is already active — no invite to resend.' },
+        { error: 'User is already active — use "Reset password" instead.' },
         { status: 400 }
       );
     }
     updates.inviteToken = generateInviteToken();
     updates.inviteExpiresAt = new Date(Date.now() + INVITE_TTL_MS);
     updates.status = 'invited';
+    action = 'resendInvite';
+    const base =
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      `${request.nextUrl.protocol}//${request.nextUrl.host}`;
+    newInviteUrl = `${base.replace(/\/$/, '')}/accept-invite?token=${updates.inviteToken}`;
+  }
+
+  // Action: reset password — active user, emails a fresh token to let them pick a new password.
+  // We keep status='active' so their current password still works until they set a new one.
+  if (body.resetPassword === true) {
+    if (target.status !== 'active') {
+      return NextResponse.json(
+        { error: 'User is not active — use "Send invite again" instead.' },
+        { status: 400 }
+      );
+    }
+    updates.inviteToken = generateInviteToken();
+    updates.inviteExpiresAt = new Date(Date.now() + INVITE_TTL_MS);
+    // status stays 'active'
+    action = 'resetPassword';
     const base =
       process.env.NEXT_PUBLIC_BASE_URL ||
       `${request.nextUrl.protocol}//${request.nextUrl.host}`;
@@ -105,7 +128,27 @@ export async function PATCH(
     },
   });
 
-  return NextResponse.json({ admin: updated, inviteUrl: newInviteUrl });
+  // Send the corresponding email after the DB write succeeds.
+  if (action && newInviteUrl) {
+    const actorLabel = guard.user.name || guard.user.email || null;
+    if (action === 'resendInvite') {
+      emailSent = await sendAdminInviteEmail({
+        to: updated.email,
+        name: updated.name,
+        inviteUrl: newInviteUrl,
+        invitedBy: actorLabel,
+      });
+    } else {
+      emailSent = await sendPasswordResetEmail({
+        to: updated.email,
+        name: updated.name,
+        resetUrl: newInviteUrl,
+        resetBy: actorLabel,
+      });
+    }
+  }
+
+  return NextResponse.json({ admin: updated, inviteUrl: newInviteUrl, emailSent });
 }
 
 export async function DELETE(

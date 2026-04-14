@@ -9,7 +9,7 @@ function AcceptInviteInner() {
   const token = params.get('token');
 
   const [loading, setLoading] = useState(true);
-  const [invite, setInvite] = useState<{ email: string; name: string; role: string } | null>(null);
+  const [invite, setInvite] = useState<{ email: string; name: string; role: string; mode?: 'invite' | 'reset' } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pw1, setPw1] = useState('');
   const [pw2, setPw2] = useState('');
@@ -62,9 +62,13 @@ function AcceptInviteInner() {
 
   return (
     <div className="max-w-md w-full bg-white rounded-lg shadow border border-gray-200 p-6">
-      <h1 className="text-2xl font-bold text-gray-800 mb-1">Accept invitation</h1>
+      <h1 className="text-2xl font-bold text-gray-800 mb-1">
+        {invite?.mode === 'reset' ? 'Reset password' : 'Accept invitation'}
+      </h1>
       <p className="text-sm text-gray-500 mb-6">
-        Set a password to finish creating your account.
+        {invite?.mode === 'reset'
+          ? 'Choose a new password for your account.'
+          : 'Set a password to finish creating your account.'}
       </p>
 
       {loading ? (
@@ -111,7 +115,9 @@ function AcceptInviteInner() {
             disabled={busy}
             className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {busy ? 'Creating account…' : 'Create account'}
+            {busy
+              ? (invite?.mode === 'reset' ? 'Saving…' : 'Creating account…')
+              : (invite?.mode === 'reset' ? 'Save new password' : 'Create account')}
           </button>
         </form>
       ) : null}

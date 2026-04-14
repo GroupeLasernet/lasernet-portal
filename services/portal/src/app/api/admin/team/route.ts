@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAdmin } from '@/lib/requireAdmin';
 import { generateInviteToken } from '@/lib/password';
+import { sendAdminInviteEmail } from '@/lib/email';
 
 const INVITE_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
 
@@ -101,6 +102,14 @@ export async function POST(request: NextRequest) {
     `${request.nextUrl.protocol}//${request.nextUrl.host}`;
   const inviteUrl = `${base.replace(/\/$/, '')}/accept-invite?token=${inviteToken}`;
 
+  // Fire-and-await the email (so UI knows whether it went through).
+  const emailSent = await sendAdminInviteEmail({
+    to: user.email,
+    name: user.name,
+    inviteUrl,
+    invitedBy: guard.user.name || guard.user.email || null,
+  });
+
   return NextResponse.json({
     admin: {
       id: user.id,
@@ -111,5 +120,6 @@ export async function POST(request: NextRequest) {
       inviteExpiresAt: user.inviteExpiresAt,
     },
     inviteUrl,
+    emailSent,
   });
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import HoldButton from '@/components/HoldButton';
 
 interface TrainingFile {
   id: string;
@@ -49,6 +50,7 @@ export default function SettingsPage() {
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
+  const [teamFeedback, setTeamFeedback] = useState<{ kind: 'ok' | 'warn' | 'err'; msg: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const fetchTeam = useCallback(async () => {
@@ -76,6 +78,7 @@ export default function SettingsPage() {
   const handleInvite = async () => {
     setInviteError(null);
     setLastInviteUrl(null);
+    setTeamFeedback(null);
     if (!inviteEmail.trim() || !inviteName.trim()) {
       setInviteError('Name and email are required.');
       return;
@@ -91,28 +94,71 @@ export default function SettingsPage() {
       if (!res.ok) {
         setInviteError(data.error || 'Failed to invite.');
       } else {
-        setLastInviteUrl(data.inviteUrl);
         setInviteEmail('');
         setInviteName('');
         fetchTeam();
+        if (data.emailSent) {
+          setTeamFeedback({ kind: 'ok', msg: `Invite email sent to ${data.admin.email}.` });
+        } else {
+          setLastInviteUrl(data.inviteUrl);
+          setTeamFeedback({
+            kind: 'warn',
+            msg: 'Email could not be sent — share the link below manually.',
+          });
+        }
       }
     } finally {
       setInviteBusy(false);
     }
   };
 
-  const handleResendInvite = async (id: string) => {
-    const res = await fetch(`/api/admin/team/${id}`, {
+  const handleResendInvite = async (admin: TeamAdmin) => {
+    setTeamFeedback(null);
+    setLastInviteUrl(null);
+    const res = await fetch(`/api/admin/team/${admin.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resendInvite: true }),
     });
     const data = await res.json();
-    if (res.ok && data.inviteUrl) {
-      setLastInviteUrl(data.inviteUrl);
-      fetchTeam();
+    if (!res.ok) {
+      setTeamFeedback({ kind: 'err', msg: data.error || 'Failed to resend invite.' });
+      return;
+    }
+    fetchTeam();
+    if (data.emailSent) {
+      setTeamFeedback({ kind: 'ok', msg: `Invite resent to ${admin.email}.` });
     } else {
-      alert(data.error || 'Failed to resend invite.');
+      setLastInviteUrl(data.inviteUrl);
+      setTeamFeedback({
+        kind: 'warn',
+        msg: 'Email could not be sent — share the link below manually.',
+      });
+    }
+  };
+
+  const handleResetPassword = async (admin: TeamAdmin) => {
+    setTeamFeedback(null);
+    setLastInviteUrl(null);
+    const res = await fetch(`/api/admin/team/${admin.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resetPassword: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setTeamFeedback({ kind: 'err', msg: data.error || 'Failed to reset password.' });
+      return;
+    }
+    fetchTeam();
+    if (data.emailSent) {
+      setTeamFeedback({ kind: 'ok', msg: `Password reset link emailed to ${admin.email}.` });
+    } else {
+      setLastInviteUrl(data.inviteUrl);
+      setTeamFeedback({
+        kind: 'warn',
+        msg: 'Email could not be sent — share the reset link below manually.',
+      });
     }
   };
 
@@ -344,21 +390,35 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {teamFeedback && (
+          <div
+            className={`p-3 text-sm border-b ${
+              teamFeedback.kind === 'ok'
+                ? 'bg-green-50 border-green-100 text-green-800'
+                : teamFeedback.kind === 'warn'
+                ? 'bg-amber-50 border-amber-100 text-amber-800'
+                : 'bg-red-50 border-red-100 text-red-800'
+            }`}
+          >
+            {teamFeedback.msg}
+          </div>
+        )}
+
         {lastInviteUrl && (
-          <div className="p-4 bg-green-50 border-b border-green-100">
-            <p className="text-sm text-green-800 mb-2">
-              Invite link created. Share this with the new admin (valid 48h):
+          <div className="p-4 bg-amber-50 border-b border-amber-100">
+            <p className="text-sm text-amber-800 mb-2">
+              Fallback link (valid 48h). Share this with the user manually:
             </p>
             <div className="flex items-center gap-2">
               <input
                 readOnly
                 value={lastInviteUrl}
-                className="flex-1 px-3 py-2 border border-green-300 rounded-lg text-xs bg-white font-mono"
+                className="flex-1 px-3 py-2 border border-amber-300 rounded-lg text-xs bg-white font-mono"
                 onFocus={(e) => e.currentTarget.select()}
               />
               <button
                 onClick={copyInviteUrl}
-                className="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                className="px-3 py-2 bg-amber-600 text-white text-sm rounded-lg hover:bg-amber-700"
               >
                 Copy
               </button>
@@ -398,12 +458,22 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {admin.status === 'invited' && (
-                      <button
-                        onClick={() => handleResendInvite(admin.id)}
-                        className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded"
-                      >
-                        Resend invite
-                      </button>
+                      <HoldButton
+                        color="blue"
+                        label="Send invite again"
+                        activeLabel="Hold to confirm…"
+                        doneLabel="Sent!"
+                        onConfirm={() => handleResendInvite(admin)}
+                      />
+                    )}
+                    {admin.status === 'active' && (
+                      <HoldButton
+                        color="amber"
+                        label="Reset password"
+                        activeLabel="Hold to confirm…"
+                        doneLabel="Email sent!"
+                        onConfirm={() => handleResetPassword(admin)}
+                      />
                     )}
                     {admin.status !== 'invited' && !isSelf && (
                       <button

@@ -25,16 +25,16 @@ export async function GET(request: NextRequest) {
     select: { email: true, name: true, role: true, inviteExpiresAt: true, status: true },
   });
 
-  if (!user) return NextResponse.json({ error: 'Invalid invite' }, { status: 404 });
-  if (user.status === 'active') {
-    return NextResponse.json({ error: 'This invite has already been used.' }, { status: 410 });
-  }
+  if (!user) return NextResponse.json({ error: 'Invalid link' }, { status: 404 });
   if (isExpired(user.inviteExpiresAt)) {
-    return NextResponse.json({ error: 'This invite has expired.' }, { status: 410 });
+    return NextResponse.json({ error: 'This link has expired.' }, { status: 410 });
   }
 
+  // Active users reaching this page are using a password-reset link;
+  // flag mode so the UI can show "Reset password" instead of "Accept invitation".
+  const mode = user.status === 'active' ? 'reset' : 'invite';
   return NextResponse.json({
-    invite: { email: user.email, name: user.name, role: user.role },
+    invite: { email: user.email, name: user.name, role: user.role, mode },
   });
 }
 
@@ -58,16 +58,15 @@ export async function POST(request: NextRequest) {
   }
 
   const user = await prisma.user.findFirst({ where: { inviteToken: token } });
-  if (!user) return NextResponse.json({ error: 'Invalid invite' }, { status: 404 });
-  if (user.status === 'active') {
-    return NextResponse.json({ error: 'This invite has already been used.' }, { status: 410 });
-  }
+  if (!user) return NextResponse.json({ error: 'Invalid link' }, { status: 404 });
   if (isExpired(user.inviteExpiresAt)) {
-    return NextResponse.json({ error: 'This invite has expired.' }, { status: 410 });
+    return NextResponse.json({ error: 'This link has expired.' }, { status: 410 });
   }
 
   const hashed = await hashPassword(password);
 
+  // For invited users this both sets the password AND activates the account.
+  // For active users (password-reset flow) it just rotates the password and clears the token.
   const activated = await prisma.user.update({
     where: { id: user.id },
     data: {
