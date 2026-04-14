@@ -5,6 +5,7 @@ import { type QBClient, type ManagedClient, type ContactPerson } from '@/lib/moc
 import { useLanguage } from '@/lib/LanguageContext';
 import Avatar from '@/components/Avatar';
 import StreetView from '@/components/StreetView';
+import PageHeader from '@/components/PageHeader';
 
 const ChevronIcon = ({ open }: { open: boolean }) => (
   <svg
@@ -649,10 +650,7 @@ export default function AdminClientsPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{t('clients', 'title')}</h1>
-        <p className="text-gray-500 mt-1">{t('clients', 'subtitle')}</p>
-      </div>
+      <PageHeader title={t('clients', 'title')} subtitle={t('clients', 'subtitle')} />
 
       <div className="flex gap-6 h-[calc(100vh-180px)]">
         {/* ============================================================ */}

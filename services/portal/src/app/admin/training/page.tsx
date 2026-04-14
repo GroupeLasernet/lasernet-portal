@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import PageHeader from '@/components/PageHeader';
 
 interface Attendee {
   id: string;
@@ -249,16 +250,18 @@ export default function TrainingPage() {
   const pastEvents = events.filter((e) => e.status !== 'scheduled' || new Date(e.date) < new Date());
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{t('trainingPage', 'title')}</h1>
-        <button
-          onClick={() => { setShowCreate(true); setSelectedEvent(null); }}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
-        >
-          {t('trainingPage', 'newEvent')}
-        </button>
-      </div>
+    <div>
+      <PageHeader
+        title={t('trainingPage', 'title')}
+        actions={
+          <button
+            onClick={() => { setShowCreate(true); setSelectedEvent(null); }}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+          >
+            {t('trainingPage', 'newEvent')}
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Event List */}

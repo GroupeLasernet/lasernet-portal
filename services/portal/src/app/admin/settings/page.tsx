@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import HoldButton from '@/components/HoldButton';
+import PageHeader from '@/components/PageHeader';
 
 interface TrainingFile {
   id: string;
@@ -312,10 +313,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{t('settings', 'title')}</h1>
-      </div>
+    <div>
+      <PageHeader title={t('settings', 'title')} />
 
       {/* Language Section */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">

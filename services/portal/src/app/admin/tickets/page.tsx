@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Ticket, TicketPriority, TicketStatus, Invoice, mockInvoices } from '@/lib/mock-data';
 import { useLanguage } from '@/lib/LanguageContext';
+import PageHeader from '@/components/PageHeader';
 
 const priorityColors = {
   critical: 'bg-red-100 text-red-800 border border-red-300',
@@ -120,13 +121,15 @@ export default function AdminTicketsPage() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">{t('tickets', 'title')}</h1>
-        <div className="text-sm text-gray-600">
-          {t('tickets', 'totalTickets')} <span className="font-semibold">{filteredTickets.length}</span>
-        </div>
-      </div>
+    <div>
+      <PageHeader
+        title={t('tickets', 'title')}
+        actions={
+          <div className="text-sm text-gray-600">
+            {t('tickets', 'totalTickets')} <span className="font-semibold">{filteredTickets.length}</span>
+          </div>
+        }
+      />
 
       {/* Filters */}
       <div className="card mb-6 flex gap-4">

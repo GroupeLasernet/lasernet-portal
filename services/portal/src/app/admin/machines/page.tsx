@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import PageHeader from '@/components/PageHeader';
 
 interface Machine {
   id: string;
@@ -163,26 +164,24 @@ export default function MachinesPage() {
   const filteredMachines = machines;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{t('machines', 'title')}</h1>
-              <p className="text-gray-500 mt-1">{t('machines', 'subtitle')}</p>
-            </div>
-            <button
-              onClick={() => setShowNewModal(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              {t('machines', 'newMachine')}
-            </button>
-          </div>
+    <div>
+      <PageHeader
+        title={t('machines', 'title')}
+        subtitle={t('machines', 'subtitle')}
+        actions={
+          <button
+            onClick={() => setShowNewModal(true)}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            {t('machines', 'newMachine')}
+          </button>
+        }
+      />
 
-          {/* Filters and Controls */}
-          <div className="space-y-4">
+      {/* Filters and Controls */}
+      <div className="card mb-6">
+        <div className="space-y-4">
             {/* Filter Buttons */}
             <div className="flex gap-2 flex-wrap">
               <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
@@ -259,12 +258,11 @@ export default function MachinesPage() {
                 </button>
               </div>
             </div>
-          </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div>
         {loading ? (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
