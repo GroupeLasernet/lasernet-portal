@@ -1,858 +1,712 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relfar V4 - Laser Controller Dashboard</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+<meta charset="UTF-8">
+<title>Relfar V4 — Live Console</title>
+<style>
+  :root {
+    --bg:#0a0d13; --bg2:#0f141d; --panel:#141a25; --panel2:#1a2230;
+    --line:#222a38; --line2:#2d3748;
+    --txt:#e6ecf5; --mute:#7d8aa0;
+    --ok:#3ddc97; --warn:#ffb547; --err:#ff5d6c; --acc:#5dc6ff;
+    --laser:#ff3860; --laser2:#ff8c42;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,'SF Pro Display',Segoe UI,Roboto,sans-serif;
+    overflow-x:hidden}
+  body{min-height:100vh;
+    background:
+      radial-gradient(ellipse at top left, rgba(93,198,255,.06), transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(255,56,96,.05), transparent 50%),
+      var(--bg)}
 
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: #0a0e17;
-            color: #e0e6f0;
-            min-height: 100vh;
-        }
+  /* ===== HEADER ===== */
+  header{padding:14px 24px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:18px;
+    background:linear-gradient(180deg, var(--panel) 0%, var(--bg2) 100%);
+    backdrop-filter:blur(10px);position:sticky;top:0;z-index:50}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:1px}
+  .logo-icon{width:28px;height:28px;border-radius:6px;
+    background:linear-gradient(135deg, var(--laser) 0%, var(--laser2) 100%);
+    display:grid;place-items:center;box-shadow:0 0 14px rgba(255,56,96,.4);
+    animation:pulse 2.4s ease-in-out infinite}
+  .logo-icon::after{content:"⚡";font-size:16px;color:#fff;font-weight:bold;
+    text-shadow:0 0 4px rgba(0,0,0,.5)}
+  @keyframes pulse{0%,100%{box-shadow:0 0 14px rgba(255,56,96,.4)}
+    50%{box-shadow:0 0 22px rgba(255,140,66,.7)}}
+  .brand{color:var(--mute);font-size:11px;border:1px solid var(--line);
+    padding:4px 10px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase}
+  .conn{margin-left:auto;display:flex;align-items:center;gap:10px;
+    background:var(--panel2);border:1px solid var(--line);
+    padding:6px 14px;border-radius:20px;font-size:13px}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--err);
+    box-shadow:0 0 8px var(--err);transition:.3s}
+  .dot.ok{background:var(--ok);box-shadow:0 0 10px var(--ok);
+    animation:dotpulse 1.6s ease-in-out infinite}
+  @keyframes dotpulse{0%,100%{box-shadow:0 0 8px var(--ok)}
+    50%{box-shadow:0 0 16px var(--ok)}}
 
-        .header {
-            background: linear-gradient(135deg, #1a1f35 0%, #0d1321 100%);
-            border-bottom: 1px solid #2a3555;
-            padding: 20px 30px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
+  /* ===== LAYOUT ===== */
+  main{padding:24px;max-width:1400px;margin:0 auto;display:grid;gap:20px;
+    grid-template-columns:1fr 1.2fr 1fr}
+  @media (max-width:1100px){main{grid-template-columns:1fr}}
 
-        .header h1 {
-            font-size: 22px;
-            font-weight: 600;
-            color: #fff;
-        }
+  .card{background:linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
+    border:1px solid var(--line);border-radius:14px;padding:20px;
+    box-shadow:0 4px 30px rgba(0,0,0,.3);position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg, transparent, var(--acc), transparent);
+    opacity:.3}
+  .card h2{margin:0 0 16px;font-size:11px;font-weight:700;color:var(--mute);
+    text-transform:uppercase;letter-spacing:2px;display:flex;align-items:center;gap:8px}
+  .card h2::before{content:"";width:14px;height:2px;background:var(--acc);border-radius:2px}
 
-        .header h1 span {
-            color: #4a9eff;
-        }
+  /* ===== LIVE PARAMS ===== */
+  .stats{display:grid;gap:12px}
+  .stat{display:grid;grid-template-columns:1fr auto;align-items:baseline;
+    padding:10px 12px;background:rgba(0,0,0,.18);border-radius:8px;
+    border-left:3px solid transparent;transition:.3s}
+  .stat.flash{border-left-color:var(--acc);background:rgba(93,198,255,.08)}
+  .stat label{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+  .stat .val{font-size:22px;font-family:'SF Mono','JetBrains Mono',Consolas,monospace;
+    color:var(--txt);font-weight:600;letter-spacing:-.5px}
+  .stat .unit{color:var(--mute);font-size:12px;margin-left:4px;font-weight:400}
+  .stat.power .val{color:var(--laser2)}
+  .stat.running{border-left-color:var(--ok)}
+  .stat.running .val{color:var(--ok);text-shadow:0 0 12px rgba(61,220,151,.5)}
 
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 500;
-        }
+  .meta{font-size:11px;color:var(--mute);margin-top:14px;text-align:center;
+    font-family:monospace;opacity:.7}
 
-        .status-badge.connected {
-            background: rgba(34, 197, 94, 0.15);
-            color: #22c55e;
-            border: 1px solid rgba(34, 197, 94, 0.3);
-        }
+  /* ===== SCAN PREVIEW ===== */
+  .preview-wrap{background:radial-gradient(ellipse at center, #0a1320 0%, #050810 100%);
+    border-radius:10px;padding:20px;border:1px solid var(--line);
+    position:relative;overflow:hidden;aspect-ratio:1.4/1}
+  .preview-wrap::before{content:"";position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(93,198,255,.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(93,198,255,.08) 1px, transparent 1px);
+    background-size:20px 20px;pointer-events:none}
+  #scanSvg{width:100%;height:100%;display:block}
+  .preview-info{display:flex;justify-content:space-between;margin-top:10px;
+    font-size:11px;color:var(--mute);font-family:monospace}
+  .shape-name{color:var(--acc);font-size:14px;font-weight:600;
+    text-transform:uppercase;letter-spacing:1px}
 
-        .status-badge.disconnected {
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
+  /* ===== EDITOR ===== */
+  .field{margin-bottom:16px}
+  .field-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .field-head label{color:var(--mute);font-size:11px;text-transform:uppercase;
+    letter-spacing:.8px;font-weight:600}
+  .field-head .cur{color:var(--acc);font-family:monospace;font-size:12px}
+  .field-row{display:grid;grid-template-columns:1fr 80px 60px;gap:8px;align-items:center}
+  .field-row.no-slider{grid-template-columns:1fr 60px}
+  input[type=range]{appearance:none;-webkit-appearance:none;height:6px;
+    background:var(--line2);border-radius:6px;outline:none;cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;
+    width:18px;height:18px;border-radius:50%;cursor:pointer;
+    background:linear-gradient(135deg, var(--acc), #3a9cd9);
+    border:2px solid var(--bg);box-shadow:0 0 8px rgba(93,198,255,.5);transition:.15s}
+  input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);
+    box-shadow:0 0 14px rgba(93,198,255,.8)}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;cursor:pointer;
+    background:linear-gradient(135deg, var(--acc), #3a9cd9);border:2px solid var(--bg)}
+  input[type=number],input[type=text],select{
+    background:var(--bg);border:1px solid var(--line);color:var(--txt);
+    padding:8px 10px;border-radius:6px;font-size:13px;width:100%;
+    font-family:monospace;transition:.15s}
+  input:focus,select:focus{outline:none;border-color:var(--acc);
+    box-shadow:0 0 0 3px rgba(93,198,255,.15)}
+  button.set{background:linear-gradient(135deg, var(--acc) 0%, #3a9cd9 100%);
+    color:#001627;border:none;padding:8px;border-radius:6px;font-size:11px;
+    font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;
+    transition:.15s;box-shadow:0 2px 8px rgba(93,198,255,.2)}
+  button.set:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(93,198,255,.4)}
+  button.set:active{transform:translateY(0)}
+  button.set:disabled{opacity:.5;cursor:not-allowed;transform:none}
 
-        .status-badge.scanning {
-            background: rgba(234, 179, 8, 0.15);
-            color: #eab308;
-            border: 1px solid rgba(234, 179, 8, 0.3);
-        }
+  /* ===== POWER GAUGE ===== */
+  .gauge-wrap{margin:8px 0 18px;text-align:center}
+  .gauge{position:relative;width:100%;height:8px;background:var(--bg);
+    border-radius:4px;overflow:hidden;border:1px solid var(--line)}
+  .gauge-fill{height:100%;background:linear-gradient(90deg,
+    var(--ok) 0%, var(--warn) 60%, var(--laser) 100%);
+    transition:width .4s ease;border-radius:4px;
+    box-shadow:0 0 10px currentColor}
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: currentColor;
-        }
+  /* ===== FIRE BUTTON ===== */
+  .fire-zone{margin-top:18px;padding:14px;border-radius:10px;
+    background:linear-gradient(180deg, rgba(255,56,96,.08), rgba(255,56,96,.02));
+    border:1px solid rgba(255,56,96,.3)}
+  .fire-warn{color:var(--warn);font-size:10px;text-align:center;
+    text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;font-weight:600}
+  #fireBtn{width:100%;padding:18px;border-radius:10px;border:2px solid var(--laser);
+    background:linear-gradient(180deg, #2a0d12 0%, #1a0608 100%);
+    color:var(--laser);cursor:pointer;display:flex;flex-direction:column;
+    align-items:center;gap:4px;transition:.1s;user-select:none;
+    box-shadow:0 4px 18px rgba(255,56,96,.15), inset 0 1px 0 rgba(255,255,255,.05)}
+  #fireBtn:hover{background:linear-gradient(180deg, #3a1018 0%, #220a0e 100%);
+    box-shadow:0 6px 24px rgba(255,56,96,.3)}
+  #fireBtn.firing{background:linear-gradient(180deg, var(--laser) 0%, #c92850 100%);
+    color:#fff;transform:scale(.98);
+    box-shadow:0 0 30px var(--laser), inset 0 0 20px rgba(255,255,255,.2);
+    animation:fireFlash .25s ease-in-out infinite alternate}
+  @keyframes fireFlash{from{box-shadow:0 0 30px var(--laser), inset 0 0 20px rgba(255,255,255,.2)}
+    to{box-shadow:0 0 50px var(--laser2), inset 0 0 30px rgba(255,255,255,.4)}}
+  .fire-icon{font-size:34px;line-height:1}
+  .fire-label{font-size:14px;font-weight:800;letter-spacing:2px}
+  .fire-hint{font-size:10px;opacity:.6;font-family:monospace;letter-spacing:.5px}
+  .fire-status{margin-top:10px;text-align:center;font-size:11px;color:var(--mute);
+    font-family:monospace;text-transform:uppercase;letter-spacing:1px}
+  .fire-status.on{color:var(--laser);font-weight:700;text-shadow:0 0 8px var(--laser)}
 
-        .scanning .status-dot {
-            animation: pulse 1.5s ease-in-out infinite;
-        }
+  /* ===== SHAPE GRID ===== */
+  .shape-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
+  .shape-btn{background:var(--bg);border:1px solid var(--line);border-radius:8px;
+    padding:10px 4px 6px;cursor:pointer;display:flex;flex-direction:column;
+    align-items:center;gap:6px;color:var(--mute);font-size:10px;
+    text-transform:uppercase;letter-spacing:.5px;transition:.2s;font-weight:600}
+  .shape-btn:hover{border-color:var(--acc);color:var(--txt);transform:translateY(-2px);
+    box-shadow:0 4px 12px rgba(93,198,255,.2)}
+  .shape-btn.active{border-color:var(--acc);color:var(--acc);
+    background:linear-gradient(180deg, rgba(93,198,255,.12), rgba(93,198,255,.04));
+    box-shadow:0 0 0 1px var(--acc), 0 0 16px rgba(93,198,255,.3)}
+  .shape-btn svg{width:38px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5}
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
+  /* ===== TOAST ===== */
+  .toast{position:fixed;bottom:24px;right:24px;
+    background:var(--panel);border:1px solid var(--line);
+    padding:12px 18px;border-radius:8px;font-size:13px;
+    opacity:0;transform:translateY(20px) scale(.9);transition:.3s cubic-bezier(.34,1.56,.64,1);
+    box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:100;pointer-events:none}
+  .toast.show{opacity:1;transform:translateY(0) scale(1)}
+  .toast.err{border-color:var(--err);color:var(--err);
+    box-shadow:0 8px 30px rgba(255,93,108,.3)}
+  .toast.ok{border-color:var(--ok);color:var(--ok);
+    box-shadow:0 8px 30px rgba(61,220,151,.3)}
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 24px;
-            display: grid;
-            gap: 20px;
-        }
+  /* ===== STATUS BANNER ===== */
+  .err-banner{background:rgba(255,93,108,.1);border:1px solid var(--err);
+    color:var(--err);padding:10px 14px;border-radius:8px;font-size:13px;
+    margin-bottom:14px;display:none}
+  .err-banner.show{display:block}
 
-        .card {
-            background: #141927;
-            border: 1px solid #2a3555;
-            border-radius: 12px;
-            padding: 24px;
-        }
+  /* ===== RAW DETAILS ===== */
+  details{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  summary{cursor:pointer;color:var(--mute);font-size:11px;
+    text-transform:uppercase;letter-spacing:1px;outline:none;user-select:none}
+  summary:hover{color:var(--acc)}
+  pre{background:var(--bg);padding:12px;border-radius:6px;font-size:11px;
+    color:var(--mute);overflow:auto;margin-top:10px;max-height:280px;
+    border:1px solid var(--line);font-family:'SF Mono',monospace}
 
-        .card-title {
-            font-size: 15px;
-            font-weight: 600;
-            color: #8896b3;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 16px;
-        }
+  /* ===== RUNNING INDICATOR ===== */
+  .running-bar{display:none;position:fixed;top:60px;left:0;right:0;height:3px;
+    background:linear-gradient(90deg, transparent, var(--ok), transparent);
+    background-size:200% 100%;animation:scan 2s linear infinite;z-index:40}
+  .running-bar.on{display:block}
+  @keyframes scan{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        @media (max-width: 768px) {
-            .grid-2 { grid-template-columns: 1fr; }
-        }
-
-        /* Connection Panel */
-        .connection-form {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .form-group label {
-            font-size: 12px;
-            color: #6b7a99;
-            font-weight: 500;
-        }
-
-        .form-group input, .form-group select {
-            background: #0d1321;
-            border: 1px solid #2a3555;
-            border-radius: 8px;
-            padding: 8px 12px;
-            color: #e0e6f0;
-            font-size: 14px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .form-group input:focus, .form-group select:focus {
-            border-color: #4a9eff;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .btn-primary {
-            background: #4a9eff;
-            color: #fff;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            background: #3a8eef;
-        }
-
-        .btn-danger {
-            background: #ef4444;
-            color: #fff;
-        }
-
-        .btn-danger:hover:not(:disabled) {
-            background: #dc2626;
-        }
-
-        .btn-secondary {
-            background: #2a3555;
-            color: #e0e6f0;
-        }
-
-        .btn-secondary:hover:not(:disabled) {
-            background: #354166;
-        }
-
-        .btn-row {
-            display: flex;
-            gap: 10px;
-            margin-top: 16px;
-            grid-column: 1 / -1;
-            flex-wrap: wrap;
-        }
-
-        .btn-swap {
-            background: linear-gradient(135deg, #7c3aed, #4a9eff);
-            color: #fff;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-swap:hover:not(:disabled) {
-            background: linear-gradient(135deg, #6d28d9, #3a8eef);
-        }
-
-        .btn-swap .swap-icon {
-            display: inline-block;
-            transition: transform 0.3s ease;
-        }
-
-        .btn-swap.inverted .swap-icon {
-            transform: rotate(180deg);
-        }
-
-        .rs485-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 14px;
-            background: #0d1321;
-            border: 1px solid #2a3555;
-            border-radius: 8px;
-            font-size: 12px;
-            color: #8896b3;
-            grid-column: 1 / -1;
-        }
-
-        .rs485-indicator .mode-label {
-            font-weight: 600;
-            color: #7c3aed;
-        }
-
-        /* COM Ports */
-        .port-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .port-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 14px;
-            background: #0d1321;
-            border: 1px solid #2a3555;
-            border-radius: 8px;
-            font-size: 13px;
-        }
-
-        .port-item .port-name {
-            font-weight: 600;
-            color: #4a9eff;
-        }
-
-        .port-item .port-desc {
-            color: #6b7a99;
-        }
-
-        /* Registers Table */
-        .register-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .register-table th {
-            text-align: left;
-            padding: 10px 14px;
-            font-size: 12px;
-            font-weight: 600;
-            color: #6b7a99;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid #2a3555;
-        }
-
-        .register-table td {
-            padding: 10px 14px;
-            font-size: 14px;
-            border-bottom: 1px solid rgba(42, 53, 85, 0.5);
-            font-family: 'Consolas', 'Courier New', monospace;
-        }
-
-        .register-table tr:hover td {
-            background: rgba(74, 158, 255, 0.05);
-        }
-
-        .reg-addr { color: #4a9eff; }
-        .reg-dec { color: #22c55e; }
-        .reg-hex { color: #eab308; }
-
-        /* Read Controls */
-        .read-controls {
-            display: flex;
-            gap: 12px;
-            align-items: flex-end;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-        }
-
-        .read-controls .form-group {
-            flex: 0 0 auto;
-        }
-
-        /* Log Area */
-        .log-area {
-            background: #0d1321;
-            border: 1px solid #2a3555;
-            border-radius: 8px;
-            padding: 14px;
-            max-height: 300px;
-            overflow-y: auto;
-            font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.6;
-        }
-
-        .log-entry {
-            color: #6b7a99;
-        }
-
-        .log-entry.success { color: #22c55e; }
-        .log-entry.error { color: #ef4444; }
-        .log-entry.info { color: #4a9eff; }
-        .log-entry.warning { color: #eab308; }
-
-        /* Write Panel */
-        .write-form {
-            display: flex;
-            gap: 12px;
-            align-items: flex-end;
-            flex-wrap: wrap;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #6b7a99;
-        }
-
-        .empty-state p {
-            margin-top: 8px;
-            font-size: 14px;
-        }
-
-        /* Scan results */
-        .scan-results {
-            display: grid;
-            gap: 8px;
-        }
-
-        .scan-hit {
-            padding: 12px 16px;
-            background: rgba(34, 197, 94, 0.08);
-            border: 1px solid rgba(34, 197, 94, 0.2);
-            border-radius: 8px;
-            font-size: 13px;
-        }
-
-        .scan-hit strong {
-            color: #22c55e;
-        }
-    </style>
+  .laser-dot{filter:drop-shadow(0 0 5px #5dc6ff) drop-shadow(0 0 9px rgba(93,198,255,.7));
+    transform-origin:center;animation:laserBreath 1.4s ease-in-out infinite}
+  @keyframes laserBreath{0%,100%{opacity:.95}50%{opacity:.6}}
+</style>
 </head>
 <body>
-    <div class="header">
-        <h1><span>Relfar V4</span> &mdash; Laser Controller Dashboard</h1>
-        <div id="statusBadge" class="status-badge disconnected">
-            <div class="status-dot"></div>
-            <span id="statusText">Disconnected</span>
-        </div>
+<div class="running-bar" id="runBar"></div>
+
+<header>
+  <div class="logo"><div class="logo-icon"></div>RELFAR V4</div>
+  <span class="brand">Groupe Laser Net</span>
+  <div class="conn"><span class="dot" id="dot"></span><span id="status">connecting…</span></div>
+</header>
+
+<main>
+  <!-- COL 1: LIVE STATS -->
+  <section class="card">
+    <h2>Live Telemetry</h2>
+    <div class="err-banner" id="errBanner"></div>
+    <div class="stats">
+      <div class="stat" id="s_para_number"><label>Para number</label>
+        <div><span class="val" id="v_para_number">–</span></div></div>
+      <div class="stat power" id="s_laser_power"><label>Laser power</label>
+        <div><span class="val" id="v_laser_power">–</span><span class="unit">W</span></div></div>
+      <div class="gauge-wrap"><div class="gauge"><div class="gauge-fill" id="g_power" style="width:0%"></div></div></div>
+      <div class="stat" id="s_laser_freq"><label>Frequency</label>
+        <div><span class="val" id="v_laser_freq">–</span><span class="unit">Hz</span></div></div>
+      <div class="stat" id="s_laser_duty"><label>Duty cycle</label>
+        <div><span class="val" id="v_laser_duty">–</span><span class="unit">%</span></div></div>
+      <div class="stat" id="s_scan_speed"><label>Scan speed</label>
+        <div><span class="val" id="v_scan_speed">–</span><span class="unit">mm/s</span></div></div>
+      <div class="stat" id="s_scan_length"><label>Scan length</label>
+        <div><span class="val" id="v_scan_length">–</span><span class="unit">mm</span></div></div>
+      <div class="stat" id="s_scan_width"><label>Scan width</label>
+        <div><span class="val" id="v_scan_width">–</span><span class="unit">mm</span></div></div>
+      <div class="stat running" id="s_status"><label>Status</label>
+        <div><span class="val" id="v_status">–</span></div></div>
+    </div>
+    <div class="meta" id="meta">never polled</div>
+  </section>
+
+  <!-- COL 2: SCAN PREVIEW -->
+  <section class="card">
+    <h2>Scan Path Preview</h2>
+    <div class="preview-wrap">
+      <svg id="scanSvg" viewBox="-110 -75 220 150" preserveAspectRatio="xMidYMid meet">
+        <!-- crosshair axes -->
+        <line x1="-110" y1="0" x2="110" y2="0" stroke="rgba(93,198,255,.15)" stroke-width=".4"/>
+        <line x1="0" y1="-75" x2="0" y2="75" stroke="rgba(93,198,255,.15)" stroke-width=".4"/>
+        <!-- scan path drawn here -->
+        <g id="scanPath"></g>
+        <!-- animated laser dot — blends with the cyan path -->
+        <circle id="laserDot" class="laser-dot" cx="0" cy="0" r="1.6" fill="#e6f6ff"/>
+      </svg>
+    </div>
+    <div class="preview-info">
+      <span>shape: <span class="shape-name" id="shapeLabel">—</span></span>
+      <span id="dimsLabel">— × — mm</span>
     </div>
 
-    <div class="container">
-        <!-- Connection & Ports -->
-        <div class="grid-2">
-            <div class="card">
-                <div class="card-title">Connection Settings</div>
-                <div class="connection-form">
-                    <div class="form-group">
-                        <label>COM Port</label>
-                        <input type="text" id="portInput" value="COM5">
-                    </div>
-                    <div class="form-group">
-                        <label>Baud Rate</label>
-                        <select id="baudSelect">
-                            <option value="9600" selected>9600</option>
-                            <option value="19200">19200</option>
-                            <option value="38400">38400</option>
-                            <option value="57600">57600</option>
-                            <option value="115200">115200</option>
-                            <option value="4800">4800</option>
-                            <option value="2400">2400</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Parity</label>
-                        <select id="paritySelect">
-                            <option value="N" selected>None</option>
-                            <option value="E">Even</option>
-                            <option value="O">Odd</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Slave ID</label>
-                        <input type="number" id="slaveInput" value="1" min="0" max="247">
-                    </div>
-                    <div class="btn-row">
-                        <button class="btn btn-primary" id="scanBtn" onclick="startScan()">
-                            Auto-Scan
-                        </button>
-                        <button class="btn btn-secondary" onclick="manualConnect()">
-                            Manual Connect
-                        </button>
-                        <button class="btn btn-swap" id="swapBtn" onclick="toggleRS485()">
-                            <span class="swap-icon">&#8646;</span> Swap TX/RX
-                        </button>
-                        <button class="btn btn-danger" onclick="disconnect()">
-                            Disconnect
-                        </button>
-                    </div>
-                    <div class="rs485-indicator">
-                        RS485 Polarity: <span class="mode-label" id="rs485ModeLabel">Normal</span>
-                        <span id="rs485ModeDesc">— RTS HIGH during TX</span>
-                    </div>
-                </div>
-            </div>
+    <div class="fire-zone">
+      <div class="fire-warn">⚠ EXPERIMENTAL — point head at a safe target, eye protection on</div>
+      <button id="fireBtn" type="button">
+        <span class="fire-icon">⚡</span>
+        <span class="fire-label">HOLD TO FIRE</span>
+        <span class="fire-hint">writes 0x1314 = 1 while held</span>
+      </button>
+      <div class="fire-status" id="fireStatus">idle</div>
+    </div>
+  </section>
 
-            <div class="card">
-                <div class="card-title">Detected COM Ports</div>
-                <div id="portList" class="port-list">
-                    <div class="empty-state">
-                        <p>Click "Auto-Scan" or loading...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- COL 3: WRITE PARAMS -->
+  <section class="card">
+    <h2>Parameter Control</h2>
 
-        <!-- Read/Write Registers -->
-        <div class="grid-2">
-            <div class="card">
-                <div class="card-title">Read Registers</div>
-                <div class="read-controls">
-                    <div class="form-group">
-                        <label>Start Address</label>
-                        <input type="number" id="readAddr" value="0" min="0" style="width: 100px;">
-                    </div>
-                    <div class="form-group">
-                        <label>Count</label>
-                        <input type="number" id="readCount" value="10" min="1" max="125" style="width: 80px;">
-                    </div>
-                    <div class="form-group">
-                        <label>Type</label>
-                        <select id="readType" style="width: 120px;">
-                            <option value="holding">Holding (0x03)</option>
-                            <option value="input">Input (0x04)</option>
-                        </select>
-                    </div>
-                    <button class="btn btn-primary" onclick="readRegisters()">Read</button>
-                </div>
-                <div id="registerData">
-                    <div class="empty-state">
-                        <p>Connect to the controller first, then read registers</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">Write Register</div>
-                <div class="write-form">
-                    <div class="form-group">
-                        <label>Address</label>
-                        <input type="number" id="writeAddr" value="0" min="0" style="width: 100px;">
-                    </div>
-                    <div class="form-group">
-                        <label>Value</label>
-                        <input type="number" id="writeValue" value="0" min="0" max="65535" style="width: 100px;">
-                    </div>
-                    <button class="btn btn-primary" onclick="writeRegister()">Write</button>
-                </div>
-                <p style="margin-top: 16px; font-size: 13px; color: #6b7a99;">
-                    Caution: writing incorrect values can affect controller behavior.
-                    Only write if you know the register function.
-                </p>
-            </div>
-        </div>
-
-        <!-- Scan Results & Log -->
-        <div class="grid-2">
-            <div class="card">
-                <div class="card-title">Scan Results</div>
-                <div id="scanResults" class="scan-results">
-                    <div class="empty-state">
-                        <p>No scan performed yet</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">Activity Log</div>
-                <div id="logArea" class="log-area">
-                    <div class="log-entry info">Dashboard loaded. Ready to connect.</div>
-                </div>
-            </div>
-        </div>
+    <div class="field">
+      <div class="field-head"><label>Para number</label><span class="cur" id="c_para_number">–</span></div>
+      <div class="field-row">
+        <input id="r_para_number" type="range" min="0" max="20" step="1"/>
+        <input id="i_para_number" type="number" step="1" min="0"/>
+        <button class="set" data-name="para_number">Set</button>
+      </div>
     </div>
 
-    <script>
-        const API = '';  // Same origin
+    <div class="field">
+      <div class="field-head"><label>Laser power (W)</label><span class="cur" id="c_laser_power">–</span></div>
+      <div class="field-row">
+        <input id="r_laser_power" type="range" min="0" max="2000" step="10"/>
+        <input id="i_laser_power" type="number" step="10" min="0"/>
+        <button class="set" data-name="laser_power">Set</button>
+      </div>
+    </div>
 
-        function log(msg, type = '') {
-            const area = document.getElementById('logArea');
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${type}`;
-            const now = new Date().toLocaleTimeString();
-            entry.textContent = `[${now}] ${msg}`;
-            area.appendChild(entry);
-            area.scrollTop = area.scrollHeight;
-        }
+    <div class="field">
+      <div class="field-head"><label>Frequency (Hz)</label><span class="cur" id="c_laser_freq">–</span></div>
+      <div class="field-row">
+        <input id="r_laser_freq" type="range" min="0" max="5000" step="50"/>
+        <input id="i_laser_freq" type="number" step="50" min="0"/>
+        <button class="set" data-name="laser_freq">Set</button>
+      </div>
+    </div>
 
-        function updateStatus(connected, scanning = false) {
-            const badge = document.getElementById('statusBadge');
-            const text = document.getElementById('statusText');
+    <div class="field">
+      <div class="field-head"><label>Duty cycle (%)</label><span class="cur" id="c_laser_duty">–</span></div>
+      <div class="field-row">
+        <input id="r_laser_duty" type="range" min="0" max="100" step="1"/>
+        <input id="i_laser_duty" type="number" step="1" min="0" max="100"/>
+        <button class="set" data-name="laser_duty">Set</button>
+      </div>
+    </div>
 
-            badge.className = 'status-badge ' + (scanning ? 'scanning' : connected ? 'connected' : 'disconnected');
-            text.textContent = scanning ? 'Scanning...' : connected ? 'Connected' : 'Disconnected';
-        }
+    <div class="field">
+      <div class="field-head"><label>Scan speed (mm/s)</label><span class="cur" id="c_scan_speed">–</span></div>
+      <div class="field-row">
+        <input id="r_scan_speed" type="range" min="0" max="2000" step="10"/>
+        <input id="i_scan_speed" type="number" step="10" min="0"/>
+        <button class="set" data-name="scan_speed">Set</button>
+      </div>
+    </div>
 
-        function updateRS485Display(mode) {
-            const label = document.getElementById('rs485ModeLabel');
-            const desc = document.getElementById('rs485ModeDesc');
-            const btn = document.getElementById('swapBtn');
+    <div class="field">
+      <div class="field-head"><label>Scan length (mm)</label><span class="cur" id="c_scan_length">–</span></div>
+      <div class="field-row">
+        <input id="r_scan_length" type="range" min="0" max="200" step="0.5"/>
+        <input id="i_scan_length" type="number" step="0.1" min="0"/>
+        <button class="set" data-name="scan_length">Set</button>
+      </div>
+    </div>
 
-            if (mode === 'inverted') {
-                label.textContent = 'Inverted (Swapped)';
-                desc.textContent = '— RTS LOW during TX';
-                btn.classList.add('inverted');
-            } else {
-                label.textContent = 'Normal';
-                desc.textContent = '— RTS HIGH during TX';
-                btn.classList.remove('inverted');
-            }
-        }
+    <div class="field">
+      <div class="field-head"><label>Scan width (mm)</label><span class="cur" id="c_scan_width">–</span></div>
+      <div class="field-row">
+        <input id="r_scan_width" type="range" min="0" max="200" step="0.5"/>
+        <input id="i_scan_width" type="number" step="0.1" min="0"/>
+        <button class="set" data-name="scan_width">Set</button>
+      </div>
+    </div>
 
-        async function toggleRS485() {
-            log('Toggling RS485 TX/RX polarity...', 'info');
+    <div class="field">
+      <div class="field-head"><label>Scan type</label><span class="cur" id="c_scan_type">–</span></div>
+      <div class="shape-grid" id="shape_grid"></div>
+    </div>
 
-            try {
-                const res = await fetch(`${API}/api/rs485-mode`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({})  // empty = toggle
-                });
+    <details>
+      <summary>raw register R/W</summary>
+      <div style="margin-top:10px;display:grid;gap:8px">
+        <div class="field-row no-slider"><input id="rwAddr" placeholder="0x1305" /><button class="set" id="btnRead">Read</button></div>
+        <div class="field-row no-slider"><input id="rwVal" type="number" placeholder="value" /><button class="set" id="btnWrite">Write</button></div>
+        <pre id="rwOut">–</pre>
+      </div>
+    </details>
+    <details>
+      <summary>raw register cache</summary>
+      <pre id="rawRegs">{}</pre>
+    </details>
+  </section>
+</main>
 
-                const data = await res.json();
-                if (data.error) {
-                    log(`Swap error: ${data.error}`, 'error');
-                    return;
-                }
+<div class="toast" id="toast"></div>
 
-                updateRS485Display(data.new_mode);
-                log(`RS485 polarity swapped: ${data.old_mode} → ${data.new_mode} (${data.description})`, 'success');
-            } catch (e) {
-                log(`Error: ${e.message}`, 'error');
-            }
-        }
+<script>
+const $ = id => document.getElementById(id);
+const SHAPE_NAMES = {1:"Line H",2:"Line V",3:"Ellipse",4:"Diagonal",5:"Sine",
+  6:"Grid S",7:"Grid L",8:"Asterisk",10:"Dot"};
+const PARAMS = ["para_number","laser_power","laser_freq","laser_duty",
+  "scan_speed","scan_length","scan_width"];
+const lastVals = {};   // for flash detection
+const userTouched = {};// fields the user is currently editing (don't auto-fill)
 
-        async function fetchStatus() {
-            try {
-                const res = await fetch(`${API}/api/status`);
-                const data = await res.json();
+function toast(msg, kind){
+  const t = $("toast"); t.textContent = msg;
+  t.className = "toast show " + (kind||"ok");
+  clearTimeout(window._tt);
+  window._tt = setTimeout(()=>t.classList.remove("show"), 2200);
+}
 
-                updateStatus(data.connected, data.scan_in_progress);
-                updateRS485Display(data.rs485_mode || 'normal');
+// ===== Scan path generator =====
+// Returns SVG path "d" for the given shape, length(L) and width(W) in mm.
+function buildPath(shape, L, W){
+  L = Math.max(L||0, 1); W = Math.max(W||0, 1);
+  const hL = L/2, hW = W/2;
+  const seg = (n, fn) => {
+    let d = "";
+    for (let i = 0; i <= n; i++){
+      const t = i / n;
+      const [x, y] = fn(t);
+      d += (i ? " L" : "M") + x.toFixed(2) + " " + y.toFixed(2);
+    }
+    return d;
+  };
+  switch (shape){
+    case 1: return `M${-hL} 0 L${hL} 0`;                          // Line H
+    case 2: return `M0 ${-hW} L0 ${hW}`;                          // Line V
+    case 3: return seg(64, t => {                                 // Ellipse
+      const a = t * Math.PI * 2;
+      return [hL * Math.cos(a), hW * Math.sin(a)];
+    });
+    case 4: return `M${-hL} ${hW} L${hL} ${-hW}`;                 // Diagonal
+    case 5: return seg(80, t => [                                 // Sine
+      -hL + 2*hL*t,
+      hW * Math.sin(t * Math.PI * 4)
+    ]);
+    case 6: { // Grid Small (3x3)
+      let d = ""; const steps = 3;
+      for (let i = 0; i <= steps; i++){
+        const x = -hL + (2*hL) * (i/steps);
+        d += `M${x} ${-hW} L${x} ${hW} `;
+      }
+      for (let j = 0; j <= steps; j++){
+        const y = -hW + (2*hW) * (j/steps);
+        d += `M${-hL} ${y} L${hL} ${y} `;
+      }
+      return d;
+    }
+    case 7: { // Grid Large (5x5)
+      let d = ""; const steps = 5;
+      for (let i = 0; i <= steps; i++){
+        const x = -hL + (2*hL) * (i/steps);
+        d += `M${x} ${-hW} L${x} ${hW} `;
+      }
+      for (let j = 0; j <= steps; j++){
+        const y = -hW + (2*hW) * (j/steps);
+        d += `M${-hL} ${y} L${hL} ${y} `;
+      }
+      return d;
+    }
+    case 8: // Asterisk
+      return `M${-hL} 0 L${hL} 0 M0 ${-hW} L0 ${hW} ` +
+             `M${-hL*.7} ${-hW*.7} L${hL*.7} ${hW*.7} ` +
+             `M${-hL*.7} ${hW*.7} L${hL*.7} ${-hW*.7}`;
+    case 10: { // Dot grid
+      let d = "";
+      for (let i = -1; i <= 1; i++)
+        for (let j = -1; j <= 1; j++)
+          d += `M${i*hL*.6} ${j*hW*.6} l.1 0 `;
+      return d;
+    }
+    default: return "";
+  }
+}
 
-                if (data.connection_settings) {
-                    document.getElementById('baudSelect').value = data.connection_settings.baud_rate || 9600;
-                    document.getElementById('paritySelect').value = data.connection_settings.parity || 'N';
-                    document.getElementById('slaveInput').value = data.connection_settings.slave_id || 1;
-                }
+let pathLen = 0, pathEl = null, animT = 0;
+function renderPreview(shape, L, W){
+  const grp = $("scanPath");
+  const d = buildPath(shape, L, W);
+  // Auto-scale viewBox to fit
+  const span = Math.max(L||10, W||10, 20) * 0.7;
+  $("scanSvg").setAttribute("viewBox", `${-span} ${-span*.68} ${span*2} ${span*1.36}`);
+  grp.innerHTML = `
+    <path d="${d}" fill="none" stroke="rgba(93,198,255,.35)"
+          stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="livePath" d="${d}" fill="none" stroke="#5dc6ff"
+          stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+          filter="drop-shadow(0 0 3px #5dc6ff)"/>`;
+  pathEl = $("livePath");
+  try { pathLen = pathEl.getTotalLength(); } catch(e){ pathLen = 0; }
+  $("shapeLabel").textContent = SHAPE_NAMES[shape] || "—";
+  $("dimsLabel").textContent  = (L?.toFixed?.(1) ?? "—") + " × " + (W?.toFixed?.(1) ?? "—") + " mm";
+}
 
-                if (data.port) {
-                    document.getElementById('portInput').value = data.port;
-                }
+// Animate the laser dot tracing the current path
+function animate(){
+  if (pathEl && pathLen > 0){
+    animT = (animT + 0.6) % pathLen;
+    try {
+      const p = pathEl.getPointAtLength(animT);
+      const dot = $("laserDot");
+      dot.setAttribute("cx", p.x);
+      dot.setAttribute("cy", p.y);
+    } catch(e){}
+  }
+  requestAnimationFrame(animate);
+}
+animate();
 
-                if (data.registers && Object.keys(data.registers).length > 0) {
-                    renderRegisters(data.registers);
-                }
+// ===== Refresh =====
+let lastShape = null, lastL = null, lastW = null;
 
-                if (data.error) {
-                    document.getElementById('scanBtn').disabled = false;
-                }
-            } catch (e) {
-                // Server not reachable
-            }
-        }
+function applyParams(p){
+  if (!p) return;
+  const setVal = (name, fmt) => {
+      const el = $("v_" + name); if (!el) return;
+      const v = p[name];
+      const txt = (v == null) ? "–" : (fmt ? fmt(v) : v);
+      if (lastVals[name] !== v && v != null && lastVals[name] != null){
+        const card = $("s_" + name);
+        if (card){ card.classList.add("flash"); setTimeout(()=>card.classList.remove("flash"), 600); }
+      }
+      lastVals[name] = v;
+      el.textContent = txt;
+      const cur = $("c_" + name); if (cur) cur.textContent = (v==null) ? "–" : v;
+    };
+    setVal("para_number");
+    setVal("laser_power");
+    setVal("laser_freq");
+    setVal("laser_duty");
+    setVal("scan_speed");
+    setVal("scan_length", v => v.toFixed(1));
+    setVal("scan_width",  v => v.toFixed(1));
+    $("v_status").textContent = (p.status==null) ? "–" : (p.status === 0 ? "IDLE" : "RUNNING");
+    $("runBar").classList.toggle("on", p.status && p.status !== 0);
 
-        async function loadPorts() {
-            try {
-                const res = await fetch(`${API}/api/ports`);
-                const data = await res.json();
-                const list = document.getElementById('portList');
+    // Power gauge
+    const pw = p.laser_power || 0;
+    $("g_power").style.width = Math.min(100, (pw/2000)*100) + "%";
 
-                if (data.ports && data.ports.length > 0) {
-                    list.innerHTML = data.ports.map(p => `
-                        <div class="port-item">
-                            <span class="port-name">${p.device}</span>
-                            <span class="port-desc">${p.description}</span>
-                        </div>
-                    `).join('');
-                } else {
-                    list.innerHTML = '<div class="empty-state"><p>No COM ports detected</p></div>';
-                }
-            } catch (e) {
-                log('Failed to load COM ports', 'error');
-            }
-        }
+    // Pre-fill inputs (skip when user is touching)
+    const fill = (name, v) => {
+      if (v == null) return;
+      const i = $("i_"+name), r = $("r_"+name);
+      if (i && !userTouched[name] && document.activeElement !== i) i.value = v;
+      if (r && !userTouched[name] && document.activeElement !== r) r.value = v;
+    };
+    PARAMS.forEach(n => fill(n, p[n]));
 
-        async function startScan() {
-            const port = document.getElementById('portInput').value;
-            const btn = document.getElementById('scanBtn');
-            btn.disabled = true;
+    // scan_type shape grid — highlight currently active
+    if (p.scan_type != null){
+      document.querySelectorAll(".shape-btn").forEach(b =>
+        b.classList.toggle("active", parseInt(b.dataset.id) === p.scan_type));
+    }
+    $("c_scan_type").textContent = (p.scan_type == null) ? "–"
+      : p.scan_type + " — " + (SHAPE_NAMES[p.scan_type]||"?");
 
-            log(`Starting auto-scan on ${port}...`, 'info');
-            updateStatus(false, true);
+    // Re-render preview if shape/dims changed
+    const sh = p.scan_type, L = p.scan_length, W = p.scan_width;
+    if (sh != lastShape || L != lastL || W != lastW){
+      renderPreview(sh, L, W);
+      lastShape = sh; lastL = L; lastW = W;
+    }
+}
 
-            try {
-                const res = await fetch(`${API}/api/scan`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ port, quick: false })
-                });
+async function refresh(){
+  try{
+    const r = await fetch("/api/status");
+    const s = await r.json();
+    $("dot").classList.toggle("ok", s.connected);
+    $("status").textContent = s.connected ? ("connected " + s.host) : "disconnected";
+    const eb = $("errBanner");
+    if (s.last_error && !s.connected){ eb.textContent = "⚠ " + s.last_error; eb.classList.add("show"); }
+    else eb.classList.remove("show");
+    applyParams(s.params || {});
+    $("rawRegs").textContent = JSON.stringify(s.registers, null, 2);
+    $("meta").textContent = s.last_poll
+      ? ("last poll: " + s.last_poll + "  •  bind: " + s.bind)
+      : "never polled";
+  }catch(e){
+    $("status").textContent = "server unreachable";
+    $("dot").classList.remove("ok");
+  }
+}
 
-                const data = await res.json();
-                if (data.error) {
-                    log(`Scan error: ${data.error}`, 'error');
-                    btn.disabled = false;
-                    return;
-                }
+// ===== Sliders <-> number inputs sync =====
+PARAMS.forEach(name => {
+  const r = $("r_"+name), i = $("i_"+name);
+  if (!r || !i) return;
+  const mark = () => { userTouched[name] = true; clearTimeout(r._tt);
+    r._tt = setTimeout(()=>userTouched[name]=false, 4000); };
+  r.addEventListener("input", () => { i.value = r.value; mark(); });
+  i.addEventListener("input", () => { r.value = i.value; mark(); });
+});
+// ===== Build shape grid =====
+const SHAPES = [
+  {id:1, name:"Line H",   svg:'<line x1="6" y1="13" x2="32" y2="13"/>'},
+  {id:2, name:"Line V",   svg:'<line x1="19" y1="3"  x2="19" y2="23"/>'},
+  {id:3, name:"Ellipse",  svg:'<ellipse cx="19" cy="13" rx="13" ry="7"/>'},
+  {id:4, name:"Diagonal", svg:'<line x1="6" y1="21" x2="32" y2="5"/>'},
+  {id:5, name:"Sine",     svg:'<path d="M5 13 q3.5 -8 7 0 t7 0 t7 0 t7 0"/>'},
+  {id:6, name:"Grid S",   svg:'<rect x="8" y="4" width="22" height="18"/><path d="M15 4 v18 M22 4 v18 M8 10 h22 M8 16 h22"/>'},
+  {id:7, name:"Grid L",   svg:'<rect x="3" y="3" width="32" height="20"/><path d="M11 3 v20 M19 3 v20 M27 3 v20 M3 8 h32 M3 13 h32 M3 18 h32"/>'},
+  {id:8, name:"Asterisk", svg:'<line x1="19" y1="3" x2="19" y2="23"/><line x1="9" y1="6" x2="29" y2="20"/><line x1="29" y1="6" x2="9" y2="20"/>'},
+  {id:10,name:"Dot",      svg:'<circle cx="11" cy="7" r="1.6" fill="currentColor"/><circle cx="19" cy="7" r="1.6" fill="currentColor"/><circle cx="27" cy="7" r="1.6" fill="currentColor"/><circle cx="11" cy="13" r="1.6" fill="currentColor"/><circle cx="19" cy="13" r="1.6" fill="currentColor"/><circle cx="27" cy="13" r="1.6" fill="currentColor"/><circle cx="11" cy="19" r="1.6" fill="currentColor"/><circle cx="19" cy="19" r="1.6" fill="currentColor"/><circle cx="27" cy="19" r="1.6" fill="currentColor"/>'},
+];
+const grid = $("shape_grid");
+SHAPES.forEach(s => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "shape-btn";
+  b.dataset.id = s.id;
+  b.title = s.id + " — " + s.name;
+  b.innerHTML = '<svg viewBox="0 0 38 26">' + s.svg + '</svg><span>' + s.name + '</span>';
+  b.addEventListener("click", async () => {
+    // Optimistic UI: apply immediately
+    document.querySelectorAll(".shape-btn").forEach(x => x.classList.toggle("active", x === b));
+    $("c_scan_type").textContent = s.id + " — " + s.name;
+    renderPreview(s.id, lastL || 30, lastW || 30);
+    lastShape = s.id;
+    try {
+      const r = await fetch("/api/param", {method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({name:"scan_type", value:s.id})});
+      const j = await r.json();
+      if (j.ok){ toast("scan type → " + s.name, "ok"); applyParams(j.params); }
+      else { toast(j.error || "write failed", "err"); }
+    } catch(e){ toast("network error", "err"); }
+  });
+  grid.appendChild(b);
+});
 
-                log('Scan started. This may take 1-3 minutes...', 'warning');
+// ===== Set buttons =====
+document.querySelectorAll("button.set[data-name]").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const name = btn.dataset.name;
+    const inp  = $("i_" + name);
+    const value = parseFloat(inp.value);
+    if (Number.isNaN(value)){ toast("enter a value", "err"); return; }
+    btn.disabled = true;
+    try{
+      const r = await fetch("/api/param", {method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({name:name, value:value})});
+      const j = await r.json();
+      if (j.ok){
+        const display = (name === "scan_type") ? (SHAPE_NAMES[value] || value) : value;
+        toast(name.replace("_"," ") + " → " + display, "ok");
+        userTouched[name] = false;
+        if (j.params) applyParams(j.params);   // instant UI update — no extra round-trip
+      } else { toast(j.error || "write failed", "err"); }
+    }catch(e){ toast("network error", "err"); }
+    btn.disabled = false;
+  });
+});
 
-                // Poll for completion
-                const pollInterval = setInterval(async () => {
-                    const statusRes = await fetch(`${API}/api/status`);
-                    const statusData = await statusRes.json();
+// ===== Raw R/W =====
+$("btnRead").addEventListener("click", async () => {
+  const a = $("rwAddr").value.trim();
+  if (!a){ toast("address required", "err"); return; }
+  const r = await fetch("/api/read", {method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({address:a})});
+  $("rwOut").textContent = JSON.stringify(await r.json(), null, 2);
+});
+$("btnWrite").addEventListener("click", async () => {
+  const a = $("rwAddr").value.trim();
+  const v = $("rwVal").value;
+  if (!a || v===""){ toast("address and value required", "err"); return; }
+  const r = await fetch("/api/write", {method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({address:a, value:parseInt(v)})});
+  $("rwOut").textContent = JSON.stringify(await r.json(), null, 2);
+  refresh();
+});
 
-                    if (!statusData.scan_in_progress) {
-                        clearInterval(pollInterval);
-                        btn.disabled = false;
-                        updateStatus(statusData.connected);
+// ===== FIRE button (momentary) — writes 0x1314=1 on press, 0 on release =====
+const fireBtn = $("fireBtn"), fireStatus = $("fireStatus");
+let firing = false;
 
-                        // Load scan results
-                        const scanRes = await fetch(`${API}/api/scan-results`);
-                        const scanData = await scanRes.json();
-                        renderScanResults(scanData);
+async function rawWrite(addr, value){
+  try{
+    const r = await fetch("/api/write", {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({address:addr, value:value})});
+    return await r.json();
+  }catch(e){ return {error:String(e)}; }
+}
 
-                        if (statusData.connected) {
-                            log('Controller found! Connection established.', 'success');
-                        } else if (statusData.error) {
-                            log(`Scan complete: ${statusData.error}`, 'warning');
-                        }
-                    }
-                }, 2000);
+async function fireOn(){
+  if (firing) return;
+  firing = true;
+  fireBtn.classList.add("firing");
+  fireStatus.textContent = "● FIRING";
+  fireStatus.classList.add("on");
+  await rawWrite("0x1314", 1);
+}
 
-            } catch (e) {
-                log(`Error: ${e.message}`, 'error');
-                btn.disabled = false;
-                updateStatus(false);
-            }
-        }
+async function fireOff(){
+  if (!firing) return;
+  firing = false;
+  fireBtn.classList.remove("firing");
+  fireStatus.textContent = "idle";
+  fireStatus.classList.remove("on");
+  await rawWrite("0x1314", 0);
+}
 
-        async function manualConnect() {
-            const settings = {
-                port: document.getElementById('portInput').value,
-                baud_rate: parseInt(document.getElementById('baudSelect').value),
-                parity: document.getElementById('paritySelect').value,
-                slave_id: parseInt(document.getElementById('slaveInput').value)
-            };
+fireBtn.addEventListener("mousedown",  e => { e.preventDefault(); fireOn(); });
+fireBtn.addEventListener("mouseup",    e => { e.preventDefault(); fireOff(); });
+fireBtn.addEventListener("mouseleave", () => fireOff());
+fireBtn.addEventListener("touchstart", e => { e.preventDefault(); fireOn(); }, {passive:false});
+fireBtn.addEventListener("touchend",   e => { e.preventDefault(); fireOff(); }, {passive:false});
+fireBtn.addEventListener("touchcancel",() => fireOff());
 
-            log(`Connecting manually: ${settings.port} @ ${settings.baud_rate} baud...`, 'info');
+// Failsafes — release fire if the page loses focus, gets hidden, or unloads
+window.addEventListener("blur",       () => fireOff());
+document.addEventListener("visibilitychange", () => { if (document.hidden) fireOff(); });
+window.addEventListener("beforeunload",() => { if (firing) navigator.sendBeacon("/api/write",
+  new Blob([JSON.stringify({address:"0x1314", value:0})], {type:"application/json"})); });
 
-            try {
-                const res = await fetch(`${API}/api/connect`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(settings)
-                });
+// Spacebar = fire while held
+document.addEventListener("keydown", e => {
+  if (e.code === "Space" && !e.repeat &&
+      !["INPUT","SELECT","TEXTAREA"].includes(document.activeElement?.tagName)){
+    e.preventDefault(); fireOn();
+  }
+});
+document.addEventListener("keyup", e => {
+  if (e.code === "Space") fireOff();
+});
 
-                const data = await res.json();
-                if (data.connected) {
-                    log('Connected successfully!', 'success');
-                    updateStatus(true);
-                } else {
-                    log(`Connection failed: ${data.error}`, 'error');
-                    updateStatus(false);
-                }
-            } catch (e) {
-                log(`Error: ${e.message}`, 'error');
-            }
-        }
-
-        async function disconnect() {
-            try {
-                await fetch(`${API}/api/disconnect`, { method: 'POST' });
-                log('Disconnected.', 'info');
-                updateStatus(false);
-                document.getElementById('registerData').innerHTML = '<div class="empty-state"><p>Disconnected</p></div>';
-            } catch (e) {
-                log(`Error: ${e.message}`, 'error');
-            }
-        }
-
-        async function readRegisters() {
-            const address = parseInt(document.getElementById('readAddr').value);
-            const count = parseInt(document.getElementById('readCount').value);
-            const type = document.getElementById('readType').value;
-
-            log(`Reading ${count} ${type} registers from address ${address}...`, 'info');
-
-            try {
-                const res = await fetch(`${API}/api/read`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ address, count, type })
-                });
-
-                const data = await res.json();
-                if (data.error) {
-                    log(`Read error: ${data.error}`, 'error');
-                    return;
-                }
-
-                renderRegisters(data.registers);
-                log(`Read ${data.count} registers successfully.`, 'success');
-            } catch (e) {
-                log(`Error: ${e.message}`, 'error');
-            }
-        }
-
-        async function writeRegister() {
-            const address = parseInt(document.getElementById('writeAddr').value);
-            const value = parseInt(document.getElementById('writeValue').value);
-
-            if (!confirm(`Write value ${value} to register ${address}? This will modify the controller.`)) {
-                return;
-            }
-
-            log(`Writing value ${value} to address ${address}...`, 'info');
-
-            try {
-                const res = await fetch(`${API}/api/write`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ address, values: [value] })
-                });
-
-                const data = await res.json();
-                if (data.error) {
-                    log(`Write error: ${data.error}`, 'error');
-                    return;
-                }
-
-                log(`Successfully wrote ${value} to register ${address}.`, 'success');
-                // Refresh read
-                readRegisters();
-            } catch (e) {
-                log(`Error: ${e.message}`, 'error');
-            }
-        }
-
-        function renderRegisters(registers) {
-            const container = document.getElementById('registerData');
-            const sorted = Object.entries(registers).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
-
-            if (sorted.length === 0) {
-                container.innerHTML = '<div class="empty-state"><p>No register data</p></div>';
-                return;
-            }
-
-            let html = `<table class="register-table">
-                <thead><tr>
-                    <th>Address</th>
-                    <th>Decimal</th>
-                    <th>Hex</th>
-                    <th>Binary</th>
-                </tr></thead><tbody>`;
-
-            for (const [addr, val] of sorted) {
-                html += `<tr>
-                    <td class="reg-addr">${addr}</td>
-                    <td class="reg-dec">${val}</td>
-                    <td class="reg-hex">0x${val.toString(16).toUpperCase().padStart(4, '0')}</td>
-                    <td>${val.toString(2).padStart(16, '0')}</td>
-                </tr>`;
-            }
-
-            html += '</tbody></table>';
-            container.innerHTML = html;
-        }
-
-        function renderScanResults(data) {
-            const container = document.getElementById('scanResults');
-
-            if (!data || data.error) {
-                container.innerHTML = `<div class="empty-state"><p>${data?.error || 'No results'}</p></div>`;
-                return;
-            }
-
-            let html = '';
-
-            if (data.modbus_hits && data.modbus_hits.length > 0) {
-                html += '<p style="color: #22c55e; margin-bottom: 8px; font-weight: 600;">Modbus Devices Found:</p>';
-                for (const hit of data.modbus_hits) {
-                    html += `<div class="scan-hit">
-                        <strong>Baud: ${hit.baud_rate}</strong> | Parity: ${hit.parity} | Slave: ${hit.slave_id}<br>
-                        Register ${hit.address} (${hit.type}): [${hit.values.join(', ')}]
-                    </div>`;
-                }
-            }
-
-            if (data.raw_serial_hits && data.raw_serial_hits.length > 0) {
-                html += '<p style="color: #eab308; margin-top: 12px; margin-bottom: 8px; font-weight: 600;">Raw Serial Responses:</p>';
-                for (const hit of data.raw_serial_hits) {
-                    html += `<div class="scan-hit" style="border-color: rgba(234,179,8,0.2); background: rgba(234,179,8,0.08);">
-                        <strong>Baud: ${hit.baud_rate}</strong> | Parity: ${hit.parity}<br>
-                        Sent: ${hit.sent}<br>
-                        Received: ${hit.received} (${hit.received_length} bytes)
-                    </div>`;
-                }
-            }
-
-            if (!html) {
-                html = `<div class="empty-state">
-                    <p style="color: #ef4444;">No devices found</p>
-                    <p>${data.recommendation || 'Check wiring and power.'}</p>
-                </div>`;
-            } else if (data.recommendation) {
-                html += `<p style="margin-top: 12px; color: #8896b3; font-size: 13px;">${data.recommendation}</p>`;
-            }
-
-            container.innerHTML = html;
-        }
-
-        // Initialize
-        loadPorts();
-        fetchStatus();
-        setInterval(fetchStatus, 3000);
-    </script>
+refresh();
+setInterval(refresh, 500);
+</script>
 </body>
 </html>

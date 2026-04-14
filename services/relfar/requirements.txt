@@ -2,3 +2,5 @@ pyserial>=3.5
 pymodbus>=3.6
 flask>=3.0
 flask-cors>=4.0
+bleak>=0.21
+SQLAlchemy>=2.0

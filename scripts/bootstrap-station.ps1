@@ -169,6 +169,9 @@ function Install-NssmService {
     & $nssmPath set $Name AppStderr "$Dir\logs\stderr.log" | Out-Null
     & $nssmPath set $Name AppRotateFiles 1 | Out-Null
     & $nssmPath set $Name AppRotateBytes 10485760 | Out-Null  # 10 MB
+    # Force UTF-8 for Python I/O — NSSM's default console is cp1252 and
+    # crashes on Unicode banners / log output.
+    & $nssmPath set $Name AppEnvironmentExtra "PYTHONIOENCODING=utf-8" "PYTHONUNBUFFERED=1" | Out-Null
     Write-Host "  -> $Name registered"
 }
 
