@@ -14,14 +14,14 @@ export async function GET(
       include: {
         managedClient: true,
         invoice: {
-          include: { job: true },
+          include: { station: true },
         },
         events: {
           orderBy: { createdAt: 'desc' },
         },
-        jobs: {
+        stations: {
           include: {
-            job: {
+            station: {
               include: {
                 invoices: true,
               },
