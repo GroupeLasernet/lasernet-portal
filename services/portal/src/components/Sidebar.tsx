@@ -36,26 +36,15 @@ export default function Sidebar({ links, bottomLinks, userName, userRole }: Side
   return (
     <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
       {/* Brand Header */}
-      <div className="p-4 border-b border-gray-100 bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600">
-        <div className="flex flex-col items-center justify-center gap-2 mb-2">
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex flex-col items-center justify-center">
           <img
-            src="/logo-dsm.png"
-            alt="Atelier DSM"
-            className="h-10 w-auto object-contain"
-            style={{ filter: 'brightness(0) invert(1)' }}
-          />
-          <img
-            src="/logo-lasernet.png"
-            alt="Groupe Lasernet"
-            className="h-40 w-auto object-contain"
-          />
-          <img
-            src="/logo-summumliner.png"
-            alt="Summum Liner"
-            className="h-8 w-auto object-contain"
+            src="/prisma-logo.svg"
+            alt="Prisma"
+            className="w-full h-auto max-h-40 object-contain"
           />
         </div>
-        <p className="text-xs text-center text-brand-200">{portalLabel}</p>
+        <p className="text-xs text-center text-gray-500 mt-1">{portalLabel}</p>
       </div>
 
       {/* Navigation Links */}
