@@ -1,19 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHmac } from 'crypto';
 import prisma from '@/lib/prisma';
+
+// Canonical signing string for license responses. The robot recomputes the
+// exact same string on its side and verifies the HMAC matches before
+// trusting licenseMode / expiresAt / killSwitchActive.
+//
+// Scheme: "v1|<serial>|<licenseMode>|<expiresAtISO or 'null'>|<killSwitch 0/1>|<signedAtISO>"
+// HMAC:   HMAC-SHA256(ROBOT_LICENSE_SECRET, canonical) → hex
+//
+// The "v1" prefix lets us bump the scheme in the future without breaking older
+// robots — we can accept v1 OR v2 signatures for a window.
+function signLicense(
+  serial: string,
+  licenseMode: string,
+  expiresAt: string | null,
+  killSwitchActive: boolean,
+  signedAt: string
+): { signature: string; signedAt: string } | null {
+  const secret = process.env.ROBOT_LICENSE_SECRET;
+  if (!secret) {
+    // Don't error out — sign-as-best-effort lets us stage the rollout.
+    // Admins will see a warning in logs until the env var is set.
+    console.warn('[license] ROBOT_LICENSE_SECRET not set — response is unsigned');
+    return null;
+  }
+  const canonical = [
+    'v1',
+    serial,
+    licenseMode,
+    expiresAt ?? 'null',
+    killSwitchActive ? '1' : '0',
+    signedAt,
+  ].join('|');
+  const signature = createHmac('sha256', secret).update(canonical).digest('hex');
+  return { signature, signedAt };
+}
 
 // GET /api/machines/license/[serial]
 // Called by the on-prem robot FastAPI service every ~15 minutes to sync
 // its local license state. Must be fast + stateless.
 //
-// Response shape — the robot expects exactly these three fields:
-//   { licenseMode, expiresAt, killSwitchActive }
-// All other fields are ignored by the robot.
+// Response shape — the robot expects these fields:
+//   { licenseMode, expiresAt, killSwitchActive, signedAt?, signature? }
+// When ROBOT_LICENSE_SECRET is set, signedAt + signature are included and
+// the robot MUST verify them before acting on the response. If the env var
+// is not set, the response is unsigned (rollout-friendly degrade path).
 //
-// Note: this endpoint is intentionally unauthenticated today — the
-// Cloudflare Tunnel + Cloudflare Access service-token policy (§7) gates
-// who can reach the robot, and the robot→portal direction will be
-// tightened once the tunnel is in place. For now, do NOT include any
-// sensitive data in the response; license state is only mildly sensitive.
+// Note: this endpoint is intentionally unauthenticated at the transport
+// layer today — the Cloudflare Tunnel + Cloudflare Access service-token
+// policy (§7) will gate who can reach the robot, and the HMAC on the
+// response closes the MITM gap for the robot→portal heartbeat direction.
 export async function GET(
   _req: NextRequest,
   { params }: { params: { serial: string } }
@@ -33,15 +70,20 @@ export async function GET(
       },
     });
 
+    const signedAt = new Date().toISOString();
+
     if (!machine) {
       // Unknown serial — treat as unlicensed so the robot refuses operation
-      // under strict mode but admins can still see the state.
+      // under strict mode but admins can still see the state. Sign it too
+      // so a MITM can't forge a "licensed" response for an unknown serial.
+      const sig = signLicense(serial, 'unlicensed', null, false, signedAt);
       return NextResponse.json(
         {
           licenseMode: 'unlicensed',
           expiresAt: null,
           killSwitchActive: false,
           warning: 'serial not registered in portal',
+          ...(sig && { signedAt: sig.signedAt, signature: sig.signature }),
         },
         { status: 200 }
       );
@@ -55,10 +97,20 @@ export async function GET(
       })
       .catch((err) => console.error('licenseLastCheckedAt update failed', err));
 
+    const expiresAtIso = machine.expiresAt ? machine.expiresAt.toISOString() : null;
+    const sig = signLicense(
+      serial,
+      machine.licenseMode,
+      expiresAtIso,
+      machine.killSwitchActive,
+      signedAt
+    );
+
     return NextResponse.json({
       licenseMode: machine.licenseMode,
-      expiresAt: machine.expiresAt ? machine.expiresAt.toISOString() : null,
+      expiresAt: expiresAtIso,
       killSwitchActive: machine.killSwitchActive,
+      ...(sig && { signedAt: sig.signedAt, signature: sig.signature }),
     });
   } catch (error) {
     console.error('license lookup failed', error);

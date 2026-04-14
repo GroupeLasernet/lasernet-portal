@@ -66,6 +66,14 @@ const translations = {
     signingOut: { fr: 'Déconnexion...', en: 'Signing out...' },
     adminPortal: { fr: 'Portail Admin', en: 'Admin Portal' },
     clientPortal: { fr: 'Portail Client', en: 'Client Portal' },
+    // QuickBooksStatus chip
+    clientDataServer: { fr: 'Serveur de données clients', en: 'Client data server' },
+    clientDataServerTitle: { fr: 'Aller à la connexion du serveur de données clients', en: 'Go to client data server connection' },
+    qbChecking: { fr: 'Vérification…', en: 'Checking…' },
+    qbConnected: { fr: 'Connecté', en: 'Connected' },
+    qbDisconnected: { fr: 'Non connecté', en: 'Not connected' },
+    qbNotConfigured: { fr: 'Non configuré', en: 'Not configured' },
+    qbUnavailable: { fr: 'Indisponible', en: 'Unavailable' },
   },
 
   // ============================================================
@@ -84,6 +92,22 @@ const translations = {
     language: { fr: 'Langue', en: 'Language' },
     french: { fr: 'Français', en: 'French' },
     english: { fr: 'Anglais', en: 'English' },
+    forgotPassword: { fr: 'Mot de passe oublié ?', en: 'Forgot your password?' },
+  },
+
+  // ============================================================
+  // FORGOT PASSWORD PAGE
+  // ============================================================
+  forgot: {
+    title: { fr: 'Mot de passe oublié', en: 'Forgot password' },
+    subtitle: { fr: 'Entrez votre courriel et nous vous enverrons un lien pour le réinitialiser.', en: 'Enter your email and we\'ll send you a link to reset it.' },
+    sendReset: { fr: 'Envoyer le lien', en: 'Send reset link' },
+    sending: { fr: 'Envoi...', en: 'Sending...' },
+    emailRequired: { fr: 'Veuillez entrer votre courriel.', en: 'Please enter your email.' },
+    somethingWentWrong: { fr: 'Une erreur est survenue. Réessayez.', en: 'Something went wrong. Please try again.' },
+    checkInboxTitle: { fr: 'Vérifiez votre courriel', en: 'Check your inbox' },
+    checkInboxBody: { fr: 'Si un compte correspond à ce courriel, un lien de réinitialisation vient d\'être envoyé. Le lien expire dans 1 heure.', en: 'If an account matches that email, a reset link was just sent. The link expires in 1 hour.' },
+    backToLogin: { fr: 'Retour à la connexion', en: 'Back to login' },
   },
 
   // ============================================================

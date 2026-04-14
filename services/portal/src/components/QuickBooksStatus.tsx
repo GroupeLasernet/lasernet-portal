@@ -9,12 +9,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/lib/LanguageContext';
 
 type QbState = 'loading' | 'connected' | 'disconnected' | 'missing-creds' | 'error';
 
 export default function QuickBooksStatus() {
   const [state, setState] = useState<QbState>('loading');
   const router = useRouter();
+  const { t } = useLanguage();
 
   useEffect(() => {
     let cancelled = false;
@@ -44,12 +46,12 @@ export default function QuickBooksStatus() {
     };
   }, []);
 
-  const styles: Record<QbState, { dot: string; text: string; bg: string; label: string }> = {
-    loading:         { dot: 'bg-gray-300 animate-pulse', text: 'text-gray-500', bg: 'hover:bg-gray-50',    label: 'Checking…' },
-    connected:       { dot: 'bg-green-500',              text: 'text-green-700', bg: 'hover:bg-green-50',  label: 'Connected' },
-    disconnected:    { dot: 'bg-red-500',                text: 'text-red-700',   bg: 'hover:bg-red-50',    label: 'Not connected' },
-    'missing-creds': { dot: 'bg-amber-500',              text: 'text-amber-700', bg: 'hover:bg-amber-50',  label: 'Not configured' },
-    error:           { dot: 'bg-gray-400',               text: 'text-gray-500',  bg: 'hover:bg-gray-50',   label: 'Unavailable' },
+  const styles: Record<QbState, { dot: string; text: string; bg: string; labelKey: 'qbChecking' | 'qbConnected' | 'qbDisconnected' | 'qbNotConfigured' | 'qbUnavailable' }> = {
+    loading:         { dot: 'bg-gray-300 animate-pulse', text: 'text-gray-500',  bg: 'hover:bg-gray-50',   labelKey: 'qbChecking' },
+    connected:       { dot: 'bg-green-500',              text: 'text-green-700', bg: 'hover:bg-green-50',  labelKey: 'qbConnected' },
+    disconnected:    { dot: 'bg-red-500',                text: 'text-red-700',   bg: 'hover:bg-red-50',    labelKey: 'qbDisconnected' },
+    'missing-creds': { dot: 'bg-amber-500',              text: 'text-amber-700', bg: 'hover:bg-amber-50',  labelKey: 'qbNotConfigured' },
+    error:           { dot: 'bg-gray-400',               text: 'text-gray-500',  bg: 'hover:bg-gray-50',   labelKey: 'qbUnavailable' },
   };
   const s = styles[state];
 
@@ -57,7 +59,7 @@ export default function QuickBooksStatus() {
     <button
       type="button"
       onClick={() => router.push('/admin/clients')}
-      title="Go to client data server connection"
+      title={t('nav', 'clientDataServerTitle')}
       className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border border-gray-200 transition-colors ${s.bg}`}
     >
       <span className="flex items-center gap-2 font-medium text-gray-700">
@@ -66,11 +68,11 @@ export default function QuickBooksStatus() {
           <path d="M4 5v6c0 1.657 3.582 3 8 3s8-1.343 8-3V5" />
           <path d="M4 11v6c0 1.657 3.582 3 8 3s8-1.343 8-3v-6" />
         </svg>
-        Clients&rsquo; data server
+        {t('nav', 'clientDataServer')}
       </span>
       <span className={`flex items-center gap-1.5 ${s.text}`}>
         <span className={`w-2 h-2 rounded-full ${s.dot}`} />
-        {s.label}
+        {t('nav', s.labelKey)}
       </span>
     </button>
   );

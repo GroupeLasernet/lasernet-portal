@@ -9,6 +9,10 @@ const JWT_SECRET = new TextEncoder().encode(
 );
 
 // POST /api/reset-password — Send reset email
+// Account-enumeration protection: we ALWAYS respond success=true, regardless of
+// whether the email belongs to a real user. The actual email send is skipped
+// silently when no account exists, so we don't spam arbitrary addresses with
+// "reset your password" emails for accounts that were never created.
 export async function POST(request: NextRequest) {
   try {
     const { email, name } = await request.json();
@@ -18,6 +22,12 @@ export async function POST(request: NextRequest) {
         { error: 'Email is required' },
         { status: 400 }
       );
+    }
+
+    const user = await getUserByEmail(email);
+    if (!user) {
+      // Silently no-op: same success shape as the happy path.
+      return NextResponse.json({ success: true, emailSent: false });
     }
 
     // Generate reset token (1-hour expiry)
@@ -30,7 +40,7 @@ export async function POST(request: NextRequest) {
       .sign(JWT_SECRET);
 
     // Send reset email
-    const emailSent = await sendResetEmail(email, name || email, resetToken);
+    const emailSent = await sendResetEmail(email, name || user.name || email, resetToken);
 
     return NextResponse.json({
       success: true,

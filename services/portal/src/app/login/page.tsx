@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useLanguage } from '@/lib/LanguageContext';
 
 export default function LoginPage() {
@@ -124,6 +125,15 @@ export default function LoginPage() {
             >
               {loading ? t('login', 'signingIn') : t('login', 'signIn')}
             </button>
+
+            <div className="text-center">
+              <Link
+                href="/forgot-password"
+                className="text-sm text-brand-600 hover:text-brand-700"
+              >
+                {t('login', 'forgotPassword')}
+              </Link>
+            </div>
           </form>
 
           {/* Language Selector */}
