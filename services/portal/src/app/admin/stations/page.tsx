@@ -297,6 +297,7 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
 interface ManagedClient {
   id: string;
   qbClient: {
+    id: string;
     displayName: string;
   };
 }
@@ -315,6 +316,8 @@ interface QBInvoice {
   invoiceType: string;
   amount: number | null;
   items?: QBInvoiceItem[];
+  clientId?: string;
+  clientName?: string;
 }
 
 // Line-item selection row used by the station-creation picker (8.4C)
@@ -678,11 +681,20 @@ export default function AdminStationsPage() {
     return machines.filter((m) => !assignedIds.has(m.id));
   };
 
-  // Get available invoices (not yet in station)
+  // Get available invoices for the current station's client (not yet linked).
+  // Filter to the station's client by matching the station's ManagedClient.qbClient.id
+  // against the QB invoice's clientId (QB CustomerRef.value).
   const getAvailableInvoices = () => {
     if (!editingStation) return [];
     const linkedIds = new Set(editingStation.invoices.map((inv) => inv.qbInvoiceId));
-    return qbInvoices.filter((inv) => !linkedIds.has(inv.id));
+    const managed = clients.find((c) => c.id === editingStation.clientId);
+    const qbCustomerId = managed?.qbClient?.id;
+    return qbInvoices.filter((inv) => {
+      if (linkedIds.has(inv.id)) return false;
+      // If invoice has no clientId we cannot confirm, fall back to including it.
+      if (qbCustomerId && inv.clientId && inv.clientId !== qbCustomerId) return false;
+      return true;
+    });
   };
 
   // Filter stations by business name search
@@ -889,12 +901,24 @@ export default function AdminStationsPage() {
                     if (invoices.length === 0 && meta.invoiceNumber) {
                       invoices.push({ id: meta.invoiceId, number: meta.invoiceNumber });
                     }
-                    if (invoices.length > 0) {
-                      return (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                    return (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-sm font-medium text-gray-700">
                             {invoices.length > 1 ? t('stations', 'linkedInvoices') : t('stations', 'linkInvoice')}
                           </label>
+                          <button
+                            onClick={() => {
+                              setPickerInvoiceId(null);
+                              setPickerSelections({});
+                              setShowLinkInvoiceModal(true);
+                            }}
+                            className="text-xs px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition whitespace-nowrap"
+                          >
+                            + {t('stations', 'linkInvoice')}
+                          </button>
+                        </div>
+                        {invoices.length > 0 ? (
                           <div className="space-y-1">
                             {invoices.map((inv, idx) => (
                               <div key={idx} className="text-sm bg-blue-50 rounded-lg px-3 py-2 text-blue-700 font-medium">
@@ -902,9 +926,13 @@ export default function AdminStationsPage() {
                               </div>
                             ))}
                           </div>
-                        </div>
-                      );
-                    }
+                        ) : (
+                          <p className="text-xs text-gray-400 italic">
+                            {t('stations', 'noInvoicesAvailable')}
+                          </p>
+                        )}
+                      </div>
+                    );
                   } catch { /* not JSON */ }
                   return null;
                 })()}
