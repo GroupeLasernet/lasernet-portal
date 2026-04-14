@@ -57,7 +57,7 @@ export default function LoginPage() {
         </div>
 
         {/* Partner logos */}
-        <div className="flex items-center justify-center gap-6 mb-2 -mt-4 -mx-32 sm:-mx-48">
+        <div className="flex items-center justify-center gap-6 mb-0 -mt-32 -mx-32 sm:-mx-48">
           <img
             src="/logo-dsm.png"
             alt="DSM"
