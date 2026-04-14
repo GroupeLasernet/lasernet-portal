@@ -409,6 +409,41 @@
                     </p>
                 </div>
                 <div class="settings-card" style="grid-column: 1 / -1;">
+                    <h2>Station Config <span style="font-size:0.7rem; color:var(--text-dim); font-weight:normal;">— edits <code>.env</code> and restarts the service</span></h2>
+                    <div class="form-grid-2" style="margin-top:8px;">
+                        <div class="form-group">
+                            <label>Robot Serial (ROBOT_SERIAL)</label>
+                            <input type="text" id="cfgRobotSerial" placeholder="e.g. COBOTDSM-001">
+                        </div>
+                        <div class="form-group">
+                            <label>Portal URL (PORTAL_URL)</label>
+                            <input type="text" id="cfgPortalUrl" placeholder="https://portal.atelierdsm.com">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>License Secret (ROBOT_LICENSE_SECRET) <span id="cfgSecretStatus" style="color:var(--text-dim); font-size:0.7rem;"></span></label>
+                        <input type="password" id="cfgLicenseSecret" placeholder="(leave blank to keep existing)">
+                    </div>
+                    <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:8px;">
+                        <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
+                            <input type="checkbox" id="cfgSyncEnabled"> Sync to Portal enabled
+                        </label>
+                        <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
+                            <input type="checkbox" id="cfgDevSkipLicense"> Dev: skip license gate
+                        </label>
+                        <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
+                            <input type="checkbox" id="cfgLicenseStrict"> License strict mode
+                        </label>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
+                        <button class="btn btn-sm btn-primary" onclick="loadRobotConfig()">Reload</button>
+                        <button class="btn btn-sm btn-success" onclick="saveRobotConfig(false)">Save</button>
+                        <button class="btn btn-sm btn-warning" onclick="saveRobotConfig(true)">Save &amp; Restart Service</button>
+                        <button class="btn btn-sm btn-danger" onclick="restartRobotService()">Restart Service Only</button>
+                        <span id="cfgStatus" style="color:var(--text-dim); font-size:0.8rem; align-self:center; margin-left:auto;"></span>
+                    </div>
+                </div>
+                <div class="settings-card" style="grid-column: 1 / -1;">
                     <h2>Error Log</h2>
                     <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center; flex-wrap:wrap;">
                         <button class="btn btn-sm btn-primary" onclick="refreshErrorLog()">Refresh</button>

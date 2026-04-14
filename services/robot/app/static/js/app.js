@@ -93,9 +93,10 @@ function switchTab(tabName) {
         setTimeout(() => robot3d._onResize(), 50);
     }
 
-    // Pull the error log as soon as the user opens Settings
+    // Pull the error log + station config as soon as the user opens Settings
     if (tabName === 'settings') {
         setTimeout(refreshErrorLog, 50);
+        setTimeout(loadRobotConfig, 50);
         startErrorLogAutoRefresh();
     } else {
         stopErrorLogAutoRefresh();
@@ -913,6 +914,105 @@ async function saveSettings() {
         body: formData(data),
     });
     toast("Settings saved", "success");
+}
+
+// ---------------------------------------------------------------------------
+// Station Config (Settings tab — edits .env and restarts service)
+// ---------------------------------------------------------------------------
+
+function _setCfgStatus(msg, color) {
+    const el = document.getElementById("cfgStatus");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.style.color = color || "var(--text-dim)";
+}
+
+async function loadRobotConfig() {
+    try {
+        const c = await fetch("/api/robot/config").then(r => r.json());
+        const set = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val ?? "";
+        };
+        const check = (id, truthy) => {
+            const el = document.getElementById(id);
+            if (el) el.checked = String(truthy).toLowerCase() === "true";
+        };
+        set("cfgRobotSerial", c.ROBOT_SERIAL);
+        set("cfgPortalUrl", c.PORTAL_URL);
+        check("cfgSyncEnabled", c.SYNC_ENABLED);
+        check("cfgDevSkipLicense", c.DEV_SKIP_LICENSE);
+        check("cfgLicenseStrict", c.LICENSE_STRICT);
+        // Secret is never returned — show whether one is set
+        const secStatus = document.getElementById("cfgSecretStatus");
+        if (secStatus) {
+            secStatus.textContent = c.ROBOT_LICENSE_SECRET_set ? "(currently set — leave blank to keep)" : "(not set)";
+        }
+        const secInput = document.getElementById("cfgLicenseSecret");
+        if (secInput) secInput.value = "";
+        _setCfgStatus("Loaded · " + new Date().toLocaleTimeString());
+    } catch (e) {
+        _setCfgStatus("Load failed: " + e.message, "var(--red)");
+    }
+}
+
+async function saveRobotConfig(restartAfter) {
+    const body = {
+        ROBOT_SERIAL:    document.getElementById("cfgRobotSerial").value.trim(),
+        PORTAL_URL:      document.getElementById("cfgPortalUrl").value.trim(),
+        SYNC_ENABLED:    document.getElementById("cfgSyncEnabled").checked,
+        DEV_SKIP_LICENSE:document.getElementById("cfgDevSkipLicense").checked,
+        LICENSE_STRICT:  document.getElementById("cfgLicenseStrict").checked,
+    };
+    const secret = document.getElementById("cfgLicenseSecret").value;
+    if (secret && secret.length > 0) body.ROBOT_LICENSE_SECRET = secret;
+
+    _setCfgStatus("Saving…");
+    try {
+        const res = await fetch("/api/robot/config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        _setCfgStatus("Saved ✓", "var(--green)");
+        toast("Station config saved", "success");
+        if (restartAfter) {
+            await restartRobotService();
+        }
+    } catch (e) {
+        _setCfgStatus("Save failed: " + e.message, "var(--red)");
+        toast("Save failed: " + e.message, "error");
+    }
+}
+
+async function restartRobotService() {
+    _setCfgStatus("Restarting service…", "var(--orange)");
+    toast("Restarting robot service — UI will reconnect in ~3s", "info");
+    try {
+        await fetch("/api/robot/restart", { method: "POST" });
+    } catch (e) {
+        // Expected — the server shuts down mid-response
+    }
+    // Wait for service to come back up, then reload the page
+    let tries = 0;
+    const check = setInterval(async () => {
+        tries++;
+        try {
+            const r = await fetch("/api/robot/config", { cache: "no-store" });
+            if (r.ok) {
+                clearInterval(check);
+                _setCfgStatus("Service restarted ✓", "var(--green)");
+                toast("Service is back up", "success");
+                // Refresh error log + config to reflect the post-restart state
+                setTimeout(() => { refreshErrorLog(); loadRobotConfig(); }, 500);
+            }
+        } catch (_) { /* still down, keep polling */ }
+        if (tries > 30) {  // 30 * 1s = 30s timeout
+            clearInterval(check);
+            _setCfgStatus("Service didn't come back — check NSSM status", "var(--red)");
+        }
+    }, 1000);
 }
 
 // ---------------------------------------------------------------------------

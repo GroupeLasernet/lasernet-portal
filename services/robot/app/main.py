@@ -592,6 +592,121 @@ def robot_stop(_license_ok=Depends(require_license)):
 
 
 # ---------------------------------------------------------------------------
+# Station config (Diagnostics & Config card in Settings tab)
+# ---------------------------------------------------------------------------
+def _env_file_path() -> str:
+    return os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        ".env",
+    )
+
+
+def _read_env_file() -> dict:
+    """Parse the .env file into a dict. Missing file => {}."""
+    path = _env_file_path()
+    out = {}
+    if not os.path.exists(path):
+        return out
+    with open(path, "r", encoding="utf-8") as f:
+        for raw in f:
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            out[k.strip()] = v.strip()
+    return out
+
+
+def _write_env_file(values: dict) -> None:
+    """Write the given dict back to .env atomically, preserving canonical order."""
+    path = _env_file_path()
+    order = [
+        "ROBOT_SERIAL", "PORTAL_URL", "ROBOT_LICENSE_SECRET",
+        "DEV_SKIP_LICENSE", "SYNC_ENABLED", "LICENSE_STRICT",
+    ]
+    lines = []
+    for k in order:
+        v = values.get(k, "")
+        lines.append(f"{k}={v}")
+    # Preserve any extra keys not in our canonical list
+    for k, v in values.items():
+        if k not in order:
+            lines.append(f"{k}={v}")
+    body = "\r\n".join(lines) + "\r\n"
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(body)
+    os.replace(tmp, path)
+
+
+@app.get("/api/robot/config")
+def get_robot_config():
+    """Return current station config. Secret is never returned — only its presence."""
+    env = _read_env_file()
+    return {
+        "ROBOT_SERIAL": env.get("ROBOT_SERIAL", ""),
+        "PORTAL_URL": env.get("PORTAL_URL", ""),
+        "DEV_SKIP_LICENSE": env.get("DEV_SKIP_LICENSE", "false"),
+        "SYNC_ENABLED": env.get("SYNC_ENABLED", "true"),
+        "LICENSE_STRICT": env.get("LICENSE_STRICT", "false"),
+        "ROBOT_LICENSE_SECRET_set": bool(env.get("ROBOT_LICENSE_SECRET", "")),
+    }
+
+
+@app.post("/api/robot/config")
+async def set_robot_config(request: Request):
+    """
+    Update station config. Accepts JSON body with any subset of the known keys.
+    If ROBOT_LICENSE_SECRET is included and non-empty, it's written. If omitted
+    or empty, the existing secret is preserved.
+    Changes take effect on next service restart (POST /api/robot/restart).
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON body")
+
+    env = _read_env_file()
+
+    # Text fields
+    for key in ("ROBOT_SERIAL", "PORTAL_URL"):
+        if key in body:
+            env[key] = str(body[key]).strip()
+
+    # Boolean-ish fields — normalize to "true"/"false" strings
+    for key in ("DEV_SKIP_LICENSE", "SYNC_ENABLED", "LICENSE_STRICT"):
+        if key in body:
+            val = body[key]
+            if isinstance(val, bool):
+                env[key] = "true" if val else "false"
+            else:
+                env[key] = "true" if str(val).lower() in ("true", "1", "yes", "on") else "false"
+
+    # Secret — only overwrite if explicitly provided and non-empty
+    if body.get("ROBOT_LICENSE_SECRET"):
+        env["ROBOT_LICENSE_SECRET"] = str(body["ROBOT_LICENSE_SECRET"]).strip()
+
+    _write_env_file(env)
+    return {"ok": True, "message": "Config saved. Restart service for changes to take effect."}
+
+
+@app.post("/api/robot/restart")
+def restart_robot_service():
+    """
+    Trigger a service restart by exiting the process. NSSM's default AppExit
+    action is 'Restart', so the service will come back up automatically within
+    ~1-3 seconds. If run outside NSSM (manual `python run.py`), this will just
+    kill the process.
+    """
+    import threading as _th
+    def _delayed_exit():
+        _time.sleep(0.4)   # give the HTTP response time to flush
+        os._exit(0)        # hard-exit; NSSM restarts us
+    _th.Thread(target=_delayed_exit, daemon=True).start()
+    return {"ok": True, "message": "Service is restarting. UI will reconnect in a few seconds."}
+
+
+# ---------------------------------------------------------------------------
 # Error / diagnostic log viewer
 # ---------------------------------------------------------------------------
 @app.get("/api/robot/errors")
