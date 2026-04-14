@@ -1,10 +1,12 @@
+import PageHeader from '@/components/PageHeader';
+
 export default function ClientDashboard() {
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Welcome to Your Portal</h1>
-        <p className="text-gray-500 mt-1">Access your videos, files, invoices, and quotes from LaserNet</p>
-      </div>
+      <PageHeader
+        title="Welcome to Your Portal"
+        subtitle="Access your videos, files, invoices, and quotes from LaserNet"
+      />
 
       <div className="card flex flex-col items-center justify-center py-16 text-center">
         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">

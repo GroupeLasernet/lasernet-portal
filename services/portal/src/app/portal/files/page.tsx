@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { mockFiles } from '@/lib/mock-data';
+import PageHeader from '@/components/PageHeader';
 
 export default function ClientFilesPage() {
   const [userId, setUserId] = useState<string>('');
@@ -27,10 +28,7 @@ export default function ClientFilesPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Files</h1>
-        <p className="text-gray-500 mt-1">Documents and files shared by LaserNet</p>
-      </div>
+      <PageHeader title="Files" subtitle="Documents and files shared by LaserNet" />
 
       {myFiles.length > 0 ? (
         <div className="space-y-3">

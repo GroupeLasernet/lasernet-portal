@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { mockVideos, type Video } from '@/lib/mock-data';
+import PageHeader from '@/components/PageHeader';
 
 export default function ClientVideosPage() {
   const [userId, setUserId] = useState<string>('');
@@ -20,10 +21,7 @@ export default function ClientVideosPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Videos</h1>
-        <p className="text-gray-500 mt-1">Training videos and tutorials from LaserNet</p>
-      </div>
+      <PageHeader title="Videos" subtitle="Training videos and tutorials from LaserNet" />
 
       {/* Category Filter */}
       <div className="flex gap-2 mb-6">

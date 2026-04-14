@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { mockInvoices, mockQuotes, type Invoice, type Quote } from '@/lib/mock-data';
+import PageHeader from '@/components/PageHeader';
 
 export default function ClientInvoicesPage() {
   const [userId, setUserId] = useState<string>('');
@@ -20,10 +21,7 @@ export default function ClientInvoicesPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Invoices & Quotes</h1>
-        <p className="text-gray-500 mt-1">View your invoices and quotes from LaserNet</p>
-      </div>
+      <PageHeader title="Invoices & Quotes" subtitle="View your invoices and quotes from LaserNet" />
 
       {/* Tab Switcher */}
       <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit mb-6">

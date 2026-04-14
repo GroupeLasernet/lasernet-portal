@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Avatar from '@/components/Avatar';
 import { Ticket, TicketPriority, TicketStatus, ManagedClient, ContactPerson } from '@/lib/mock-data';
+import PageHeader from '@/components/PageHeader';
 
 const priorityColors = {
   critical: 'bg-red-100 text-red-800 border border-red-300',
@@ -259,8 +260,8 @@ export default function ClientTicketsPage() {
   // Registration form
   if (!isRegistered) {
     return (
-      <div className="p-6 max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Complete Your Profile</h1>
+      <div>
+        <PageHeader title="Complete Your Profile" />
         <div className="card">
           <p className="text-gray-600 mb-6">
             Before you can create support tickets, please register as the contact person for{' '}
@@ -343,18 +344,18 @@ export default function ClientTicketsPage() {
 
   // Tickets page
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1>
-          <p className="text-gray-500 mt-1">{managedClient.qbClient.companyName}</p>
-        </div>
-        {!showCreateForm && (
-          <button onClick={() => setShowCreateForm(true)} className="btn-primary">
-            Create Ticket
-          </button>
-        )}
-      </div>
+    <div>
+      <PageHeader
+        title="Support Tickets"
+        subtitle={managedClient.qbClient.companyName}
+        actions={
+          !showCreateForm ? (
+            <button onClick={() => setShowCreateForm(true)} className="btn-primary">
+              Create Ticket
+            </button>
+          ) : undefined
+        }
+      />
 
       {/* Create Ticket Form */}
       {showCreateForm && (

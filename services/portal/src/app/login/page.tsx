@@ -47,7 +47,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 px-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
+        {/* Prisma logo */}
         <div className="text-center mb-6">
           <img
             src="/prisma-logo-light.svg"
@@ -55,6 +55,13 @@ export default function LoginPage() {
             className="h-56 w-auto mx-auto"
           />
           <p className="text-brand-200 mt-2">{t('login', 'signInToPortal')}</p>
+        </div>
+
+        {/* Partner logos */}
+        <div className="flex items-center justify-center gap-6 mb-6">
+          <img src="/logo-dsm.png" alt="DSM" className="h-10 w-auto object-contain opacity-90" />
+          <img src="/logo-lasernet.png" alt="LaserNet" className="h-14 w-auto object-contain opacity-90" />
+          <img src="/logo-summumliner.png" alt="Summum Liner" className="h-10 w-auto object-contain opacity-90" />
         </div>
 
         {/* Login Form */}
