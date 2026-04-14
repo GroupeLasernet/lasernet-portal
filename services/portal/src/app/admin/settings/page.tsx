@@ -468,7 +468,7 @@ export default function SettingsPage() {
                     )}
                     {admin.status === 'active' && (
                       <HoldButton
-                        color="amber"
+                        color="red"
                         label="Reset password"
                         activeLabel="Hold to confirm…"
                         doneLabel="Email sent!"
@@ -486,7 +486,8 @@ export default function SettingsPage() {
                     {!isSelf && (
                       <button
                         onClick={() => handleRemoveAdmin(admin)}
-                        className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded"
+                        className="px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 hover:text-red-600 rounded"
+                        title="Remove from admin team"
                       >
                         Remove
                       </button>
