@@ -59,9 +59,24 @@ export default function LoginPage() {
 
         {/* Partner logos */}
         <div className="flex items-center justify-center gap-6 mb-6 -mx-32 sm:-mx-48">
-          <img src="/logo-dsm.png" alt="DSM" className="h-[80px] w-auto flex-shrink-0 object-contain opacity-90" />
-          <img src="/logo-lasernet.png" alt="LaserNet" className="h-[168px] w-auto flex-shrink-0 object-contain opacity-90" />
-          <img src="/logo-summumliner.png" alt="Summum Liner" className="h-10 w-auto flex-shrink-0 object-contain opacity-90" />
+          <img
+            src="/logo-dsm.png"
+            alt="DSM"
+            style={{ height: '80px', width: 'auto', flexShrink: 0 }}
+            className="object-contain opacity-90"
+          />
+          <img
+            src="/logo-lasernet.png"
+            alt="LaserNet"
+            style={{ height: '168px', width: 'auto', flexShrink: 0 }}
+            className="object-contain opacity-90"
+          />
+          <img
+            src="/logo-summumliner.png"
+            alt="Summum Liner"
+            style={{ height: '40px', width: 'auto', flexShrink: 0 }}
+            className="object-contain opacity-90"
+          />
         </div>
 
         {/* Login Form */}
