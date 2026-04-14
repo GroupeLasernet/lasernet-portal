@@ -59,8 +59,8 @@ export default function LoginPage() {
 
         {/* Partner logos */}
         <div className="flex items-center justify-center gap-6 mb-6">
-          <img src="/logo-dsm.png" alt="DSM" className="h-10 w-auto object-contain opacity-90" />
-          <img src="/logo-lasernet.png" alt="LaserNet" className="h-14 w-auto object-contain opacity-90" />
+          <img src="/logo-dsm.png" alt="DSM" className="h-[70px] w-auto object-contain opacity-90" />
+          <img src="/logo-lasernet.png" alt="LaserNet" className="h-[140px] w-auto object-contain opacity-90" />
           <img src="/logo-summumliner.png" alt="Summum Liner" className="h-10 w-auto object-contain opacity-90" />
         </div>
 
