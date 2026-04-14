@@ -103,7 +103,11 @@ def oui(mac: str) -> str:
 
 def _probe_one(ip: str, bind_ip: Optional[str], connect_timeout: float,
                read_timeout: float) -> Optional[dict]:
-    """Connect to ip:123, send handshake read, return result dict if valid."""
+    """Connect to ip:123, send handshake read, return result dict if valid.
+
+    Returns a dict even on connect failure so the caller can see what was
+    attempted — only returns None for IPs we deliberately skipped.
+    """
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         s.settimeout(connect_timeout)
@@ -114,9 +118,20 @@ def _probe_one(ip: str, bind_ip: Optional[str], connect_timeout: float,
                 # Bind can fail if the IP isn't on the PC — just try unbound.
                 pass
         s.connect((ip, 123))
-    except (socket.timeout, ConnectionRefusedError, OSError):
+    except socket.timeout:
         s.close()
-        return None
+        return {"ip": ip, "match": "timeout", "error": "connect timeout"}
+    except ConnectionRefusedError:
+        s.close()
+        return None  # port explicitly closed — not interesting
+    except OSError as e:
+        s.close()
+        # 10065 = host unreachable, 10060 = timeout, 10061 = refused
+        # We already caught refused above; keep timeouts and host-unreachable quiet
+        # but report everything else so we can diagnose.
+        if getattr(e, "winerror", None) in (10060, 10061, 10064, 10065):
+            return None
+        return {"ip": ip, "match": "error", "error": f"{type(e).__name__}: {e}"}
 
     try:
         s.sendall(HANDSHAKE_FRAME)
@@ -167,10 +182,56 @@ def _probe_one(ip: str, bind_ip: Optional[str], connect_timeout: float,
 # Public: scan
 # ---------------------------------------------------------------------------
 
+def _ping_prime(ips: list[str], timeout_ms: int = 600, workers: int = 64) -> set[str]:
+    """Parallel ICMP ping sweep — warms the ARP cache and identifies live hosts.
+
+    Returns the set of IPs that replied. Non-responders may still be alive
+    (some devices drop ICMP), so callers should still probe them — but we
+    can probe them with a tighter budget.
+    """
+    import platform
+    is_win = platform.system().lower().startswith("win")
+    # Windows: ping -n 1 -w <ms>    Linux/mac: ping -c 1 -W <s>
+    def _one(ip: str) -> Optional[str]:
+        try:
+            if is_win:
+                cmd = ["ping", "-n", "1", "-w", str(timeout_ms), ip]
+            else:
+                cmd = ["ping", "-c", "1", "-W", str(max(1, timeout_ms // 1000)), ip]
+            r = subprocess.run(cmd, capture_output=True, text=True,
+                               timeout=(timeout_ms / 1000.0) + 1.5)
+            return ip if r.returncode == 0 else None
+        except Exception:
+            return None
+    alive: set[str] = set()
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for r in ex.map(_one, ips):
+            if r:
+                alive.add(r)
+    return alive
+
+
+def _read_arp_table() -> dict[str, str]:
+    """Parse `arp -a` into {ip: mac} — catches devices that dropped our ping
+    but replied to ARP (either ours or someone else's on the segment)."""
+    try:
+        out = subprocess.run(["arp", "-a"], capture_output=True, text=True, timeout=3.0)
+    except Exception:
+        return {}
+    table: dict[str, str] = {}
+    ip_re = re.compile(r"\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b")
+    for line in (out.stdout or "").splitlines():
+        m_ip = ip_re.search(line)
+        m_mac = _MAC_RE.search(line)
+        if m_ip and m_mac:
+            table[m_ip.group(1)] = m_mac.group(0).replace("-", ":").lower()
+    return table
+
+
 def scan(cidr: Optional[str] = None,
          bind_ip: Optional[str] = None,
-         connect_timeout: float = 0.7,
-         read_timeout: float = 1.0,
+         connect_timeout: float = 2.5,
+         read_timeout: float = 1.5,
          workers: int = 64) -> dict:
     """
     Scan a /24 (or any CIDR) for Relfar controllers.
@@ -200,16 +261,33 @@ def scan(cidr: Optional[str] = None,
 
     ips = list_ips(cidr)
 
+    # --- PASS 1: ping sweep to warm ARP and identify live hosts -------------
+    alive = _ping_prime(ips)
+
+    # --- PASS 2: read ARP table — catches ICMP-silent devices that still
+    #            reply to ARP (and whoever else is on the segment).
+    arp_table = _read_arp_table()
+    for ip_in_arp in arp_table:
+        if ip_in_arp in ips:
+            alive.add(ip_in_arp)
+
+    # If we learned nothing from ping/ARP, fall back to scanning everyone
+    # (slower but robust) rather than returning empty.
+    probe_targets = sorted(alive, key=lambda s: tuple(int(o) for o in s.split(".")))
+    if not probe_targets:
+        probe_targets = ips
+
+    # --- PASS 3: TCP probe with generous timeout on the reduced target list --
     results = []
     with ThreadPoolExecutor(max_workers=workers) as ex:
-        for r in ex.map(lambda ip: _probe_one(ip, bind_ip, connect_timeout, read_timeout), ips):
+        for r in ex.map(lambda ip: _probe_one(ip, bind_ip, connect_timeout, read_timeout), probe_targets):
             if r is not None:
                 results.append(r)
 
     # Enrich with MAC / OUI
     candidates = []
     for r in results:
-        mac = arp_lookup(r["ip"])
+        mac = arp_table.get(r["ip"]) or arp_lookup(r["ip"])
         r["mac"] = mac
         if mac:
             r["oui"] = oui(mac)
@@ -227,9 +305,28 @@ def scan(cidr: Optional[str] = None,
             r["confidence"] = "medium"        # protocol matches but MAC unknown
         elif relfar_oui:
             r["confidence"] = "low"           # right brand but port didn't talk
+        elif r.get("match") in ("timeout", "error"):
+            # Not a candidate — skip unless OUI matched (already caught above)
+            continue
         else:
             r["confidence"] = "weak"          # TCP:123 open but no protocol or OUI
         candidates.append(r)
+
+    # Also surface any ARP entries with the Relfar OUI that we didn't probe
+    # successfully — they're still strong candidates for a user to try.
+    seen_ips = {c["ip"] for c in candidates}
+    for ip_in_arp, mac in arp_table.items():
+        if ip_in_arp in seen_ips:
+            continue
+        if oui(mac) == RELFAR_OUI_PREFIX and ip_in_arp in ips:
+            candidates.append({
+                "ip": ip_in_arp,
+                "mac": mac,
+                "oui": oui(mac),
+                "oui_label": KNOWN_OUI.get(oui(mac)),
+                "match": "arp-only",
+                "confidence": "low",  # MAC says Bilian but port didn't respond
+            })
 
     # Rank: high > medium > low > weak
     order = {"high": 0, "medium": 1, "low": 2, "weak": 3}
@@ -239,6 +336,9 @@ def scan(cidr: Optional[str] = None,
         "cidr": cidr,
         "bind_ip": bind_ip,
         "scanned": len(ips),
+        "probed": len(probe_targets),
+        "alive_via_ping_or_arp": len(alive),
+        "arp_entries": len(arp_table),
         "duration_s": round(time.time() - t0, 2),
         "candidates": candidates,
     }
