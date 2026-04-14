@@ -54,7 +54,6 @@ export default function LoginPage() {
             alt="Prisma"
             className="h-56 w-auto mx-auto"
           />
-          <p className="text-brand-200 mt-2">{t('login', 'signInToPortal')}</p>
         </div>
 
         {/* Partner logos */}
