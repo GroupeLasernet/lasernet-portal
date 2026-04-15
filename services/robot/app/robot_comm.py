@@ -662,11 +662,12 @@ class ElfinRobot:
         delta = degrees if direction == 1 else -degrees
         j[axis_id] += delta
         # Cap speed to safe max for joints.
-        # Raised 180 -> 540 to let the UI speed multiplier (up to 3×) through.
-        # Hugo to revise once the final multiplier max is decided.
-        speed = min(speed, 540.0)
-        # Accel must always be greater than speed
-        accel = max(speed * 1.5, speed + 20)
+        # Raised 180 -> 1080 to let the UI speed multiplier (up to 6×) through.
+        speed = min(speed, 1080.0)
+        # Accel: short jogs never reach commanded velocity when accel = 1.5×speed.
+        # Bumped to 4×speed (+ 200 floor) so jogs actually get off the line.
+        # Elfin E03 Pro controller will clip above its mechanical joint-accel limit.
+        accel = max(speed * 4.0, speed + 200)
         self.move_waypoint(
             p[0], p[1], p[2], p[3], p[4], p[5],
             speed=speed, accel=accel, move_type=0,
@@ -689,10 +690,10 @@ class ElfinRobot:
         p = list(self._state.cartesian_position)
         delta = distance if direction == 1 else -distance
         p[axis_id] += delta
-        # Cap speed to safe max (raised 180 -> 540 for UI multiplier headroom).
-        speed = min(speed, 540.0)
-        # Accel must always be greater than speed
-        accel = max(speed * 1.5, speed + 20)
+        # Cap speed to safe max (raised 180 -> 1080 for UI multiplier headroom up to 6×).
+        speed = min(speed, 1080.0)
+        # Accel: short jogs are accel-limited, not speed-limited. Bumped 1.5×→4×.
+        accel = max(speed * 4.0, speed + 200)
         self.move_waypoint(
             p[0], p[1], p[2], p[3], p[4], p[5],
             speed=speed, accel=accel, move_type=1,

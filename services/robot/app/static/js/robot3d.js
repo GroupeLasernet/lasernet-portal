@@ -58,11 +58,23 @@ class Robot3DView {
     setDetail(level) {
         this.detail = Math.max(1, Math.min(5, level));
         const label = document.getElementById('detailLabel');
-        if (label) label.textContent = this.detail;
+        if (label) label.textContent = this._useCAD ? 'CAD' : this.detail;
         if (!this._useCAD) {
             this._clearRobot();
             this._buildFallbackRobot();
             this.updateJoints(...this._lastAngles);
+        }
+    }
+
+    // Called after _buildCADRobot loads STLs — updates the UI to show the
+    // Detail slider has no effect in CAD mode.
+    _markCADInUI() {
+        const label = document.getElementById('detailLabel');
+        const slider = document.getElementById('modelDetail');
+        if (label) label.textContent = 'CAD';
+        if (slider) {
+            slider.disabled = true;
+            slider.title = 'Detail slider only applies to the fallback procedural model. Real CAD meshes are already loaded.';
         }
     }
 
@@ -408,6 +420,7 @@ class Robot3DView {
 
         this._useCAD = true;
         this.updateJoints(...this._lastAngles);
+        this._markCADInUI();
         console.log('CAD robot built successfully');
     }
 
