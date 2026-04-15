@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
       type: m.type,
       model: m.model,
       nickname: m.nickname,
+      macAddress: m.macAddress,
       ipAddress: m.ipAddress,
       address: m.address,
       city: m.city,
@@ -98,6 +99,7 @@ export async function POST(request: NextRequest) {
       type,
       model,
       nickname,
+      macAddress,
       ipAddress,
       address,
       city,
@@ -135,12 +137,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Normalise MAC (lowercased); enforce uniqueness-if-set.
+    const normalizedMac =
+      typeof macAddress === 'string' && macAddress.trim()
+        ? macAddress.trim().toLowerCase()
+        : null;
+    if (normalizedMac) {
+      const macClash = await prisma.machine.findUnique({
+        where: { macAddress: normalizedMac },
+      });
+      if (macClash) {
+        return NextResponse.json(
+          { error: 'A machine with this MAC address already exists' },
+          { status: 409 }
+        );
+      }
+    }
+
     const machine = await prisma.machine.create({
       data: {
         serialNumber,
         type,
         model,
         nickname: nickname || null,
+        macAddress: normalizedMac,
         ipAddress: ipAddress || null,
         address: address || null,
         city: city || null,

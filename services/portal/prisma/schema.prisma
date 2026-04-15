@@ -159,6 +159,12 @@ model Station {
   notes       String?  @db.Text
   status      String   @default("draft") // "draft", "in_progress", "testing", "completed", "archived"
 
+  // Physical computer deployed to run this station. Nullable: a Station can
+  // exist before a PC is assigned (sold-but-not-shipped), and a PC can be
+  // swapped without destroying the Station's history (§ station-pc model).
+  stationPCId String?    @unique
+  stationPC   StationPC? @relation(fields: [stationPCId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -219,7 +225,10 @@ model Machine {
   model           String   // e.g. "UR10e", "Relfar 500W"
   nickname        String?  // optional friendly name
 
-  // Network location
+  // Network identity — MAC is the reliable identifier (survives IP changes,
+  // AP-mode vs station-mode, DHCP reassignment). IP may drift; MAC doesn't.
+  // Unique-if-set so we don't clobber on import when MAC isn't known yet.
+  macAddress      String?  @unique
   ipAddress       String?
 
   // Physical location (for map)
@@ -263,6 +272,47 @@ model Machine {
   robotPrograms   StationRobotProgram[]
   laserPresets    StationLaserPreset[]
   stateLog        MachineStateLog[]
+}
+
+// ============================================================
+// STATION PC — The physical computer deployed to a client site.
+// Separate from Station (the commercial line) and Machine (the robot/laser).
+// Rationale: PCs are fungible — a dead PC can be swapped without invalidating
+// the Station or re-invoicing the client. Keeping them distinct also lets us
+// track "which PCs are alive" (last heartbeat) independent of contract state.
+// One-to-one with Station (today) via Station.stationPCId.
+// ============================================================
+model StationPC {
+  id           String   @id @default(cuid())
+  // Deployment identifier (e.g. "COBOTDSM-001"). Matches the ROBOT_SERIAL
+  // env var set on the PC's robot service. Primary key for the robot-side
+  // heartbeat, license fetch, and sync channels.
+  serial       String   @unique
+  macAddress   String?  @unique
+  hostname     String?  // OS hostname reported by the PC
+  nickname     String?  // admin-friendly label
+  installedAt  DateTime @default(now())
+
+  // Software stack running on the PC. Populated by heartbeat.
+  robotVersion   String?
+  relfarVersion  String?
+  lastHeartbeatAt DateTime?
+  lastHeartbeatIp String?
+
+  // Status — what the admin sees at a glance.
+  //   "provisioning" — created in Portal, hasn't checked in yet
+  //   "online"       — heartbeat within threshold
+  //   "offline"      — no heartbeat beyond threshold
+  //   "retired"      — decommissioned, kept for history
+  status       String   @default("provisioning")
+
+  notes        String?  @db.Text
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Back-relation to the Station currently running on this PC (if any).
+  station      Station?
 }
 
 // ============================================================

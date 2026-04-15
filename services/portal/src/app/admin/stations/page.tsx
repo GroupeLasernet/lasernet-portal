@@ -164,6 +164,15 @@ interface Station {
     status: string;
     machineId?: string;
   }[];
+  stationPC?: {
+    id: string;
+    serial: string;
+    macAddress?: string | null;
+    hostname?: string | null;
+    nickname?: string | null;
+    status: string;
+    lastHeartbeatAt?: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -937,6 +946,57 @@ export default function AdminStationsPage() {
                   return null;
                 })()}
               </div>
+            </div>
+
+            {/* Station PC Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-900">{t('stations', 'stationPCSection')}</h2>
+                <a
+                  href="/admin/station-pcs"
+                  title={t('stations', 'stationPCOpenList')}
+                  className="text-xs px-3 py-1 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition whitespace-nowrap"
+                >
+                  {t('stations', 'stationPCManage')}
+                </a>
+              </div>
+
+              {editingStation.stationPC ? (
+                <div className="flex items-center justify-between gap-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                  <div className="min-w-0">
+                    <div className="font-medium text-gray-900 truncate">
+                      {editingStation.stationPC.nickname || editingStation.stationPC.hostname || editingStation.stationPC.serial}
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">
+                      SN {editingStation.stationPC.serial}
+                      {editingStation.stationPC.macAddress ? ` · ${editingStation.stationPC.macAddress}` : ''}
+                    </div>
+                  </div>
+                  <span
+                    className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
+                      editingStation.stationPC.status === 'online'
+                        ? 'bg-green-100 text-green-700'
+                        : editingStation.stationPC.status === 'offline'
+                        ? 'bg-gray-200 text-gray-700'
+                        : editingStation.stationPC.status === 'retired'
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}
+                  >
+                    {t('stationPcs', `status${editingStation.stationPC.status.charAt(0).toUpperCase() + editingStation.stationPC.status.slice(1)}`)}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-4 p-3 border border-dashed border-gray-300 rounded-lg">
+                  <p className="text-sm text-gray-500 italic">{t('stations', 'stationPCNone')}</p>
+                  <a
+                    href="/admin/station-pcs"
+                    className="text-xs px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition whitespace-nowrap"
+                  >
+                    + {t('stations', 'stationPCAssign')}
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Machines Section (from invoice items) */}

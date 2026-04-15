@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
         },
         robotPrograms: true,
         laserPresets: true,
+        stationPC: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -79,6 +80,19 @@ export async function GET(request: NextRequest) {
         status: preset.status,
         machineId: preset.machineId,
       })),
+      stationPC: station.stationPC
+        ? {
+            id: station.stationPC.id,
+            serial: station.stationPC.serial,
+            macAddress: station.stationPC.macAddress,
+            hostname: station.stationPC.hostname,
+            nickname: station.stationPC.nickname,
+            status: station.stationPC.status,
+            lastHeartbeatAt: station.stationPC.lastHeartbeatAt
+              ? station.stationPC.lastHeartbeatAt.toISOString()
+              : null,
+          }
+        : null,
       createdAt: station.createdAt.toISOString(),
       updatedAt: station.updatedAt.toISOString(),
     }));
@@ -154,6 +168,7 @@ export async function POST(request: NextRequest) {
       machines: [],
       robotPrograms: [],
       laserPresets: [],
+      stationPC: null,
       createdAt: station.createdAt.toISOString(),
       updatedAt: station.updatedAt.toISOString(),
     };

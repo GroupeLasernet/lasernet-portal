@@ -166,6 +166,26 @@ export async function PATCH(
       }
     }
 
+    // MAC is normalised (lower-case) and validated for uniqueness separately.
+    if (body.macAddress !== undefined) {
+      const normalizedMac =
+        typeof body.macAddress === 'string' && body.macAddress.trim()
+          ? body.macAddress.trim().toLowerCase()
+          : null;
+      if (normalizedMac) {
+        const clash = await prisma.machine.findFirst({
+          where: { macAddress: normalizedMac, NOT: { id } },
+        });
+        if (clash) {
+          return NextResponse.json(
+            { error: 'Another machine already uses this MAC address' },
+            { status: 409 }
+          );
+        }
+      }
+      updateData.macAddress = normalizedMac;
+    }
+
     const updatedMachine = await prisma.machine.update({
       where: { id },
       data: updateData,

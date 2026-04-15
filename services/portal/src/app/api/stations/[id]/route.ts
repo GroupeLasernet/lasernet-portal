@@ -33,6 +33,7 @@ export async function GET(
         robotPrograms: true,
         laserPresets: true,
         stateLog: true,
+        stationPC: true,
       },
     });
 
@@ -112,6 +113,19 @@ export async function GET(
         machineId: log.machineId,
         timestamp: log.timestamp.toISOString(),
       })),
+      stationPC: station.stationPC
+        ? {
+            id: station.stationPC.id,
+            serial: station.stationPC.serial,
+            macAddress: station.stationPC.macAddress,
+            hostname: station.stationPC.hostname,
+            nickname: station.stationPC.nickname,
+            status: station.stationPC.status,
+            lastHeartbeatAt: station.stationPC.lastHeartbeatAt
+              ? station.stationPC.lastHeartbeatAt.toISOString()
+              : null,
+          }
+        : null,
       createdAt: station.createdAt.toISOString(),
       updatedAt: station.updatedAt.toISOString(),
     };
@@ -178,6 +192,7 @@ export async function PATCH(
         machines: { include: { machine: true } },
         robotPrograms: true,
         laserPresets: true,
+        stationPC: true,
       },
     });
 
@@ -229,6 +244,19 @@ export async function PATCH(
         status: p.status,
         machineId: p.machineId,
       })),
+      stationPC: updated.stationPC
+        ? {
+            id: updated.stationPC.id,
+            serial: updated.stationPC.serial,
+            macAddress: updated.stationPC.macAddress,
+            hostname: updated.stationPC.hostname,
+            nickname: updated.stationPC.nickname,
+            status: updated.stationPC.status,
+            lastHeartbeatAt: updated.stationPC.lastHeartbeatAt
+              ? updated.stationPC.lastHeartbeatAt.toISOString()
+              : null,
+          }
+        : null,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     };
@@ -272,6 +300,7 @@ async function getFullStation(id: string) {
       machines: { include: { machine: true } },
       robotPrograms: true,
       laserPresets: true,
+      stationPC: true,
     },
   });
 
@@ -325,6 +354,19 @@ async function getFullStation(id: string) {
       status: p.status,
       machineId: p.machineId,
     })),
+    stationPC: station.stationPC
+      ? {
+          id: station.stationPC.id,
+          serial: station.stationPC.serial,
+          macAddress: station.stationPC.macAddress,
+          hostname: station.stationPC.hostname,
+          nickname: station.stationPC.nickname,
+          status: station.stationPC.status,
+          lastHeartbeatAt: station.stationPC.lastHeartbeatAt
+            ? station.stationPC.lastHeartbeatAt.toISOString()
+            : null,
+        }
+      : null,
     createdAt: station.createdAt.toISOString(),
     updatedAt: station.updatedAt.toISOString(),
   };
