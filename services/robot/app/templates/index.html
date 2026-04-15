@@ -470,6 +470,14 @@
 <input type="file" id="fileInput" accept=".dxf" style="display:none" onchange="handleFileUpload(event)">
 <div class="toast-container" id="toastContainer"></div>
 
+<!-- Free Mode blur overlay — shown only when drag teaching is active. -->
+<div id="freeModeOverlay" class="free-mode-overlay" aria-hidden="true">
+    <div class="free-mode-banner">
+        <span class="free-mode-dot"></span>
+        FREE MODE ACTIVE — move the arm by hand. Click Free Mode again to exit.
+    </div>
+</div>
+
 <script src="/static/js/robot3d.js"></script>
 <script src="/static/js/app.js"></script>
 

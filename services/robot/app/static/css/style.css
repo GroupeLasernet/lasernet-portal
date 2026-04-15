@@ -223,3 +223,74 @@ code { background: var(--bg-input); padding: 2px 6px; border-radius: 3px; font-s
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ===== Free Mode (drag-teach) visual lock ===========================
+   When drag teaching is engaged nothing else should be usable. The
+   overlay blurs + dims the whole UI; the Free Mode button is lifted
+   above the overlay so it stays sharp, highlighted, and clickable as
+   the single exit point. Everything else behind the overlay is
+   pointer-events:none so stray clicks are ignored.
+*/
+.free-mode-overlay {
+    position: fixed; inset: 0;
+    background: rgba(6, 10, 20, 0.45);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 9000;
+    display: none;
+    pointer-events: none;
+}
+.free-mode-overlay .free-mode-banner {
+    position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+    background: #00e0ff; color: #001018;
+    font-weight: 800; font-size: 13px; letter-spacing: 0.6px;
+    padding: 9px 18px; border-radius: 999px;
+    box-shadow: 0 0 24px rgba(0, 224, 255, 0.7);
+    display: flex; align-items: center; gap: 10px;
+    animation: freeModeBannerPulse 1.8s ease-in-out infinite;
+}
+.free-mode-overlay .free-mode-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #001018; box-shadow: 0 0 6px #001018;
+    animation: freeModeDot 1s ease-in-out infinite;
+}
+@keyframes freeModeBannerPulse {
+    0%, 100% { box-shadow: 0 0 14px rgba(0, 224, 255, 0.5); }
+    50%      { box-shadow: 0 0 30px rgba(0, 224, 255, 0.95); }
+}
+@keyframes freeModeDot {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.25; }
+}
+
+/* When drag teach is active, show overlay and block input behind it. */
+body.free-mode-active .free-mode-overlay {
+    display: block;
+    pointer-events: auto;
+}
+body.free-mode-active .app-container,
+body.free-mode-active header {
+    pointer-events: none;
+    user-select: none;
+}
+
+/* The Free Mode button escapes the overlay — always sharp, always clickable.
+   Bumped z-index above overlay; explicit pointer-events restore click. */
+body.free-mode-active #btnFreeMode {
+    position: relative;
+    z-index: 9500;
+    pointer-events: auto !important;
+    background: #ff3b30 !important;
+    color: #fff !important;
+    border-color: #ff3b30 !important;
+    box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.35),
+                0 0 22px rgba(255, 59, 48, 0.9);
+    font-weight: 800;
+    opacity: 1 !important;
+    filter: none !important;
+    animation: freeModeBtnPulse 1.4s ease-in-out infinite;
+}
+@keyframes freeModeBtnPulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(255,59,48,0.35), 0 0 18px rgba(255,59,48,0.7); }
+    50%      { box-shadow: 0 0 0 4px rgba(255,59,48,0.55), 0 0 34px rgba(255,59,48,1); }
+}

@@ -206,21 +206,18 @@ function updateConnectionUI(state) {
         }
     }
 
-    // Highlight Free Mode button when drag teaching is active
+    // Free Mode — sticky-toggle button + full-screen blur overlay while engaged.
+    // The CSS class on <body> drives the overlay; the button's own highlight
+    // (red glow, pulse) is also gated by body.free-mode-active via style.css.
     const btnFreeMode = document.getElementById("btnFreeMode");
+    const freeActive = !!state.drag_mode && (state.connected || state.simulation_mode);
+    document.body.classList.toggle("free-mode-active", freeActive);
     if (btnFreeMode) {
-        if (state.connected || state.simulation_mode) {
-            if (state.drag_mode) {
-                btnFreeMode.className = "btn btn-sm btn-info servo-btn active-state";
-                btnFreeMode.textContent = "Free Mode ON";
-            } else {
-                btnFreeMode.className = "btn btn-sm btn-info servo-btn dim-state";
-                btnFreeMode.textContent = "Free Mode";
-            }
-        } else {
-            btnFreeMode.className = "btn btn-sm btn-info servo-btn";
-            btnFreeMode.textContent = "Free Mode";
-        }
+        btnFreeMode.textContent = freeActive ? "Exit Free Mode" : "Free Mode";
+        btnFreeMode.setAttribute("aria-pressed", freeActive ? "true" : "false");
+        btnFreeMode.className = freeActive
+            ? "btn btn-sm position-btn"        // CSS handles highlight while body class set
+            : "btn btn-sm btn-info position-btn";
     }
 }
 
@@ -335,6 +332,15 @@ async function toggleFreeMode() {
             headers: { "Content-Type": "application/json" }
         });
         if (res && typeof res.drag_mode !== "undefined") {
+            // Immediate UI sync — don't wait for the next poll tick.
+            document.body.classList.toggle("free-mode-active", !!res.drag_mode);
+            if (btn) {
+                btn.textContent = res.drag_mode ? "Exit Free Mode" : "Free Mode";
+                btn.setAttribute("aria-pressed", res.drag_mode ? "true" : "false");
+                btn.className = res.drag_mode
+                    ? "btn btn-sm position-btn"
+                    : "btn btn-sm btn-info position-btn";
+            }
             toast(res.drag_mode ? "Free Mode ON — you can move the arm by hand" : "Free Mode OFF",
                   res.drag_mode ? "success" : "info");
         }
