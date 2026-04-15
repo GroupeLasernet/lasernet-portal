@@ -61,7 +61,10 @@ export async function GET(request: NextRequest) {
         machines: inv.machines.map((m) => ({
           id: m.id,
           serialNumber: m.serialNumber,
-          type: m.type,
+          category: m.category,
+          subcategory: m.subcategory,
+          // Legacy `type` alias derived from the new taxonomy.
+          type: m.category === 'accessory' && m.subcategory === 'laser' ? 'laser' : 'robot',
           model: m.model,
           status: m.status,
         })),
@@ -69,7 +72,9 @@ export async function GET(request: NextRequest) {
       machines: station.machines.map((sm) => ({
         id: sm.machine.id,
         serialNumber: sm.machine.serialNumber,
-        type: sm.machine.type,
+        category: sm.machine.category,
+        subcategory: sm.machine.subcategory,
+        type: sm.machine.category === 'accessory' && sm.machine.subcategory === 'laser' ? 'laser' : 'robot',
         model: sm.machine.model,
         nickname: sm.machine.nickname,
         ipAddress: sm.machine.ipAddress,

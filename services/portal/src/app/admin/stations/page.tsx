@@ -192,6 +192,74 @@ interface Station {
   updatedAt: string;
 }
 
+// ---------------------------------------------------------------------------
+// Machine taxonomy (2026-04-15)
+// ---------------------------------------------------------------------------
+// Category → Subcategory → Model. Serial entry on a line-item card creates
+// a real Machine row; the serial then becomes read-only (super-admin will
+// later be the only one who can edit it). Robot memory (pathways, obstacles,
+// self-awareness) lives on the Machine row and will eventually be copyable
+// from one Machine to another via a "replace machine" action, so that a
+// client swapping hardware doesn't lose their configuration.
+// ---------------------------------------------------------------------------
+type MachineCategory = 'robot' | 'accessory';
+type MachineSubcategory = 'laser' | 'traditional_welding' | 'sanding' | null;
+
+const ROBOT_MODELS = ['E03', 'E05', 'E10', 'E12', 'E12+Rail3M', 'E12+Rail4M'] as const;
+const LASER_MODELS = ['Cleaning', 'Welding'] as const;
+const ACCESSORY_SUBCATEGORIES: { value: Exclude<MachineSubcategory, null>; label: string }[] = [
+  { value: 'laser', label: 'Laser' },
+  { value: 'traditional_welding', label: 'Traditional welding' },
+  { value: 'sanding', label: 'Sanding' },
+];
+
+/**
+ * Infer category/subcategory/model from an invoice line item's model field
+ * (purple chip shown on the card) and/or its description. Best-effort only —
+ * user can override via the dropdowns. Nothing is auto-saved; defaults only
+ * populate the dropdowns on first render.
+ */
+function inferTaxonomyFromItem(item: { description?: string; model?: string }):
+  { category: MachineCategory; subcategory: MachineSubcategory; model: string } {
+  const hay = `${item.model || ''} ${item.description || ''}`.toUpperCase();
+  // Robot model match — check longest-first so "E12+Rail4M" wins over "E12".
+  const robotMatch = [...ROBOT_MODELS]
+    .sort((a, b) => b.length - a.length)
+    .find((m) => hay.includes(m.toUpperCase()));
+  if (robotMatch) return { category: 'robot', subcategory: null, model: robotMatch };
+  if (hay.includes('CLEANING')) return { category: 'accessory', subcategory: 'laser', model: 'Cleaning' };
+  if (hay.includes('WELDING LASER') || hay.includes('LASER WELDING'))
+    return { category: 'accessory', subcategory: 'laser', model: 'Welding' };
+  if (hay.includes('LASER'))     return { category: 'accessory', subcategory: 'laser', model: '' };
+  if (hay.includes('SANDING'))   return { category: 'accessory', subcategory: 'sanding', model: '' };
+  if (hay.includes('WELDING'))   return { category: 'accessory', subcategory: 'traditional_welding', model: '' };
+  // Default fallback — robot with no specific model.
+  return { category: 'robot', subcategory: null, model: '' };
+}
+
+/**
+ * Legacy machineData shape pre-taxonomy migration: `machineType: 'cobot' | 'laser'`.
+ * We normalise it into the new shape on read so older stations don't show
+ * blank dropdowns.
+ */
+type MachineDataEntry = {
+  machineId?: string;              // set once the Machine DB row exists
+  serialNumber?: string;
+  category?: MachineCategory;
+  subcategory?: MachineSubcategory;
+  model?: string;
+  // legacy (pre-2026-04-15):
+  machineType?: 'cobot' | 'laser';
+};
+
+function migrateLegacyEntry(md: MachineDataEntry | undefined): MachineDataEntry {
+  if (!md) return {};
+  if (md.category) return md; // already new-shape
+  if (md.machineType === 'cobot') return { ...md, category: 'robot', subcategory: null };
+  if (md.machineType === 'laser') return { ...md, category: 'accessory', subcategory: 'laser' };
+  return md;
+}
+
 // Extracted Machine Items component with proper state management
 const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }: {
   editingStation: Station;
@@ -201,11 +269,17 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
   const { t } = useLanguage();
   let meta: Record<string, unknown> = {};
   try { meta = JSON.parse(editingStation.notes || '{}'); } catch { /* not JSON */ }
-  const items: { description: string; quantity: number; model?: string; sourceInvoiceNumber?: string }[] = (meta.items as { description: string; quantity: number; model?: string; sourceInvoiceNumber?: string }[]) || [];
-  const machineData: { serialNumber?: string; machineType?: string }[] = (meta.machineData as { serialNumber?: string; machineType?: string }[]) || [];
+  const items: { description: string; quantity: number; model?: string; sourceInvoiceNumber?: string; sourceInvoiceId?: string }[] =
+    (meta.items as { description: string; quantity: number; model?: string; sourceInvoiceNumber?: string; sourceInvoiceId?: string }[]) || [];
+  const rawMachineData: MachineDataEntry[] = (meta.machineData as MachineDataEntry[]) || [];
+  const machineData: MachineDataEntry[] = items.map((_, i) => migrateLegacyEntry(rawMachineData[i]));
 
-  // Local state for serial number inputs
+  // Local state for serial number inputs (before hold-to-save)
   const [serialInputs, setSerialInputs] = useState<Record<number, string>>({});
+  // Per-row "creating / error" state so the UI can indicate POST-in-flight
+  // and surface duplicate-serial errors from the backend.
+  const [rowError, setRowError] = useState<Record<number, string | null>>({});
+  const [rowSaving, setRowSaving] = useState<Record<number, boolean>>({});
 
   // Initialize serial inputs from saved data
   useEffect(() => {
@@ -215,6 +289,7 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
       if (md?.serialNumber) initial[i] = md.serialNumber;
     });
     setSerialInputs(initial);
+    setRowError({});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingStation.id]);
 
@@ -222,27 +297,121 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
     return <p className="text-sm text-gray-500">{t('stations', 'noMachines')}</p>;
   }
 
-  const saveMachineField = (index: number, field: string, value: string) => {
+  /**
+   * Persist a single field (category, subcategory, or model) into
+   * notes.machineData[i] and PATCH the station. Does NOT create a Machine
+   * DB row — that only happens when the serial is saved.
+   */
+  const saveTaxonomyField = (
+    index: number,
+    patch: Partial<Pick<MachineDataEntry, 'category' | 'subcategory' | 'model'>>
+  ) => {
     const freshMeta = { ...meta };
     if (!freshMeta.machineData) freshMeta.machineData = [];
-    const md = freshMeta.machineData as { serialNumber?: string; machineType?: string }[];
+    const md = freshMeta.machineData as MachineDataEntry[];
     while (md.length <= index) md.push({});
-    md[index] = { ...md[index], [field]: value };
-
-    // Auto-update status: if all serial numbers filled → waiting_pairing
-    const allFilled = items.every((_, i) => {
-      const m = md[i];
-      return m && m.serialNumber && m.serialNumber.trim() !== '';
-    });
-
+    md[index] = { ...migrateLegacyEntry(md[index]), ...patch };
+    // When category flips to robot, subcategory must be null.
+    if (md[index].category === 'robot') md[index].subcategory = null;
     const newNotes = JSON.stringify(freshMeta);
-    const updated = { ...editingStation, notes: newNotes };
-    setEditingStation(updated);
+    setEditingStation({ ...editingStation, notes: newNotes });
+    handleUpdateStation({ notes: newNotes });
+  };
 
-    if (allFilled && editingStation.status === 'not_configured') {
-      handleUpdateStation({ notes: newNotes, status: 'waiting_pairing' as Station['status'] });
-    } else {
-      handleUpdateStation({ notes: newNotes });
+  /**
+   * Hold-to-save handler for the serial input. Persists the serial into
+   * notes.machineData[i] AND POSTs to /api/machines to create a real
+   * Machine DB row. The returned machine.id is stored back into
+   * notes.machineData[i].machineId so the card can lock itself.
+   */
+  const saveSerial = async (index: number) => {
+    const serial = (serialInputs[index] || '').trim();
+    if (!serial) return;
+    const item = items[index];
+    const existing = machineData[index] || {};
+    const inferred = inferTaxonomyFromItem(item);
+    const category = (existing.category || inferred.category) as MachineCategory;
+    const subcategory = category === 'robot'
+      ? null
+      : (existing.subcategory || inferred.subcategory || null);
+    const model = (existing.model || inferred.model || '').trim();
+
+    if (!model) {
+      setRowError(prev => ({ ...prev, [index]: t('stations', 'modelRequiredBeforeSerial') || 'Pick a model before saving the serial.' }));
+      return;
+    }
+    if (category === 'accessory' && !subcategory) {
+      setRowError(prev => ({ ...prev, [index]: t('stations', 'subcategoryRequired') || 'Pick a subcategory for accessories before saving.' }));
+      return;
+    }
+
+    // Look up the StationInvoice.id for this line item so the new Machine
+    // is anchored to the invoice it was sold on.
+    const invoiceNumber = item.sourceInvoiceNumber;
+    const matchedInvoice = invoiceNumber
+      ? editingStation.invoices.find((inv) => inv.invoiceNumber === invoiceNumber)
+      : undefined;
+
+    setRowSaving(prev => ({ ...prev, [index]: true }));
+    setRowError(prev => ({ ...prev, [index]: null }));
+
+    try {
+      // If this row already has a machineId, skip creation — the serial is
+      // locked. Re-saving is a super-admin-only path that we'll wire up
+      // later (a dedicated "Replace machine" flow that copies the robot
+      // memory blob over). For now the serial input is disabled when
+      // machineId exists, so this branch should be unreachable.
+      if (!existing.machineId) {
+        const res = await fetch('/api/machines', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            serialNumber: serial,
+            category,
+            subcategory,
+            model,
+            managedClientId: editingStation.clientId,
+            invoiceId: matchedInvoice?.id,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.error || 'create failed');
+        }
+        const createdId: string | undefined = data?.machine?.id;
+
+        // Persist machineId + serial + taxonomy snapshot into notes.
+        const freshMeta = { ...meta };
+        if (!freshMeta.machineData) freshMeta.machineData = [];
+        const md = freshMeta.machineData as MachineDataEntry[];
+        while (md.length <= index) md.push({});
+        md[index] = {
+          ...migrateLegacyEntry(md[index]),
+          machineId: createdId,
+          serialNumber: serial,
+          category,
+          subcategory,
+          model,
+        };
+
+        // Auto-flip status to waiting_pairing when every row has a serial.
+        const allSerialled = items.every((_, i) => {
+          const e = md[i];
+          return e && typeof e.serialNumber === 'string' && e.serialNumber.trim() !== '';
+        });
+        const newNotes = JSON.stringify(freshMeta);
+        setEditingStation({ ...editingStation, notes: newNotes });
+        if (allSerialled && editingStation.status === 'not_configured') {
+          await handleUpdateStation({ notes: newNotes, status: 'waiting_pairing' as Station['status'] });
+        } else {
+          await handleUpdateStation({ notes: newNotes });
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not create machine';
+      setRowError(prev => ({ ...prev, [index]: msg }));
+    } finally {
+      setRowSaving(prev => ({ ...prev, [index]: false }));
     }
   };
 
@@ -250,11 +419,23 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
     <div className="space-y-3">
       {items.map((item, i) => {
         const md = machineData[i] || {};
+        const inferred = inferTaxonomyFromItem(item);
+        const category: MachineCategory = (md.category || inferred.category) as MachineCategory;
+        const subcategory: MachineSubcategory = category === 'robot'
+          ? null
+          : (md.subcategory || inferred.subcategory || null);
+        const model: string = md.model || inferred.model || '';
+        const locked = !!md.machineId;           // serial + taxonomy frozen once Machine exists
+        const modelOptions: readonly string[] =
+          category === 'robot' ? ROBOT_MODELS :
+          category === 'accessory' && subcategory === 'laser' ? LASER_MODELS :
+          [];
+
         return (
           <div key={i} className="p-4 border border-gray-200 rounded-lg">
-            {/* Model (left) + Description (right) */}
+            {/* Header row with icon + invoice line description */}
             <div className="flex items-start gap-3 mb-3">
-              {(md.machineType === 'laser') ? (
+              {category === 'accessory' ? (
                 <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
               ) : (
                 <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
@@ -270,45 +451,113 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
                   <div className="mt-1 text-xs text-gray-400">Invoice #{String(item.sourceInvoiceNumber || meta.invoiceNumber || '')}</div>
                 )}
               </div>
+              {locked && (
+                <span className="text-[10px] font-medium text-green-700 bg-green-50 border border-green-100 rounded-full px-2 py-0.5 flex-shrink-0" title={t('stations', 'machineCreatedLockHint') || 'Machine created — serial and taxonomy are locked. A super-admin will be needed to replace the serial.'}>
+                  {t('stations', 'machineCreatedLabel') || 'Machine created'}
+                </span>
+              )}
             </div>
 
-            {/* Machine Type Dropdown */}
-            <div className="mb-3">
-              <label className="block text-xs font-medium text-gray-500 mb-1">{t('stations', 'machineType')}</label>
-              <select
-                value={md.machineType || ''}
-                onChange={(e) => saveMachineField(i, 'machineType', e.target.value)}
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">{t('stations', 'selectType')}</option>
-                <option value="cobot">{t('stations', 'cobot')}</option>
-                <option value="laser">{t('stations', 'laserMachine')}</option>
-              </select>
+            {/* Category */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('stations', 'category') || 'Category'}</label>
+                <select
+                  value={category}
+                  disabled={locked}
+                  onChange={(e) => {
+                    const next = e.target.value as MachineCategory;
+                    // Changing category usually invalidates model — clear it.
+                    saveTaxonomyField(i, { category: next, model: '' , subcategory: next === 'robot' ? null : null });
+                  }}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                >
+                  <option value="robot">{t('stations', 'categoryRobot') || 'Robot'}</option>
+                  <option value="accessory">{t('stations', 'categoryAccessory') || 'Accessory'}</option>
+                </select>
+              </div>
+
+              {/* Subcategory — only for Accessory */}
+              {category === 'accessory' ? (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('stations', 'subcategory') || 'Subcategory'}</label>
+                  <select
+                    value={subcategory || ''}
+                    disabled={locked}
+                    onChange={(e) => {
+                      const next = (e.target.value || null) as MachineSubcategory;
+                      saveTaxonomyField(i, { subcategory: next, model: '' });
+                    }}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                  >
+                    <option value="">{t('stations', 'selectSubcategory') || 'Select…'}</option>
+                    {ACCESSORY_SUBCATEGORIES.map((s) => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : <div />}
+
+              {/* Model */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('stations', 'modelLabel') || 'Model'}</label>
+                {modelOptions.length > 0 ? (
+                  <select
+                    value={model}
+                    disabled={locked}
+                    onChange={(e) => saveTaxonomyField(i, { model: e.target.value })}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                  >
+                    <option value="">{t('stations', 'selectModel') || 'Select model…'}</option>
+                    {modelOptions.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={model}
+                    disabled={locked}
+                    onChange={(e) => saveTaxonomyField(i, { model: e.target.value })}
+                    placeholder={t('stations', 'modelPlaceholder') || 'Model'}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                  />
+                )}
+              </div>
             </div>
 
-            {/* Serial Number with Hold-to-Save */}
+            {/* Serial Number with Hold-to-Save — locked once Machine row exists */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">{t('stations', 'serialNumber')}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={serialInputs[i] || ''}
+                  disabled={locked || rowSaving[i]}
                   onChange={(e) => setSerialInputs(prev => ({ ...prev, [i]: e.target.value }))}
                   placeholder={t('stations', 'enterSerial')}
-                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                 />
-                <HoldToSaveButton
-                  onSave={() => {
-                    const val = serialInputs[i] || '';
-                    if (val.trim()) saveMachineField(i, 'serialNumber', val.trim());
-                  }}
-                />
+                {!locked && (
+                  <HoldToSaveButton onSave={() => { saveSerial(i); }} />
+                )}
               </div>
-              {md.serialNumber && (
+              {locked && md.serialNumber && (
+                <div className="mt-1 text-xs text-green-600 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  {md.serialNumber}
+                  <span className="ml-2 text-gray-400">·</span>
+                  <span className="text-gray-500">{t('stations', 'serialLockedHint') || 'Serial locked — super-admin only'}</span>
+                </div>
+              )}
+              {!locked && md.serialNumber && (
                 <div className="mt-1 text-xs text-green-600 flex items-center gap-1">
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                   {t('common', 'save')}: {md.serialNumber}
                 </div>
+              )}
+              {rowError[i] && (
+                <div className="mt-1 text-xs text-red-600">{rowError[i]}</div>
               )}
             </div>
           </div>
@@ -686,26 +935,29 @@ export default function AdminStationsPage() {
     }
   };
 
-  // Helper to count machines from notes JSON (invoice items + machineData)
+  // Helper to count machines from notes JSON (invoice items + machineData).
+  // Handles both the new taxonomy (category + subcategory) and the legacy
+  // machineType = 'cobot'|'laser' rows so older stations keep rendering.
   const getMachineCount = (station: Station) => {
     try {
       const meta = JSON.parse(station.notes || '{}');
       const items = meta.items || [];
-      const machineData: { serialNumber?: string; machineType?: string }[] = meta.machineData || [];
+      const machineData: MachineDataEntry[] = (meta.machineData || []) as MachineDataEntry[];
 
       if (items.length === 0) return t('stations', 'noMachines');
 
-      const cobots = machineData.filter(md => md?.machineType === 'cobot').length;
-      const lasers = machineData.filter(md => md?.machineType === 'laser').length;
-      const untyped = items.length - cobots - lasers;
+      const normalized = machineData.map((md) => migrateLegacyEntry(md));
+      const robots = normalized.filter(md => md?.category === 'robot').length;
+      const accessories = normalized.filter(md => md?.category === 'accessory').length;
+      const untyped = items.length - robots - accessories;
 
-      const parts = [];
-      if (cobots > 0) parts.push(`${cobots} ${t('stations', 'cobot')}${cobots !== 1 ? 's' : ''}`);
-      if (lasers > 0) parts.push(`${lasers} ${t('stations', 'laserMachine')}${lasers !== 1 ? 's' : ''}`);
+      const parts: string[] = [];
+      if (robots > 0) parts.push(`${robots} ${t('stations', 'categoryRobot') || 'Robot'}${robots !== 1 ? 's' : ''}`);
+      if (accessories > 0) parts.push(`${accessories} ${t('stations', 'categoryAccessory') || 'Accessory'}${accessories !== 1 ? 's' : ''}`);
       if (untyped > 0) parts.push(`${untyped} unassigned`);
 
       // Show serial numbers if any
-      const serials = machineData.filter(md => md?.serialNumber).length;
+      const serials = normalized.filter(md => md?.serialNumber).length;
       if (serials > 0) {
         return `${parts.join(', ')} (${serials}/${items.length} serial#)`;
       }

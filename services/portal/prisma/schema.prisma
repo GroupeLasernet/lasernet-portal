@@ -232,8 +232,18 @@ model StationMachine {
 model Machine {
   id              String   @id @default(cuid())
   serialNumber    String   @unique
-  type            String   // "robot" or "laser"
-  model           String   // e.g. "UR10e", "Relfar 500W"
+  // Taxonomy (replaces legacy `type` column — migrated 2026-04-15):
+  //   category     "robot"   | "accessory"
+  //   subcategory  null       (for robots)
+  //              | "laser" | "traditional_welding" | "sanding"   (for accessories)
+  //   model        Robot : "E03" | "E05" | "E10" | "E12" | "E12+Rail3M" | "E12+Rail4M"
+  //                Laser : "Cleaning" | "Welding"
+  //                (others empty until defined)
+  // The subcategory/model pair drives which UI/software interface the
+  // machine routes into (robot app, Relfar controller, or none-yet).
+  category        String   // "robot" | "accessory"
+  subcategory     String?  // null for robots; see comment above for accessories
+  model           String   // e.g. "E03", "Cleaning"
   nickname        String?  // optional friendly name
 
   // Network identity — MAC is the reliable identifier (survives IP changes,

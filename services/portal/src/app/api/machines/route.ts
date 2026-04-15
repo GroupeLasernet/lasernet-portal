@@ -5,12 +5,23 @@ import prisma from '@/lib/prisma';
 export async function GET(request: NextRequest) {
   try {
     const clientId = request.nextUrl.searchParams.get('clientId');
-    const type = request.nextUrl.searchParams.get('type');
+    // Accept the new `category`/`subcategory` params *and* translate the
+    // legacy `type=robot|laser` param 1:1 into the new taxonomy so old
+    // links and callers keep working.
+    const categoryParam = request.nextUrl.searchParams.get('category');
+    const subcategoryParam = request.nextUrl.searchParams.get('subcategory');
+    const legacyType = request.nextUrl.searchParams.get('type');
     const status = request.nextUrl.searchParams.get('status');
 
     const where: Record<string, unknown> = {};
     if (clientId) where.managedClientId = clientId;
-    if (type) where.type = type;
+    if (categoryParam) where.category = categoryParam;
+    if (subcategoryParam) where.subcategory = subcategoryParam;
+    if (!categoryParam && legacyType === 'robot') where.category = 'robot';
+    if (!categoryParam && legacyType === 'laser') {
+      where.category = 'accessory';
+      where.subcategory = 'laser';
+    }
     if (status) where.status = status;
 
     const machines = await prisma.machine.findMany({
@@ -32,7 +43,12 @@ export async function GET(request: NextRequest) {
     const result = machines.map((m) => ({
       id: m.id,
       serialNumber: m.serialNumber,
-      type: m.type,
+      // New taxonomy (source of truth)
+      category: m.category,
+      subcategory: m.subcategory,
+      // Legacy `type` field kept as a derived alias so the older admin/machines
+      // page and any external consumers don't break until they migrate.
+      type: m.category === 'accessory' && m.subcategory === 'laser' ? 'laser' : 'robot',
       model: m.model,
       nickname: m.nickname,
       macAddress: m.macAddress,
@@ -96,6 +112,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       serialNumber,
+      // New taxonomy (preferred input)
+      category: categoryIn,
+      subcategory: subcategoryIn,
+      // Legacy input — `type` maps to the new category/subcategory pair
+      // when category isn't supplied. Keeps old callers working.
       type,
       model,
       nickname,
@@ -112,16 +133,40 @@ export async function POST(request: NextRequest) {
       invoiceId,
     } = body;
 
-    if (!serialNumber || !type || !model) {
+    // Derive canonical category/subcategory. Accepted inputs:
+    //   { category: 'robot', model: 'E03' }
+    //   { category: 'accessory', subcategory: 'laser', model: 'Cleaning' }
+    //   { type: 'robot', model: 'E03' }                        (legacy)
+    //   { type: 'laser', model: 'Cleaning' }                   (legacy)
+    let category: string | null = typeof categoryIn === 'string' ? categoryIn : null;
+    let subcategory: string | null =
+      typeof subcategoryIn === 'string' && subcategoryIn.trim() ? subcategoryIn : null;
+    if (!category && type === 'robot') category = 'robot';
+    if (!category && type === 'laser') {
+      category = 'accessory';
+      subcategory = subcategory || 'laser';
+    }
+
+    if (!serialNumber || !category || !model) {
       return NextResponse.json(
-        { error: 'serialNumber, type, and model are required' },
+        { error: 'serialNumber, category (or legacy type), and model are required' },
         { status: 400 }
       );
     }
 
-    if (!['robot', 'laser'].includes(type)) {
+    if (!['robot', 'accessory'].includes(category)) {
       return NextResponse.json(
-        { error: 'type must be "robot" or "laser"' },
+        { error: 'category must be "robot" or "accessory"' },
+        { status: 400 }
+      );
+    }
+    if (category === 'robot' && subcategory) {
+      // Robot has no subcategory — clear it rather than reject.
+      subcategory = null;
+    }
+    if (category === 'accessory' && !subcategory) {
+      return NextResponse.json(
+        { error: 'subcategory is required when category is "accessory"' },
         { status: 400 }
       );
     }
@@ -157,7 +202,8 @@ export async function POST(request: NextRequest) {
     const machine = await prisma.machine.create({
       data: {
         serialNumber,
-        type,
+        category,
+        subcategory,
         model,
         nickname: nickname || null,
         macAddress: normalizedMac,
