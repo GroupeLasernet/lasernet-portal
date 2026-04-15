@@ -1,6 +1,88 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
+/**
+ * Backfill missing StationMachine join rows.
+ *
+ * Background: the /admin/stations hold-to-save flow used to create a Machine
+ * and anchor it to a StationInvoice, but never wrote the StationMachine join
+ * row that ties the machine to the station. That leaves the Machines list
+ * (and the "Open software" button) with no station/PC context even though
+ * the data exists elsewhere.
+ *
+ * This pass is idempotent and safe to run on every GET /api/machines —
+ * it only creates missing rows.
+ */
+async function backfillStationMachineLinks(): Promise<void> {
+  // --- Path 1: invoiceId anchor ------------------------------------------
+  // Machines with an invoiceId but no StationMachine row yet.
+  const orphansByInvoice = await prisma.machine.findMany({
+    where: {
+      invoiceId: { not: null },
+      stations: { none: {} },
+    },
+    select: { id: true, invoiceId: true },
+  });
+
+  for (const m of orphansByInvoice) {
+    if (!m.invoiceId) continue;
+    const inv = await prisma.stationInvoice.findUnique({
+      where: { id: m.invoiceId },
+      select: { stationId: true },
+    });
+    if (!inv?.stationId) continue;
+    // Race-safe: skip if a row already exists.
+    const exists = await prisma.stationMachine.findFirst({
+      where: { stationId: inv.stationId, machineId: m.id },
+      select: { id: true },
+    });
+    if (exists) continue;
+    await prisma.stationMachine.create({
+      data: { stationId: inv.stationId, machineId: m.id },
+    });
+  }
+
+  // --- Path 2: notes.machineData[].machineId anchor ----------------------
+  // Handles machines that were created without an invoiceId (e.g. robots
+  // added on the Stations page before the invoice was selected).
+  const stillOrphans = await prisma.machine.findMany({
+    where: { stations: { none: {} } },
+    select: { id: true },
+  });
+  if (stillOrphans.length === 0) return;
+  const orphanIds = new Set(stillOrphans.map((m) => m.id));
+
+  const stations = await prisma.station.findMany({
+    where: { notes: { not: null } },
+    select: { id: true, notes: true },
+  });
+
+  for (const s of stations) {
+    if (!s.notes) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(s.notes);
+    } catch {
+      continue;
+    }
+    const md = (parsed as { machineData?: Array<{ machineId?: string }> })?.machineData;
+    if (!Array.isArray(md)) continue;
+    for (const entry of md) {
+      const mid = entry?.machineId;
+      if (!mid || !orphanIds.has(mid)) continue;
+      const exists = await prisma.stationMachine.findFirst({
+        where: { stationId: s.id, machineId: mid },
+        select: { id: true },
+      });
+      if (exists) continue;
+      await prisma.stationMachine.create({
+        data: { stationId: s.id, machineId: mid },
+      });
+      orphanIds.delete(mid);
+    }
+  }
+}
+
 // GET /api/machines — List all machines with optional filters
 export async function GET(request: NextRequest) {
   try {
@@ -23,6 +105,23 @@ export async function GET(request: NextRequest) {
       where.subcategory = 'laser';
     }
     if (status) where.status = status;
+
+    // Self-heal: backfill missing StationMachine join rows so machines that
+    // were created via the hold-to-save flow on /admin/stations (which
+    // historically skipped the join write) still link to their station.
+    //
+    // Two anchor paths are checked, in order of reliability:
+    //   1. Machine.invoiceId → StationInvoice.stationId (strong anchor)
+    //   2. Station.notes.machineData[].machineId (legacy anchor — scans
+    //      every station's JSON notes for an explicit machineId reference)
+    //
+    // Idempotent: we only create rows when none exist for the pair.
+    try {
+      await backfillStationMachineLinks();
+    } catch (heErr) {
+      // Don't block the list response on a self-heal failure.
+      console.error('StationMachine self-heal failed:', heErr);
+    }
 
     const machines = await prisma.machine.findMany({
       where,
@@ -158,6 +257,11 @@ export async function POST(request: NextRequest) {
       longitude,
       managedClientId,
       invoiceId,
+      // Optional: link the new machine directly to a Station via the
+      // StationMachine join. The /admin/stations hold-to-save flow passes
+      // this so the machine shows up on the Stations page and the
+      // Machines list immediately.
+      stationId,
     } = body;
 
     // Derive canonical category/subcategory. Accepted inputs:
@@ -263,6 +367,37 @@ export async function POST(request: NextRequest) {
         toIp: ipAddress || null,
       },
     });
+
+    // Link to Station via StationMachine if the caller supplied a stationId
+    // (e.g. the /admin/stations hold-to-save flow). If no explicit stationId
+    // was passed but we *do* have an invoiceId, derive the station from the
+    // invoice — otherwise the Machines list loses track of the station.
+    let linkedStationId: string | null =
+      typeof stationId === 'string' && stationId.trim() ? stationId.trim() : null;
+    if (!linkedStationId && machine.invoiceId) {
+      const inv = await prisma.stationInvoice.findUnique({
+        where: { id: machine.invoiceId },
+        select: { stationId: true },
+      });
+      if (inv?.stationId) linkedStationId = inv.stationId;
+    }
+    if (linkedStationId) {
+      const stationExists = await prisma.station.findUnique({
+        where: { id: linkedStationId },
+        select: { id: true },
+      });
+      if (stationExists) {
+        const alreadyLinked = await prisma.stationMachine.findFirst({
+          where: { stationId: linkedStationId, machineId: machine.id },
+          select: { id: true },
+        });
+        if (!alreadyLinked) {
+          await prisma.stationMachine.create({
+            data: { stationId: linkedStationId, machineId: machine.id },
+          });
+        }
+      }
+    }
 
     return NextResponse.json({ machine }, { status: 201 });
   } catch (error) {

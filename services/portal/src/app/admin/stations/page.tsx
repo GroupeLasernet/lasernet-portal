@@ -376,6 +376,11 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
             model,
             managedClientId: editingStation.clientId,
             invoiceId: matchedInvoice?.id,
+            // Ensure the machine is linked to *this* Station via the
+            // StationMachine join row at creation time. Without this, the
+            // Machines list has no station/PC context and the
+            // "Open software" button can't render.
+            stationId: editingStation.id,
           }),
         });
         const data = await res.json();
