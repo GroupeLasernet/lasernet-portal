@@ -301,6 +301,7 @@ const translations = {
     addressEmpty: { fr: "Aucune adresse à prévisualiser. Choisissez un mode et remplissez les champs ci-dessus.", en: 'No address to preview yet. Pick a mode and fill in the fields above.' },
     addressLocked: { fr: 'Verrouillé — décocher pour modifier', en: 'Locked — uncheck to edit' },
     addressLockToProtect: { fr: 'Verrouiller pour protéger', en: 'Lock to protect' },
+    addressAutocompleteHint: { fr: "Commencez à taper — choisissez une suggestion pour remplir automatiquement la ville, la province et le code postal.", en: 'Start typing — pick a suggestion to auto-fill city, province and postal code.' },
     allStatuses: { fr: 'Tous les statuts', en: 'All Statuses' },
     selectClient: { fr: 'Sélectionner un client', en: 'Select a client' },
     titleRequired: { fr: 'Titre *', en: 'Title *' },

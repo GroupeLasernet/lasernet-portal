@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import PageHeader from '@/components/PageHeader';
 import StreetView from '@/components/StreetView';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 
 const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onConfirm: () => void; onCancel: () => void; label?: string }) => {
   const { t } = useLanguage();
@@ -1159,14 +1160,41 @@ export default function AdminStationsPage() {
                         <label className="block text-xs font-medium text-gray-700 mb-1">
                           {t('stations', 'addressLine') || 'Street address'}
                         </label>
-                        <input
-                          type="text"
-                          disabled={disabled}
+                        <AddressAutocomplete
                           value={editingStation.addressLine || ''}
-                          onChange={(e) => setEditingStation({ ...editingStation, addressLine: e.target.value })}
+                          disabled={disabled}
+                          onChange={(next) => setEditingStation({ ...editingStation, addressLine: next })}
                           onBlur={() => handleUpdateStation({ addressLine: editingStation.addressLine || null })}
+                          onPlaceSelected={(parsed) => {
+                            // Google picked a specific address — drop every
+                            // related field at once so the operator sees the
+                            // whole form snap to the real place. We preserve
+                            // fields the parser couldn't fill (e.g. rural
+                            // addresses with no locality) instead of wiping
+                            // what the user already typed.
+                            const updated = {
+                              ...editingStation,
+                              addressLine: parsed.addressLine || editingStation.addressLine,
+                              city: parsed.city || editingStation.city,
+                              province: parsed.province || editingStation.province,
+                              postalCode: parsed.postalCode || editingStation.postalCode,
+                              country: parsed.country || editingStation.country,
+                            };
+                            setEditingStation(updated);
+                            handleUpdateStation({
+                              addressLine: updated.addressLine,
+                              city: updated.city,
+                              province: updated.province,
+                              postalCode: updated.postalCode,
+                              country: updated.country,
+                            });
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                         />
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          {t('stations', 'addressAutocompleteHint') ||
+                            'Start typing — pick a suggestion to auto-fill city, province and postal code.'}
+                        </p>
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
