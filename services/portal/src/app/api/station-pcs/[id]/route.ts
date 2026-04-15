@@ -26,7 +26,7 @@ export async function GET(
 }
 
 // PATCH /api/station-pcs/[id]
-// Body: any subset of { serial, macAddress, hostname, nickname, notes, status }
+// Body: any subset of { serial, macAddress, hostname, nickname, notes, status, localIp }
 // Also: { assignToStationId: string | null } — attaches/detaches this PC to a Station.
 export async function PATCH(
   request: NextRequest,
@@ -55,6 +55,13 @@ export async function PATCH(
     if (body.hostname !== undefined) data.hostname = body.hostname?.trim() || null;
     if (body.nickname !== undefined) data.nickname = body.nickname?.trim() || null;
     if (body.notes !== undefined) data.notes = body.notes?.trim() || null;
+    if (body.localIp !== undefined) {
+      // Loose validation — accept anything shaped like an IPv4 dotted quad or
+      // hostname (so operators can type `stn-001.local` if they prefer mDNS).
+      // Empty string clears the field.
+      const raw = typeof body.localIp === 'string' ? body.localIp.trim() : '';
+      data.localIp = raw === '' ? null : raw;
+    }
     if (body.status !== undefined) {
       const allowed = ['provisioning', 'online', 'offline', 'retired'];
       if (!allowed.includes(body.status)) {
@@ -227,6 +234,7 @@ export async function PATCH(
       relfarVersion: refreshed.relfarVersion,
       lastHeartbeatAt: refreshed.lastHeartbeatAt ? refreshed.lastHeartbeatAt.toISOString() : null,
       lastHeartbeatIp: refreshed.lastHeartbeatIp,
+      localIp: refreshed.localIp,
       status: refreshed.status,
       approved: refreshed.approved,
       notes: refreshed.notes,

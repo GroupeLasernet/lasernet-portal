@@ -319,6 +319,10 @@ model StationPC {
   relfarVersion  String?
   lastHeartbeatAt DateTime?
   lastHeartbeatIp String?
+  // Operator-entered LAN IP of the PC (e.g. "192.168.1.42"). Used to build
+  // same-LAN links to the robot (port 8080) and relfar (port 5000) software
+  // UIs. Superseded later by a Cloudflare Tunnel hostname per PC.
+  localIp         String?
 
   // Status — what the admin sees at a glance.
   //   "provisioning" — created in Portal, hasn't checked in yet

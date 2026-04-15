@@ -15,6 +15,7 @@ interface StationPC {
   relfarVersion: string | null;
   lastHeartbeatAt: string | null;
   lastHeartbeatIp: string | null;
+  localIp: string | null;
   status: 'provisioning' | 'online' | 'offline' | 'retired';
   approved: boolean;
   notes: string | null;
@@ -606,6 +607,7 @@ function StationPCDetail({
   const [mac, setMac] = useState(pc.macAddress || '');
   const [hostname, setHostname] = useState(pc.hostname || '');
   const [nickname, setNickname] = useState(pc.nickname || '');
+  const [localIp, setLocalIp] = useState(pc.localIp || '');
   const [notes, setNotes] = useState(pc.notes || '');
   const [saving, setSaving] = useState(false);
 
@@ -621,6 +623,7 @@ function StationPCDetail({
           macAddress: mac,
           hostname,
           nickname,
+          localIp,
           notes,
         }),
       });
@@ -752,6 +755,25 @@ function StationPCDetail({
           }
         />
         <DetailRow
+          label={t('stationPcs', 'fieldLocalIp')}
+          value={
+            editing ? (
+              <input
+                value={localIp}
+                onChange={(e) => setLocalIp(e.target.value)}
+                placeholder="192.168.1.42"
+                className="input-field font-mono text-xs"
+              />
+            ) : pc.localIp ? (
+              <span className="font-mono">{pc.localIp}</span>
+            ) : (
+              <span className="text-gray-400 italic text-xs">
+                {t('stationPcs', 'localIpHint')}
+              </span>
+            )
+          }
+        />
+        <DetailRow
           label={t('stationPcs', 'lastHeartbeat')}
           value={
             pc.lastHeartbeatAt
@@ -796,6 +818,7 @@ function StationPCDetail({
                 setMac(pc.macAddress || '');
                 setHostname(pc.hostname || '');
                 setNickname(pc.nickname || '');
+                setLocalIp(pc.localIp || '');
                 setNotes(pc.notes || '');
                 setEditing(false);
               }}

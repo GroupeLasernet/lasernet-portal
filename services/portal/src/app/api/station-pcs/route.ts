@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
       relfarVersion: pc.relfarVersion,
       lastHeartbeatAt: pc.lastHeartbeatAt ? pc.lastHeartbeatAt.toISOString() : null,
       lastHeartbeatIp: pc.lastHeartbeatIp,
+      localIp: pc.localIp,
       status: pc.status,
       approved: pc.approved,
       notes: pc.notes,

@@ -15,6 +15,7 @@ interface MachineStationLink {
     hostname: string | null;
     nickname: string | null;
     lastHeartbeatIp: string | null;
+    localIp: string | null;
     status: string;
   } | null;
 }
@@ -102,26 +103,35 @@ function getSubcategoryLabel(
 // Build the URL to the local software UI served by the station PC.
 //   - Robot (FastAPI)     → http://<pc-ip>:8080
 //   - Laser (Relfar Flask) → http://<pc-ip>:5000
-// Returns null if we don't know the PC's IP yet (no heartbeat recorded).
-// We only attach it to the primary station link; a machine on >1 station is
-// edge-case territory that we'll cross when we get there.
+//
+// Preference order for the IP used:
+//   1. pc.localIp     — operator-entered LAN IP (works for same-LAN access,
+//                       which is what the portal currently targets).
+//   2. pc.lastHeartbeatIp — the public WAN IP the portal sees on heartbeat.
+//                       Only useful when the operator's browser happens to
+//                       be on the same network the PC dialed out from.
+//
+// Returns null if we don't know any IP yet OR the machine isn't something
+// we host software for (traditional welding / sanding have no UI).
 function getSoftwareUrl(machine: Machine): {
   url: string;
   label: 'robot' | 'laser';
   pcLabel: string;
+  ipSource: 'localIp' | 'lastHeartbeatIp';
 } | null {
   const stationLink = machine.stations[0];
   const pc = stationLink?.stationPC;
-  const ip = pc?.lastHeartbeatIp;
-  if (!pc || !ip) return null;
+  if (!pc) return null;
+  const ip = pc.localIp || pc.lastHeartbeatIp;
+  if (!ip) return null;
+  const ipSource: 'localIp' | 'lastHeartbeatIp' = pc.localIp ? 'localIp' : 'lastHeartbeatIp';
   const pcLabel = pc.nickname || pc.hostname || pc.serial;
   if (machine.category === 'robot') {
-    return { url: `http://${ip}:8080`, label: 'robot', pcLabel };
+    return { url: `http://${ip}:8080`, label: 'robot', pcLabel, ipSource };
   }
   if (machine.category === 'accessory' && machine.subcategory === 'laser') {
-    return { url: `http://${ip}:5000`, label: 'laser', pcLabel };
+    return { url: `http://${ip}:5000`, label: 'laser', pcLabel, ipSource };
   }
-  // Traditional welding / sanding don't have Atelier-DSM-hosted software UIs.
   return null;
 }
 

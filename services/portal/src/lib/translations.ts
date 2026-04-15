@@ -540,6 +540,11 @@ const translations = {
     fieldHostname: { fr: 'Nom d\'hôte', en: 'Hostname' },
     fieldNickname: { fr: 'Surnom', en: 'Nickname' },
     fieldNicknamePlaceholder: { fr: 'ex. PC Atelier A', en: 'e.g. Shop A PC' },
+    fieldLocalIp: { fr: 'IP locale (LAN)', en: 'Local IP (LAN)' },
+    localIpHint: {
+      fr: 'Non défini — saisissez l\'IP LAN du PC (ipconfig) pour activer les boutons "Ouvrir le logiciel"',
+      en: 'Not set — enter the PC\'s LAN IP (ipconfig) to enable the "Open software" buttons',
+    },
     fieldNotes: { fr: 'Notes', en: 'Notes' },
     assignedStation: { fr: 'Station assignée', en: 'Assigned station' },
     client: { fr: 'Client', en: 'Client' },

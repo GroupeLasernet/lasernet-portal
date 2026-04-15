@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
                     hostname: true,
                     nickname: true,
                     lastHeartbeatIp: true,
+                    localIp: true,
                     status: true,
                   },
                 },
@@ -107,6 +108,7 @@ export async function GET(request: NextRequest) {
               hostname: sm.station.stationPC.hostname,
               nickname: sm.station.stationPC.nickname,
               lastHeartbeatIp: sm.station.stationPC.lastHeartbeatIp,
+              localIp: sm.station.stationPC.localIp,
               status: sm.station.stationPC.status,
             }
           : null,
