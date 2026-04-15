@@ -94,6 +94,21 @@ export async function PATCH(
           where: { id: targetStationId },
           data: { stationPCId: id },
         });
+        // Assigning a PC to a Station IS an implicit approval — if the PC
+        // was sitting in the "To be approved" queue (e.g. after a previous
+        // unlink that flipped approved=false), flip it back to approved.
+        // Retired PCs are left alone. Honour an explicit `approved: false`
+        // override from the caller.
+        if (
+          !existing.approved &&
+          existing.status !== 'retired' &&
+          body.approved !== false
+        ) {
+          await prisma.stationPC.update({
+            where: { id },
+            data: { approved: true },
+          });
+        }
       } else if (priorAssignments.length > 0 && typeof body.approved !== 'boolean') {
         // Unlinking without a new target → send the PC back to the
         // "To be approved" queue so the operator has to explicitly
