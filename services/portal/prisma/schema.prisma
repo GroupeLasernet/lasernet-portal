@@ -159,6 +159,17 @@ model Station {
   notes       String?  @db.Text
   status      String   @default("draft") // "draft", "in_progress", "testing", "completed", "archived"
 
+  // Deployment address. All NULL = fall back to ManagedClient billing address
+  // ("use business address" in the UI). Set = custom install site.
+  // `addressLocked` is a UI-side guardrail to prevent accidental edits once
+  // the address has been verified on Street View / the map.
+  addressLine    String?
+  city           String?
+  province       String?
+  postalCode     String?
+  country        String?
+  addressLocked  Boolean  @default(false)
+
   // Physical computer deployed to run this station. Nullable: a Station can
   // exist before a PC is assigned (sold-but-not-shipped), and a PC can be
   // swapped without destroying the Station's history (§ station-pc model).

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import PageHeader from '@/components/PageHeader';
+import StreetView from '@/components/StreetView';
 
 const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onConfirm: () => void; onCancel: () => void; label?: string }) => {
   const { t } = useLanguage();
@@ -146,10 +147,23 @@ interface Station {
     displayName: string;
     companyName: string;
     email: string;
+    address?: string | null;
+    city?: string | null;
+    province?: string | null;
+    postalCode?: string | null;
   };
   title: string;
   notes?: string;
   status: 'not_configured' | 'waiting_pairing' | 'in_trouble' | 'active' | 'draft' | 'in_progress' | 'testing' | 'completed' | 'archived';
+  // Optional deployment address. When all NULL the UI falls back to
+  // the client's business address. `addressLocked` is a UI-only guard
+  // that forces the user to tick "unlock" before editing.
+  addressLine?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  addressLocked?: boolean;
   invoices: StationInvoice[];
   machines: Machine[];
   robotPrograms: {
@@ -426,6 +440,24 @@ export default function AdminStationsPage() {
     fetchClients();
     fetchQBInvoices();
   }, [fetchStations, fetchClients, fetchQBInvoices]);
+
+  // Deep-link support: when navigated here from the clients tab with
+  // ?stationId=<id>, auto-select that station once the list has loaded.
+  // We read the query param off window.location instead of
+  // useSearchParams() to avoid the Suspense boundary that Next 14 now
+  // requires around that hook.
+  const deepLinkAppliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (stations.length === 0) return;
+    const id = new URLSearchParams(window.location.search).get('stationId');
+    if (!id) return;
+    if (deepLinkAppliedRef.current === id) return;
+    if (stations.some((s) => s.id === id)) {
+      deepLinkAppliedRef.current = id;
+      setSelectedStationId(id);
+    }
+  }, [stations]);
 
   // Load machines when station is selected
   useEffect(() => {
@@ -947,6 +979,297 @@ export default function AdminStationsPage() {
                 })()}
               </div>
             </div>
+
+            {/* Station Address Section */}
+            {(() => {
+              const businessAddress = editingStation.client.address || '';
+              const businessCity = editingStation.client.city || '';
+              const businessProvince = editingStation.client.province || '';
+              const businessPostal = editingStation.client.postalCode || '';
+
+              // A station is "custom" the moment it has any non-null address
+              // column. An all-null row means "use business address".
+              const hasCustom = !!(
+                editingStation.addressLine ||
+                editingStation.city ||
+                editingStation.province ||
+                editingStation.postalCode ||
+                editingStation.country
+              );
+              const mode: 'business' | 'custom' = hasCustom ? 'custom' : 'business';
+              const locked = !!editingStation.addressLocked;
+
+              // Pick which address feeds Street View + the mini map.
+              const effective = hasCustom
+                ? {
+                    address: editingStation.addressLine || '',
+                    city: editingStation.city || '',
+                    province: editingStation.province || '',
+                    postalCode: editingStation.postalCode || '',
+                  }
+                : {
+                    address: businessAddress,
+                    city: businessCity,
+                    province: businessProvince,
+                    postalCode: businessPostal,
+                  };
+
+              const fullAddress = [
+                effective.address,
+                effective.city,
+                effective.province,
+                effective.postalCode,
+              ]
+                .filter(Boolean)
+                .join(', ');
+
+              const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+              const mapSrc = fullAddress
+                ? mapsApiKey
+                  ? `https://www.google.com/maps/embed/v1/place?key=${mapsApiKey}&q=${encodeURIComponent(fullAddress)}&zoom=16`
+                  : `https://maps.google.com/maps?q=${encodeURIComponent(fullAddress)}&z=16&output=embed`
+                : '';
+
+              const switchToBusiness = () => {
+                // Clear the custom columns so the fallback kicks in.
+                const updated = {
+                  ...editingStation,
+                  addressLine: null,
+                  city: null,
+                  province: null,
+                  postalCode: null,
+                  country: null,
+                };
+                setEditingStation(updated);
+                handleUpdateStation({
+                  addressLine: null,
+                  city: null,
+                  province: null,
+                  postalCode: null,
+                  country: null,
+                });
+              };
+              const switchToCustom = () => {
+                // Seed the custom fields with whatever the business
+                // address currently has so the operator only edits the
+                // bits that actually differ.
+                const updated = {
+                  ...editingStation,
+                  addressLine: businessAddress || '',
+                  city: businessCity || '',
+                  province: businessProvince || '',
+                  postalCode: businessPostal || '',
+                  country: editingStation.country || '',
+                };
+                setEditingStation(updated);
+                handleUpdateStation({
+                  addressLine: updated.addressLine,
+                  city: updated.city,
+                  province: updated.province,
+                  postalCode: updated.postalCode,
+                  country: updated.country,
+                });
+              };
+
+              const disabled = locked;
+
+              return (
+                <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold text-gray-900">
+                      {t('stations', 'addressSection') || 'Station address'}
+                    </h2>
+                    {/* Lock guardrail — must be unchecked to edit. */}
+                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={locked}
+                        onChange={(e) => {
+                          const next = e.target.checked;
+                          const updated = { ...editingStation, addressLocked: next };
+                          setEditingStation(updated);
+                          handleUpdateStation({ addressLocked: next });
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      {locked
+                        ? t('stations', 'addressLocked') || 'Locked — uncheck to edit'
+                        : t('stations', 'addressLockToProtect') || 'Lock to protect'}
+                    </label>
+                  </div>
+
+                  {/* Mode radios */}
+                  <div className="flex gap-4 mb-4">
+                    <label
+                      className={`flex items-start gap-2 cursor-pointer flex-1 p-3 rounded-lg border ${
+                        mode === 'business' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                      } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="address-mode"
+                        checked={mode === 'business'}
+                        disabled={disabled}
+                        onChange={() => { if (!disabled) switchToBusiness(); }}
+                        className="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {t('stations', 'addressUseBusiness') || 'Use business address (QuickBooks)'}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {businessAddress
+                            ? [businessAddress, businessCity, businessProvince, businessPostal].filter(Boolean).join(', ')
+                            : t('stations', 'addressNoBusiness') || 'No address on file for this client'}
+                        </div>
+                      </div>
+                    </label>
+                    <label
+                      className={`flex items-start gap-2 cursor-pointer flex-1 p-3 rounded-lg border ${
+                        mode === 'custom' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                      } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="address-mode"
+                        checked={mode === 'custom'}
+                        disabled={disabled}
+                        onChange={() => { if (!disabled) switchToCustom(); }}
+                        className="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {t('stations', 'addressUseCustom') || 'Custom install address'}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {t('stations', 'addressUseCustomHint') ||
+                            'Use a different address than the business one.'}
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Custom fields — only interactable in custom mode + unlocked */}
+                  {mode === 'custom' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          {t('stations', 'addressLine') || 'Street address'}
+                        </label>
+                        <input
+                          type="text"
+                          disabled={disabled}
+                          value={editingStation.addressLine || ''}
+                          onChange={(e) => setEditingStation({ ...editingStation, addressLine: e.target.value })}
+                          onBlur={() => handleUpdateStation({ addressLine: editingStation.addressLine || null })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          {t('stations', 'addressCity') || 'City'}
+                        </label>
+                        <input
+                          type="text"
+                          disabled={disabled}
+                          value={editingStation.city || ''}
+                          onChange={(e) => setEditingStation({ ...editingStation, city: e.target.value })}
+                          onBlur={() => handleUpdateStation({ city: editingStation.city || null })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          {t('stations', 'addressProvince') || 'Province / State'}
+                        </label>
+                        <input
+                          type="text"
+                          disabled={disabled}
+                          value={editingStation.province || ''}
+                          onChange={(e) => setEditingStation({ ...editingStation, province: e.target.value })}
+                          onBlur={() => handleUpdateStation({ province: editingStation.province || null })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          {t('stations', 'addressPostal') || 'Postal / ZIP code'}
+                        </label>
+                        <input
+                          type="text"
+                          disabled={disabled}
+                          value={editingStation.postalCode || ''}
+                          onChange={(e) => setEditingStation({ ...editingStation, postalCode: e.target.value })}
+                          onBlur={() => handleUpdateStation({ postalCode: editingStation.postalCode || null })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          {t('stations', 'addressCountry') || 'Country'}
+                        </label>
+                        <input
+                          type="text"
+                          disabled={disabled}
+                          value={editingStation.country || ''}
+                          onChange={(e) => setEditingStation({ ...editingStation, country: e.target.value })}
+                          onBlur={() => handleUpdateStation({ country: editingStation.country || null })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Street View + mini map preview. Both render against
+                      whichever address is currently effective. */}
+                  {fullAddress ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-xs font-medium text-gray-500 mb-1">
+                          {t('stations', 'addressStreetView') || 'Street view'}
+                        </div>
+                        <StreetView
+                          address={effective.address}
+                          city={effective.city}
+                          province={effective.province}
+                          postalCode={effective.postalCode}
+                          className="h-48"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-gray-500 mb-1">
+                          {t('stations', 'addressMap') || 'Map'}
+                        </div>
+                        <div className="h-48 rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                          {mapSrc ? (
+                            <iframe
+                              src={mapSrc}
+                              className="w-full h-full"
+                              style={{ border: 0 }}
+                              loading="lazy"
+                              referrerPolicy="no-referrer-when-downgrade"
+                              allowFullScreen
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-xs text-gray-400 p-4 text-center">
+                              {t('stations', 'addressMapUnavailable') || 'Map not available'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-400 italic">
+                      {t('stations', 'addressEmpty') ||
+                        'No address to preview yet. Pick a mode and fill in the fields above.'}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Station PC Section */}
             <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">

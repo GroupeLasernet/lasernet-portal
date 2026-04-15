@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { type QBClient, type ManagedClient, type ContactPerson } from '@/lib/mock-data';
 import { useLanguage } from '@/lib/LanguageContext';
 import Avatar from '@/components/Avatar';
@@ -87,6 +88,13 @@ interface Station {
   description?: string;
   invoiceId: string;
   invoiceNumber: string;
+  /**
+   * All QuickBooks invoices linked to this station (new linkage table
+   * StationInvoice + legacy `notes.invoices` fallback). Populated so the
+   * clients tab can show every source invoice under the station name when
+   * there are multiple, rather than only the first one baked into notes.
+   */
+  linkedInvoices: { id: string; invoiceNumber: string }[];
   items: { description: string; quantity: number; rate: number; amount: number }[];
   status: 'not_configured' | 'waiting_pairing' | 'in_trouble' | 'active';
   createdAt: string;
@@ -94,6 +102,7 @@ interface Station {
 
 export default function AdminClientsPage() {
   const { t } = useLanguage();
+  const router = useRouter();
   const [qbClients, setQbClients] = useState<QBClient[]>([]);
   const [qbSearch, setQbSearch] = useState('');
   const [qbConnected, setQbConnected] = useState(false);
@@ -250,19 +259,52 @@ export default function AdminClientsPage() {
         let invoiceId = '';
         let invoiceNumber = '';
         let description = '';
+        let notesInvoices: { id: string; number: string }[] = [];
         try {
           const meta = JSON.parse((row.notes as string) || '{}');
           items = meta.items || [];
           invoiceId = meta.invoiceId || '';
           invoiceNumber = meta.invoiceNumber || '';
           description = meta.description || '';
+          notesInvoices = Array.isArray(meta.invoices) ? meta.invoices : [];
         } catch { /* notes not JSON, that's fine */ }
+
+        // Merge invoice sources: new StationInvoice table (canonical) +
+        // legacy `notes.invoices` + the single `invoiceNumber` in notes.
+        // Dedupe by invoiceNumber because the legacy IDs don't always match
+        // QB invoice IDs exactly.
+        const apiInvoices = Array.isArray(row.invoices)
+          ? (row.invoices as Array<Record<string, unknown>>).map((inv) => ({
+              id: String(inv.qbInvoiceId || inv.id || ''),
+              invoiceNumber: String(inv.invoiceNumber || ''),
+            }))
+          : [];
+        const seen = new Set<string>();
+        const linkedInvoices: { id: string; invoiceNumber: string }[] = [];
+        for (const inv of apiInvoices) {
+          if (inv.invoiceNumber && !seen.has(inv.invoiceNumber)) {
+            seen.add(inv.invoiceNumber);
+            linkedInvoices.push(inv);
+          }
+        }
+        for (const inv of notesInvoices) {
+          if (inv.number && !seen.has(inv.number)) {
+            seen.add(inv.number);
+            linkedInvoices.push({ id: inv.id, invoiceNumber: inv.number });
+          }
+        }
+        if (invoiceNumber && !seen.has(invoiceNumber)) {
+          seen.add(invoiceNumber);
+          linkedInvoices.push({ id: invoiceId, invoiceNumber });
+        }
+
         return {
           id: row.id as string,
           name: row.title as string,
           description,
           invoiceId,
           invoiceNumber,
+          linkedInvoices,
           items,
           status: (row.status as 'not_configured' | 'waiting_pairing' | 'in_trouble' | 'active') || 'not_configured',
           createdAt: row.createdAt as string,
@@ -504,6 +546,7 @@ export default function AdminClientsPage() {
             name: data.station.title,
             invoiceId: previewInvoice.id,
             invoiceNumber: previewInvoice.invoiceNumber,
+            linkedInvoices: [{ id: previewInvoice.id, invoiceNumber: previewInvoice.invoiceNumber }],
             items,
             status: 'not_configured',
             createdAt: data.station.createdAt,
@@ -1057,19 +1100,47 @@ export default function AdminClientsPage() {
                                       className="font-medium text-sm border border-purple-300 rounded px-2 py-0.5 focus:ring-purple-500 focus:border-purple-500 w-48"
                                     />
                                   ) : (
-                                    <p
-                                      className="font-medium text-sm cursor-pointer hover:text-purple-600 transition-colors"
-                                      onClick={(e) => { e.stopPropagation(); setEditingStationId(station.id); setEditingStationName(station.name); }}
-                                      title="Click to rename"
-                                    >
-                                      {station.name}
-                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        className="font-medium text-sm text-left hover:text-purple-600 hover:underline transition-colors"
+                                        onClick={(e) => { e.stopPropagation(); router.push(`/admin/stations?stationId=${station.id}`); }}
+                                        title={t('clients', 'openInStations') || 'Open in Stations'}
+                                      >
+                                        {station.name}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="text-gray-300 hover:text-purple-600 transition-colors"
+                                        onClick={(e) => { e.stopPropagation(); setEditingStationId(station.id); setEditingStationName(station.name); }}
+                                        title={t('common', 'rename') || 'Rename'}
+                                      >
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                      </button>
+                                    </div>
                                   )}
                                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${stationStatusColor(station.status)}`}>
                                     {stationStatusLabel(station.status)}
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-400 mt-0.5">{t('clients', 'fromInvoice')} {station.invoiceNumber} — {formatDate(station.createdAt)}</p>
+                                {station.linkedInvoices && station.linkedInvoices.length > 1 && (
+                                  <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                                    <span className="text-[10px] text-gray-400 uppercase tracking-wide mr-1">
+                                      {t('clients', 'linkedInvoices') || 'Linked invoices'}:
+                                    </span>
+                                    {station.linkedInvoices.map((inv) => (
+                                      <span
+                                        key={`${station.id}-${inv.invoiceNumber}`}
+                                        className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-100"
+                                      >
+                                        #{inv.invoiceNumber}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                                 {station.description && (
                                   <p className="text-xs text-gray-500 mt-1">{station.description}</p>
                                 )}

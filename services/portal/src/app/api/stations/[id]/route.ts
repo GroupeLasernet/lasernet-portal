@@ -58,6 +58,12 @@ export async function GET(
       title: station.title,
       notes: station.notes,
       status: station.status,
+      addressLine: station.addressLine,
+      city: station.city,
+      province: station.province,
+      postalCode: station.postalCode,
+      country: station.country,
+      addressLocked: station.addressLocked,
       invoices: station.invoices.map((inv) => ({
         id: inv.id,
         qbInvoiceId: inv.qbInvoiceId,
@@ -183,6 +189,21 @@ export async function PATCH(
     if (body.notes !== undefined) updateData.notes = body.notes;
     if (body.status !== undefined) updateData.status = body.status;
 
+    // Address fields — `null`/`""` clears to fall back to business address.
+    // We intentionally accept each field independently so the client can
+    // send a partial patch without wiping siblings.
+    const addressKeys = ['addressLine', 'city', 'province', 'postalCode', 'country'] as const;
+    for (const key of addressKeys) {
+      if (body[key] !== undefined) {
+        const val = body[key];
+        updateData[key] =
+          typeof val === 'string' && val.trim() !== '' ? val.trim() : null;
+      }
+    }
+    if (typeof body.addressLocked === 'boolean') {
+      updateData.addressLocked = body.addressLocked;
+    }
+
     const updated = await prisma.station.update({
       where: { id },
       data: updateData,
@@ -204,10 +225,20 @@ export async function PATCH(
         displayName: updated.managedClient.displayName,
         companyName: updated.managedClient.companyName,
         email: updated.managedClient.email,
+        address: updated.managedClient.address,
+        city: updated.managedClient.city,
+        province: updated.managedClient.province,
+        postalCode: updated.managedClient.postalCode,
       },
       title: updated.title,
       notes: updated.notes,
       status: updated.status,
+      addressLine: updated.addressLine,
+      city: updated.city,
+      province: updated.province,
+      postalCode: updated.postalCode,
+      country: updated.country,
+      addressLocked: updated.addressLocked,
       invoices: updated.invoices.map((inv) => ({
         id: inv.id,
         qbInvoiceId: inv.qbInvoiceId,
