@@ -2,7 +2,7 @@
 
 > Portal-specific task list — kept separate from the root `BACKLOG.md` so
 > wider cobot/infra subjects don't dilute portal work.
-> Last updated: 2026-04-15
+> Last updated: 2026-04-15 (clients-tab auto-refresh + rename removal)
 
 ## In Progress
 
@@ -17,6 +17,7 @@ _(nothing actively in flight)_
 
 ## Recently Shipped
 
+- [x] **Clients tab — auto-refresh stations after invoice mutations + remove inline rename** *(2026-04-15)* — extracted `refreshStations()` useCallback in `src/app/admin/clients/page.tsx` and wired it into every mutation: `handleCreateStation` (add-to-existing AND create-new paths), `handleRemoveStationInvoice` (success + rollback), and `handleDeleteStation`. Kills the stale "2 invoices" / "(N items)" labels in the add-invoice dropdown after a removal, and no longer requires a manual F5 after attaching an invoice to an existing station. Also removed the pencil-icon inline rename on the Clients → Stations list — clicking the station name now *only* routes to `/admin/stations?stationId=<id>` (the Stations tab has the real edit surface). Dropped `editingStationId`, `editingStationName`, and `handleRenameStation`; `EditIcon` helper kept because main-contact / staff rows still use it. Also: creating a station or attaching an invoice to an existing station now POSTs to `/api/stations/[id]/invoices` so the StationInvoice DB row exists (previously the legacy `notes.invoices` path could leave no DB row, breaking later DELETE-by-id flows).
 - [x] **Remove invoice from station chip in Clients tab** *(2026-04-15)* — each `#<invoiceNumber>` chip in the Clients → Stations section now has an × button that unlinks the invoice from the station. DB-backed `StationInvoice` rows go through `DELETE /api/stations/[id]/invoices/[invoiceId]` (Machine.invoiceId is `SetNull` → machines preserved). Legacy notes-only entries fall back to PATCHing `notes.invoices` JSON and promoting the next invoice to primary (or clearing) if the deleted one was the legacy `notes.invoiceNumber`. Confirm dialog. Chip row still only shows when `linkedInvoices.length > 1` — tightening that is a follow-up if Hugo wants to remove the last invoice.
 - [x] **Removed Station PC returns to "To be approved"** *(2026-04-15)* — `/api/station-pcs/[id]` PATCH now flips `approved=false` + `status=provisioning` on detach (when `assignToStationId=null` and the caller didn't explicitly pass `approved`), so the PC reappears in the pending queue. Frontend detail panel adds an explicit "Unassign & send back to approval" button plus a confirm dialog. Symmetric: **assigning a PC to a station implicitly re-approves it** (flips `approved=true` if it was pending and not retired) so reassigning to the same or a new station clears the pending badge immediately. Retired PCs and explicit `approved: false` overrides are respected.
 - [x] **Sidebar reorder — Station PCs above Machines** *(2026-04-15)* — swapped array positions in `src/app/admin/layout.tsx` so operators reach station PC management before the machine list.

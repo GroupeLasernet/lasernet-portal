@@ -236,29 +236,21 @@ export default function AdminClientsPage() {
     }).catch(() => setClientTrainings([]));
   }, [selectedClientId]);
 
-  useEffect(() => {
-    if (!selectedClientId) { setClientInvoices([]); setClientStations([]); return; }
-    const client = managedClients.find((mc) => mc.id === selectedClientId);
-    if (!client) return;
-    // Strip 'qb-' prefix if present to get the real QuickBooks customer ID
-    const rawQbId = client.qbClient.id.replace(/^qb-/, '');
-    const clientName = client.qbClient.displayName;
-    setInvoicesLoading(true);
-    fetch(`/api/quickbooks/invoices?customerId=${rawQbId}`).then(r => r.json()).then(data => {
-      const allInvoices: QBInvoice[] = data.invoices || [];
-      // Match by raw QB ID or client display name
-      const filtered = allInvoices.filter(inv =>
-        inv.clientId === rawQbId ||
-        inv.clientName === clientName ||
-        inv.clientName.toLowerCase() === clientName.toLowerCase()
-      );
-      setClientInvoices(filtered);
-      setInvoicesSource(data.source || 'mock');
-      setInvoicesLoading(false);
-    }).catch(() => { setClientInvoices([]); setInvoicesLoading(false); });
-
-    // Load stations for this client
-    fetch(`/api/stations?clientId=${selectedClientId}`).then(r => r.json()).then(data => {
+  /**
+   * Refetch the stations list for the currently-selected client and rebuild
+   * the local `clientStations` state from the server response.
+   *
+   * Centralised so every mutation (remove invoice, add invoice, create
+   * station, rename, delete) can call it instead of maintaining fragile
+   * optimistic state — otherwise the "items count in the dropdown" and
+   * "linkedInvoices chips" drift out of sync with the DB after a single
+   * edit and you have to hard-refresh the page to recover.
+   */
+  const refreshStations = useCallback(async () => {
+    if (!selectedClientId) { setClientStations([]); return; }
+    try {
+      const res = await fetch(`/api/stations?clientId=${selectedClientId}`);
+      const data = await res.json();
       const rows = data.stations || [];
       const stations: Station[] = rows.map((row: Record<string, unknown>) => {
         let items: { description: string; quantity: number; rate: number; amount: number }[] = [];
@@ -275,10 +267,6 @@ export default function AdminClientsPage() {
           notesInvoices = Array.isArray(meta.invoices) ? meta.invoices : [];
         } catch { /* notes not JSON, that's fine */ }
 
-        // Merge invoice sources: new StationInvoice table (canonical) +
-        // legacy `notes.invoices` + the single `invoiceNumber` in notes.
-        // Dedupe by invoiceNumber because the legacy IDs don't always match
-        // QB invoice IDs exactly.
         const apiInvoices = Array.isArray(row.invoices)
           ? (row.invoices as Array<Record<string, unknown>>).map((inv) => ({
               stationInvoiceId: String(inv.id || ''),
@@ -297,7 +285,6 @@ export default function AdminClientsPage() {
         for (const inv of notesInvoices) {
           if (inv.number && !seen.has(inv.number)) {
             seen.add(inv.number);
-            // Legacy notes entries have no StationInvoice DB row.
             linkedInvoices.push({ id: inv.id, invoiceNumber: inv.number });
           }
         }
@@ -319,8 +306,37 @@ export default function AdminClientsPage() {
         };
       });
       setClientStations(stations);
-    }).catch(() => setClientStations([]));
-  }, [selectedClientId, managedClients]);
+    } catch {
+      setClientStations([]);
+    }
+  }, [selectedClientId]);
+
+  useEffect(() => {
+    if (!selectedClientId) { setClientInvoices([]); setClientStations([]); return; }
+    const client = managedClients.find((mc) => mc.id === selectedClientId);
+    if (!client) return;
+    // Strip 'qb-' prefix if present to get the real QuickBooks customer ID
+    const rawQbId = client.qbClient.id.replace(/^qb-/, '');
+    const clientName = client.qbClient.displayName;
+    setInvoicesLoading(true);
+    fetch(`/api/quickbooks/invoices?customerId=${rawQbId}`).then(r => r.json()).then(data => {
+      const allInvoices: QBInvoice[] = data.invoices || [];
+      // Match by raw QB ID or client display name
+      const filtered = allInvoices.filter(inv =>
+        inv.clientId === rawQbId ||
+        inv.clientName === clientName ||
+        inv.clientName.toLowerCase() === clientName.toLowerCase()
+      );
+      setClientInvoices(filtered);
+      setInvoicesSource(data.source || 'mock');
+      setInvoicesLoading(false);
+    }).catch(() => { setClientInvoices([]); setInvoicesLoading(false); });
+
+    // Load stations for this client. Delegates to refreshStations so the
+    // mapping lives in one place; future refreshes (after mutations) call
+    // the same function without duplicating logic.
+    refreshStations();
+  }, [selectedClientId, managedClients, refreshStations]);
 
   const handleConnectQB = async () => {
     setConnectError(null);
@@ -525,12 +541,29 @@ export default function AdminClientsPage() {
           invoices.push({ id: previewInvoice.id, number: previewInvoice.invoiceNumber });
         }
         const notes = JSON.stringify({ ...existingMeta, invoiceId: existingMeta.invoiceId || previewInvoice.id, invoiceNumber: existingMeta.invoiceNumber || previewInvoice.invoiceNumber, invoices, items: updatedItems });
-        setClientStations(prev => prev.map(s => s.id !== selectedExistingStationId ? s : { ...s, items: updatedItems }));
-        fetch(`/api/stations/${selectedExistingStationId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notes }),
-        }).catch(() => {});
+        try {
+          // 1) Update the station's notes (adds items + invoices array entry).
+          await fetch(`/api/stations/${selectedExistingStationId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes }),
+          });
+          // 2) Also create a StationInvoice row so the chip + linkedInvoices
+          //    merge picks it up without relying on the legacy notes fallback.
+          //    Best-effort: ignore failures (UI still works off notes).
+          await fetch(`/api/stations/${selectedExistingStationId}/invoices`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              qbInvoiceId: previewInvoice.id,
+              invoiceNumber: previewInvoice.invoiceNumber,
+              amount: previewInvoice.amount ?? null,
+            }),
+          }).catch(() => {});
+        } catch { /* swallow — refresh below will reveal any error state */ }
+        // Pull the server's canonical view instead of optimistic patching so
+        // `linkedInvoices` + `items` count + chips stay in lock-step.
+        await refreshStations();
       }
     } else {
       // Create new station via /api/stations
@@ -549,16 +582,17 @@ export default function AdminClientsPage() {
         });
         const data = await res.json();
         if (data.station) {
-          setClientStations(prev => [...prev, {
-            id: data.station.id,
-            name: data.station.title,
-            invoiceId: previewInvoice.id,
-            invoiceNumber: previewInvoice.invoiceNumber,
-            linkedInvoices: [{ id: previewInvoice.id, invoiceNumber: previewInvoice.invoiceNumber }],
-            items,
-            status: 'not_configured',
-            createdAt: data.station.createdAt,
-          }]);
+          // Attach the source invoice as a proper StationInvoice row.
+          await fetch(`/api/stations/${data.station.id}/invoices`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              qbInvoiceId: previewInvoice.id,
+              invoiceNumber: previewInvoice.invoiceNumber,
+              amount: previewInvoice.amount ?? null,
+            }),
+          }).catch(() => {});
+          await refreshStations();
         }
       } catch (err) {
         console.error('Failed to create station:', err);
@@ -571,13 +605,14 @@ export default function AdminClientsPage() {
     setPreviewInvoice(null);
   };
 
-  const handleDeleteStation = (stationId: string) => {
+  const handleDeleteStation = async (stationId: string) => {
     setClientStations(prev => prev.filter(s => s.id !== stationId));
-    fetch(`/api/stations/${stationId}`, { method: 'DELETE' }).catch(() => {});
+    try {
+      await fetch(`/api/stations/${stationId}`, { method: 'DELETE' });
+    } catch { /* refresh below will reconcile */ }
+    await refreshStations();
   };
 
-  const [editingStationId, setEditingStationId] = useState<string | null>(null);
-  const [editingStationName, setEditingStationName] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: string; id2?: string; label: string } | null>(null);
 
   const handleDeleteTraining = async (trainingId: string) => {
@@ -643,6 +678,44 @@ export default function AdminClientsPage() {
           { method: 'DELETE' }
         );
         if (!res.ok) throw new Error('delete failed');
+        // Also strip the invoice's items from notes.items so the "(N items)"
+        // count in the add-to-existing-station dropdown reflects reality.
+        try {
+          const getRes = await fetch(`/api/stations/${stationId}`);
+          const getData = await getRes.json();
+          let meta: Record<string, unknown> = {};
+          try { meta = JSON.parse(getData.station?.notes || '{}'); } catch { /* ignore */ }
+          const currentItems = Array.isArray(meta.items)
+            ? (meta.items as { sourceInvoiceId?: string; sourceInvoiceNumber?: string }[])
+            : [];
+          const kept = currentItems.filter(it =>
+            it.sourceInvoiceId !== inv.id &&
+            it.sourceInvoiceNumber !== inv.invoiceNumber
+          );
+          // Also clear the legacy `notes.invoices` entry + primary fields if
+          // they point at the invoice we just removed.
+          const legacyInvoices = Array.isArray(meta.invoices)
+            ? (meta.invoices as { id: string; number: string }[]).filter(
+                x => x.number !== inv.invoiceNumber && x.id !== inv.id
+              )
+            : [];
+          meta.invoices = legacyInvoices;
+          if (meta.invoiceNumber === inv.invoiceNumber) {
+            if (legacyInvoices.length > 0) {
+              meta.invoiceId = legacyInvoices[0].id;
+              meta.invoiceNumber = legacyInvoices[0].number;
+            } else {
+              delete meta.invoiceId;
+              delete meta.invoiceNumber;
+            }
+          }
+          meta.items = kept;
+          await fetch(`/api/stations/${stationId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes: JSON.stringify(meta) }),
+          });
+        } catch { /* best-effort; refresh below will still pull canonical state */ }
       } else {
         // Legacy path: pull the station's current notes, strip the invoice,
         // PATCH it back.
@@ -679,30 +752,14 @@ export default function AdminClientsPage() {
         });
         if (!res.ok) throw new Error('patch failed');
       }
+      // Pull canonical server state so the add-invoice dropdown,
+      // linkedInvoices chips, and items count all stay in sync.
+      await refreshStations();
     } catch {
       // Rollback: refetch the station list so the UI matches the server.
-      if (selectedClientId) {
-        fetch(`/api/stations?clientId=${selectedClientId}`)
-          .then(r => r.json())
-          .then(() => {
-            // Trigger the dependent effect by bumping selectedClientId
-            // (cheap re-run of the fetch useEffect). We rely on the
-            // existing effect to repopulate clientStations.
-          });
-      }
+      await refreshStations();
       alert(t('clients', 'removeInvoiceFailed') || 'Could not remove invoice. Please refresh.');
     }
-  };
-
-  const handleRenameStation = (stationId: string, newName: string) => {
-    if (!newName.trim()) return;
-    setClientStations(prev => prev.map(s => s.id === stationId ? { ...s, name: newName.trim() } : s));
-    setEditingStationId(null);
-    fetch(`/api/stations/${stationId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: newName.trim() }),
-    }).catch(() => {});
   };
 
   const EditIcon = () => (
@@ -1189,40 +1246,14 @@ export default function AdminClientsPage() {
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
-                                  {editingStationId === station.id ? (
-                                    <input
-                                      autoFocus
-                                      value={editingStationName}
-                                      onChange={(e) => setEditingStationName(e.target.value)}
-                                      onBlur={() => handleRenameStation(station.id, editingStationName)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleRenameStation(station.id, editingStationName);
-                                        if (e.key === 'Escape') setEditingStationId(null);
-                                      }}
-                                      className="font-medium text-sm border border-purple-300 rounded px-2 py-0.5 focus:ring-purple-500 focus:border-purple-500 w-48"
-                                    />
-                                  ) : (
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        type="button"
-                                        className="font-medium text-sm text-left hover:text-purple-600 hover:underline transition-colors"
-                                        onClick={(e) => { e.stopPropagation(); router.push(`/admin/stations?stationId=${station.id}`); }}
-                                        title={t('clients', 'openInStations') || 'Open in Stations'}
-                                      >
-                                        {station.name}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="text-gray-300 hover:text-purple-600 transition-colors"
-                                        onClick={(e) => { e.stopPropagation(); setEditingStationId(station.id); setEditingStationName(station.name); }}
-                                        title={t('common', 'rename') || 'Rename'}
-                                      >
-                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                      </button>
-                                    </div>
-                                  )}
+                                  <button
+                                    type="button"
+                                    className="font-medium text-sm text-left hover:text-purple-600 hover:underline transition-colors"
+                                    onClick={(e) => { e.stopPropagation(); router.push(`/admin/stations?stationId=${station.id}`); }}
+                                    title={t('clients', 'openInStations') || 'Open in Stations'}
+                                  >
+                                    {station.name}
+                                  </button>
                                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${stationStatusColor(station.status)}`}>
                                     {stationStatusLabel(station.status)}
                                   </span>
