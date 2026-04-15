@@ -341,6 +341,42 @@ model StationPC {
 
   // Back-relation to the Station currently running on this PC (if any).
   station      Station?
+
+  // Assign/detach audit trail — every time this PC is bound to or released
+  // from a Station we append a row. Survives Station deletion (see
+  // StationPCAssignment.stationId — no FK, with a snapshot of number/title).
+  assignments  StationPCAssignment[]
+}
+
+// ============================================================
+// STATION PC ASSIGNMENT HISTORY
+// One row per assign/detach of a StationPC to/from a Station. Captures
+// the actor (best-effort from auth cookie) and the reason so Hugo can
+// trace who moved a PC where and why.
+// ============================================================
+model StationPCAssignment {
+  id            String   @id @default(cuid())
+  stationPCId   String
+  stationPC     StationPC @relation(fields: [stationPCId], references: [id], onDelete: Cascade)
+
+  // The Station involved. Nullable because 'detached' events outlive the
+  // Station row when a station is deleted. We snapshot number+title below
+  // so the UI stays readable post-delete.
+  stationId     String?
+  stationNumber String?
+  stationTitle  String?
+
+  action        String   // 'assigned' | 'detached'
+  reason        String?  // 'manual' | 'station_deleted' | 'reassigned' | 'pc_retired' | ...
+
+  actorEmail    String?
+  actorName     String?
+
+  note          String?
+  createdAt     DateTime @default(now())
+
+  @@index([stationPCId])
+  @@index([stationId])
 }
 
 // ============================================================

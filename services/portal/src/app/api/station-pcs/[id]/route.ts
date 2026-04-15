@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getActorFromRequest } from '@/lib/actor';
 
 // GET /api/station-pcs/[id]
 export async function GET(
@@ -76,23 +77,92 @@ export async function PATCH(
     // Station assignment: null to detach, a station id to attach.
     if ('assignToStationId' in body) {
       const targetStationId: string | null = body.assignToStationId ?? null;
+      const actor = await getActorFromRequest(request);
 
       // Always detach any Station currently pointing at this PC first, so the
       // unique constraint on Station.stationPCId can't bite us during the swap.
+      // Pull identity snapshots BEFORE we null out the pointer so the audit
+      // trail preserves the station number + title even after detach.
       const priorAssignments = await prisma.station.findMany({
         where: { stationPCId: id },
-        select: { id: true },
+        select: { id: true, stationNumber: true, title: true },
       });
       await prisma.station.updateMany({
         where: { stationPCId: id },
         data: { stationPCId: null },
       });
 
+      // Record one 'detached' event per prior station the PC was bound to.
+      // Reason: 'reassigned' if we're moving it to a new station in the same
+      // call, 'manual' if we're just detaching.
+      const detachReason = targetStationId ? 'reassigned' : 'manual';
+      for (const prior of priorAssignments) {
+        await prisma.stationPCAssignment.create({
+          data: {
+            stationPCId: id,
+            stationId: prior.id,
+            stationNumber: prior.stationNumber,
+            stationTitle: prior.title,
+            action: 'detached',
+            reason: detachReason,
+            actorEmail: actor.email,
+            actorName: actor.name,
+          },
+        });
+      }
+
       if (targetStationId) {
-        // Also detach whatever PC that Station currently has (1-to-1).
-        await prisma.station.update({
+        // Also detach whatever PC that Station currently has (1-to-1). We
+        // need to write a 'detached' audit row for THAT PC too (with reason
+        // 'reassigned' from its own perspective — its station was taken by
+        // someone else).
+        const targetBefore = await prisma.station.findUnique({
+          where: { id: targetStationId },
+          select: { id: true, stationNumber: true, title: true, stationPCId: true },
+        });
+        if (targetBefore?.stationPCId && targetBefore.stationPCId !== id) {
+          await prisma.stationPCAssignment.create({
+            data: {
+              stationPCId: targetBefore.stationPCId,
+              stationId: targetBefore.id,
+              stationNumber: targetBefore.stationNumber,
+              stationTitle: targetBefore.title,
+              action: 'detached',
+              reason: 'reassigned',
+              actorEmail: actor.email,
+              actorName: actor.name,
+              note: 'Displaced by another PC taking this Station slot',
+            },
+          });
+          // Send the displaced PC back to pending (unless retired).
+          const displaced = await prisma.stationPC.findUnique({
+            where: { id: targetBefore.stationPCId },
+            select: { status: true },
+          });
+          if (displaced && displaced.status !== 'retired') {
+            await prisma.stationPC.update({
+              where: { id: targetBefore.stationPCId },
+              data: { approved: false, status: 'provisioning' },
+            });
+          }
+        }
+
+        const target = await prisma.station.update({
           where: { id: targetStationId },
           data: { stationPCId: id },
+          select: { id: true, stationNumber: true, title: true },
+        });
+        await prisma.stationPCAssignment.create({
+          data: {
+            stationPCId: id,
+            stationId: target.id,
+            stationNumber: target.stationNumber,
+            stationTitle: target.title,
+            action: 'assigned',
+            reason: priorAssignments.length > 0 ? 'reassigned' : 'manual',
+            actorEmail: actor.email,
+            actorName: actor.name,
+          },
         });
         // Assigning a PC to a Station IS an implicit revival:
         //   - If it was sitting in "To be approved" (approved=false), re-approve.

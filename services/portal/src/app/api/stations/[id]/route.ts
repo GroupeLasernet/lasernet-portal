@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getActorFromRequest } from '@/lib/actor';
 
 // GET /api/stations/[id] — Get single station with all relations
 export async function GET(
@@ -307,7 +308,11 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/stations/[id] — Delete station and all related records
+// DELETE /api/stations/[id] — Delete station and all related records.
+// Special handling for an attached StationPC: detach it, send it back to
+// the "To be approved" queue (status=provisioning, approved=false — unless
+// it's retired), and record a 'detached' event with reason='station_deleted'
+// so the PC's history shows where it used to live and who unplugged it.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -315,14 +320,53 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    const station = await prisma.station.findUnique({ where: { id } });
+    const station = await prisma.station.findUnique({
+      where: { id },
+      include: { stationPC: true },
+    });
     if (!station) {
       return NextResponse.json({ error: 'Station not found' }, { status: 404 });
     }
 
+    const pc = station.stationPC;
+    if (pc) {
+      const actor = await getActorFromRequest(request);
+      // Snapshot the station identity BEFORE we delete it — the audit row
+      // has no FK on stationId, so these snapshot columns are what the UI
+      // renders once the Station row is gone.
+      await prisma.stationPCAssignment.create({
+        data: {
+          stationPCId: pc.id,
+          stationId: station.id,
+          stationNumber: station.stationNumber,
+          stationTitle: station.title,
+          action: 'detached',
+          reason: 'station_deleted',
+          actorEmail: actor.email,
+          actorName: actor.name,
+        },
+      });
+      // Detach first (clears Station.stationPCId on the row we're about to
+      // delete — redundant but explicit). Then flip the PC back to pending
+      // unless it's retired.
+      await prisma.station.update({
+        where: { id },
+        data: { stationPCId: null },
+      });
+      if (pc.status !== 'retired') {
+        await prisma.stationPC.update({
+          where: { id: pc.id },
+          data: { approved: false, status: 'provisioning' },
+        });
+      }
+    }
+
     await prisma.station.delete({ where: { id } });
 
-    return NextResponse.json({ message: 'Station deleted successfully' });
+    return NextResponse.json({
+      message: 'Station deleted successfully',
+      stationPCReturned: pc ? { id: pc.id, serial: pc.serial } : null,
+    });
   } catch (error) {
     console.error('Error deleting station:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

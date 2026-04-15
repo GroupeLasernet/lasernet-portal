@@ -755,6 +755,9 @@ function StationPCDetail({
         />
       </dl>
 
+      {/* Assignment history */}
+      <AssignmentHistory pcId={pc.id} pcStationId={pc.station?.id || null} t={t} />
+
       {/* Actions */}
       <div className="flex items-center justify-between gap-2 mt-6 pt-4 border-t border-gray-100">
         {editing ? (
@@ -800,6 +803,122 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
     <div>
       <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{label}</dt>
       <dd className="text-gray-900">{value}</dd>
+    </div>
+  );
+}
+
+// --- Assignment history --------------------------------------------------
+// Shows every prior assign/detach for this PC, most recent first, with the
+// station it was bound to, the reason (manual / reassigned / station_deleted)
+// and who performed the action.
+
+interface AssignmentRow {
+  id: string;
+  action: 'assigned' | 'detached' | string;
+  reason: string | null;
+  stationId: string | null;
+  stationNumber: string | null;
+  stationTitle: string | null;
+  actorEmail: string | null;
+  actorName: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+function AssignmentHistory({
+  pcId,
+  pcStationId,
+  t,
+}: {
+  pcId: string;
+  pcStationId: string | null;
+  t: TFn;
+}) {
+  const [rows, setRows] = useState<AssignmentRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/station-pcs/${pcId}/history`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setRows(data.history || []);
+      })
+      .catch(() => { if (!cancelled) setRows([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+    // Re-fetch when the PC's current station changes (assignment just happened).
+  }, [pcId, pcStationId]);
+
+  if (loading) return null;
+  if (rows.length === 0) return null;
+
+  const visible = expanded ? rows : rows.slice(0, 3);
+
+  const reasonLabel = (r: string | null) => {
+    if (!r) return '';
+    switch (r) {
+      case 'manual': return t('stationPcs', 'reasonManual') || 'manual';
+      case 'reassigned': return t('stationPcs', 'reasonReassigned') || 'reassigned';
+      case 'station_deleted': return t('stationPcs', 'reasonStationDeleted') || 'station deleted';
+      case 'pc_retired': return t('stationPcs', 'reasonPcRetired') || 'retired';
+      default: return r;
+    }
+  };
+
+  return (
+    <div className="mt-6 pt-4 border-t border-gray-100">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          {t('stationPcs', 'assignmentHistory') || 'Assignment history'}
+        </div>
+        {rows.length > 3 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((x) => !x)}
+            className="text-xs text-gray-500 hover:text-gray-700"
+          >
+            {expanded
+              ? (t('common', 'collapse') || 'Collapse')
+              : `${t('common', 'showAll') || 'Show all'} (${rows.length})`}
+          </button>
+        )}
+      </div>
+      <ol className="space-y-1.5">
+        {visible.map((r) => {
+          const isAssign = r.action === 'assigned';
+          const dot = isAssign ? 'bg-green-500' : 'bg-amber-500';
+          const stationLabel = r.stationNumber
+            ? `${r.stationNumber}${r.stationTitle ? ` — ${r.stationTitle}` : ''}`
+            : (r.stationTitle || '—');
+          const actor = r.actorName || r.actorEmail || (t('stationPcs', 'actorSystem') || 'system');
+          return (
+            <li key={r.id} className="flex items-start gap-2 text-xs">
+              <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
+              <div className="flex-1 min-w-0">
+                <div className="text-gray-800">
+                  <span className="font-medium">
+                    {isAssign
+                      ? (t('stationPcs', 'eventAssigned') || 'Assigned to')
+                      : (t('stationPcs', 'eventDetached') || 'Detached from')}
+                  </span>
+                  {' '}
+                  <span className="font-mono">{stationLabel}</span>
+                  {r.reason && (
+                    <span className="ml-1 text-gray-500">· {reasonLabel(r.reason)}</span>
+                  )}
+                </div>
+                <div className="text-gray-400">
+                  {new Date(r.createdAt).toLocaleString()} · {actor}
+                  {r.note && <span className="ml-1 italic">— {r.note}</span>}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
