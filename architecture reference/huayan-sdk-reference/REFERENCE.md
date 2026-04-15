@@ -18,16 +18,19 @@ huayan-sdk-reference/
     └── Sample_FreeDrive.cpp              ← force-based free drive sample (verbatim)
 ```
 
+Companion docs in this folder:
+- **`MANUAL_NOTES.md`** — distilled findings from the English pendant manual (esp. §2.7 Zero-Force Demonstration = drag teach, §1.3 startup sequence, §3.4 safety verification).
+- **`HansRobot_Operation_Manual_Elfin_Software.pdf`** — the full 128-page manual (verbatim, Hugo uploaded 2026-04-14).
+
 Files that are too large to copy verbatim but are linked below for reference:
 - **`HansRobotAPI_Base.java`** — the big one, contains every `HRIF_*` method → TCP-command mapping. https://github.com/huayan-robotics/SDK_sample/blob/master/JavaSDKSourceCode/src/com/hansRobotBaseLib/HansRobotAPI_Base.java
 - **`HansSocket.java`** — TCP send/receive framing.
 - **`HansRobotAPI.java`** — higher-level wrapper.
 - **`HuayanRobot_Library_C++使用示例.pdf`** — Chinese C++ usage guide (PDF at repo root).
 
-Also see the **Haas CNC mirror** of the English operation manual — Hugo linked it 2026-04-14:
+The English operation manual is now saved in this folder as
+`HansRobot_Operation_Manual_Elfin_Software.pdf` (Hugo uploaded 2026-04-14). Online mirror:
 https://www.haascnc.com/content/dam/haascnc/service/guides/how-to/haas-cobot-package---installation/HansRobot_Operation%20Manual%20for%20Elfin%20Software%20(1).pdf
-(WebFetch currently returns 403 from the sandbox — Hugo should download it manually into
-this folder as `HansRobot_Operation_Manual_Elfin_Software.pdf` when convenient.)
 
 ---
 
