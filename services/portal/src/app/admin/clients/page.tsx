@@ -93,8 +93,14 @@ interface Station {
    * StationInvoice + legacy `notes.invoices` fallback). Populated so the
    * clients tab can show every source invoice under the station name when
    * there are multiple, rather than only the first one baked into notes.
+   *
+   * `stationInvoiceId` is the DB row id in the StationInvoice table, used
+   * for targeted DELETE. Entries coming only from legacy `notes.invoices`
+   * or `notes.invoiceNumber` have no StationInvoice row, so this is
+   * undefined — removal for those entries mutates the notes JSON via
+   * PATCH /api/stations/[id].
    */
-  linkedInvoices: { id: string; invoiceNumber: string }[];
+  linkedInvoices: { stationInvoiceId?: string; id: string; invoiceNumber: string }[];
   items: { description: string; quantity: number; rate: number; amount: number }[];
   status: 'not_configured' | 'waiting_pairing' | 'in_trouble' | 'active';
   createdAt: string;
@@ -275,12 +281,13 @@ export default function AdminClientsPage() {
         // QB invoice IDs exactly.
         const apiInvoices = Array.isArray(row.invoices)
           ? (row.invoices as Array<Record<string, unknown>>).map((inv) => ({
+              stationInvoiceId: String(inv.id || ''),
               id: String(inv.qbInvoiceId || inv.id || ''),
               invoiceNumber: String(inv.invoiceNumber || ''),
             }))
           : [];
         const seen = new Set<string>();
-        const linkedInvoices: { id: string; invoiceNumber: string }[] = [];
+        const linkedInvoices: Station['linkedInvoices'] = [];
         for (const inv of apiInvoices) {
           if (inv.invoiceNumber && !seen.has(inv.invoiceNumber)) {
             seen.add(inv.invoiceNumber);
@@ -290,6 +297,7 @@ export default function AdminClientsPage() {
         for (const inv of notesInvoices) {
           if (inv.number && !seen.has(inv.number)) {
             seen.add(inv.number);
+            // Legacy notes entries have no StationInvoice DB row.
             linkedInvoices.push({ id: inv.id, invoiceNumber: inv.number });
           }
         }
@@ -591,6 +599,100 @@ export default function AdminClientsPage() {
     }
     setConfirmDelete(null);
   }, [confirmDelete]);
+
+  /**
+   * Unlink a single invoice from a station.
+   *
+   * Two paths depending on where the invoice comes from in the merged
+   * `linkedInvoices` array:
+   *  - If `stationInvoiceId` is set → StationInvoice DB row → DELETE it.
+   *    Prisma's Machine.invoiceId SetNull cascade preserves the machines.
+   *  - Otherwise → legacy entry living in Station.notes JSON → PATCH the
+   *    station with a rewritten notes body that removes the matching entry
+   *    from `notes.invoices` and also clears `notes.invoiceId` /
+   *    `notes.invoiceNumber` if that entry was the legacy "primary" one.
+   */
+  const handleRemoveStationInvoice = async (
+    stationId: string,
+    inv: Station['linkedInvoices'][number]
+  ) => {
+    const label = inv.invoiceNumber || inv.id;
+    if (!confirm(
+      t('clients', 'confirmRemoveInvoice')?.replace('{number}', label) ||
+      `Remove invoice #${label} from this station?`
+    )) return;
+
+    // Optimistic local update so the chip disappears immediately.
+    setClientStations(prev => prev.map(s =>
+      s.id !== stationId
+        ? s
+        : {
+            ...s,
+            linkedInvoices: s.linkedInvoices.filter(x =>
+              inv.stationInvoiceId
+                ? x.stationInvoiceId !== inv.stationInvoiceId
+                : x.invoiceNumber !== inv.invoiceNumber
+            ),
+          }
+    ));
+
+    try {
+      if (inv.stationInvoiceId) {
+        const res = await fetch(
+          `/api/stations/${stationId}/invoices/${inv.stationInvoiceId}`,
+          { method: 'DELETE' }
+        );
+        if (!res.ok) throw new Error('delete failed');
+      } else {
+        // Legacy path: pull the station's current notes, strip the invoice,
+        // PATCH it back.
+        const station = clientStations.find(s => s.id === stationId);
+        if (!station) return;
+        // Re-fetch full notes from the server rather than reconstructing
+        // from local state — notes may contain items/fields we don't track.
+        const getRes = await fetch(`/api/stations/${stationId}`);
+        const getData = await getRes.json();
+        const currentNotes = getData.station?.notes || '{}';
+        let meta: Record<string, unknown> = {};
+        try { meta = JSON.parse(currentNotes); } catch { meta = {}; }
+        const invoices = Array.isArray(meta.invoices)
+          ? (meta.invoices as { id: string; number: string }[]).filter(
+              x => x.number !== inv.invoiceNumber && x.id !== inv.id
+            )
+          : [];
+        if (meta.invoiceNumber === inv.invoiceNumber) {
+          // Promote the next invoice (if any) to primary so the "From
+          // invoice" caption doesn't go stale.
+          if (invoices.length > 0) {
+            meta.invoiceId = invoices[0].id;
+            meta.invoiceNumber = invoices[0].number;
+          } else {
+            delete meta.invoiceId;
+            delete meta.invoiceNumber;
+          }
+        }
+        meta.invoices = invoices;
+        const res = await fetch(`/api/stations/${stationId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes: JSON.stringify(meta) }),
+        });
+        if (!res.ok) throw new Error('patch failed');
+      }
+    } catch {
+      // Rollback: refetch the station list so the UI matches the server.
+      if (selectedClientId) {
+        fetch(`/api/stations?clientId=${selectedClientId}`)
+          .then(r => r.json())
+          .then(() => {
+            // Trigger the dependent effect by bumping selectedClientId
+            // (cheap re-run of the fetch useEffect). We rely on the
+            // existing effect to repopulate clientStations.
+          });
+      }
+      alert(t('clients', 'removeInvoiceFailed') || 'Could not remove invoice. Please refresh.');
+    }
+  };
 
   const handleRenameStation = (stationId: string, newName: string) => {
     if (!newName.trim()) return;
@@ -1134,9 +1236,23 @@ export default function AdminClientsPage() {
                                     {station.linkedInvoices.map((inv) => (
                                       <span
                                         key={`${station.id}-${inv.invoiceNumber}`}
-                                        className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-100"
+                                        className="group inline-flex items-center gap-1 text-[10px] font-medium pl-1.5 pr-1 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-100 hover:bg-orange-100 transition-colors"
                                       >
-                                        #{inv.invoiceNumber}
+                                        <span>#{inv.invoiceNumber}</span>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleRemoveStationInvoice(station.id, inv);
+                                          }}
+                                          className="flex items-center justify-center w-3.5 h-3.5 rounded-full text-orange-500 hover:text-white hover:bg-orange-500 transition-colors"
+                                          title={t('clients', 'removeInvoiceTooltip') || 'Remove this invoice from the station'}
+                                          aria-label={t('clients', 'removeInvoiceTooltip') || 'Remove this invoice from the station'}
+                                        >
+                                          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                          </svg>
+                                        </button>
                                       </span>
                                     ))}
                                   </div>

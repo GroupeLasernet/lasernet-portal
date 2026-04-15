@@ -203,6 +203,9 @@ const translations = {
     fromInvoice: { fr: 'De la facture', en: 'From invoice' },
     linkedInvoices: { fr: 'Factures liées', en: 'Linked invoices' },
     openInStations: { fr: 'Ouvrir dans Stations', en: 'Open in Stations' },
+    confirmRemoveInvoice: { fr: 'Retirer la facture #{number} de cette station ? Les machines vendues sur cette facture resteront dans la station.', en: 'Remove invoice #{number} from this station? Machines sold on this invoice will stay on the station.' },
+    removeInvoiceTooltip: { fr: 'Retirer cette facture de la station', en: 'Remove this invoice from the station' },
+    removeInvoiceFailed: { fr: 'Impossible de retirer la facture. Actualisez la page.', en: 'Could not remove invoice. Please refresh.' },
     // Station creation modal
     lineItems: { fr: 'Articles de la facture', en: 'Line Items' },
     selectItems: { fr: 'Sélectionnez les articles à assigner à une Station', en: 'Select the items you want to assign to a Station' },
