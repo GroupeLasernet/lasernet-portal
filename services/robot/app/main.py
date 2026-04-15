@@ -28,6 +28,7 @@ from app.path_planner import generate_waypoints, estimate_travel_distance, estim
 from app.robot_comm import get_robot
 from app import license as lic_module
 from app import sync as sync_module
+from app import station_identity
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("cobot_studio")
@@ -95,6 +96,14 @@ def startup():
                 sync_module.start_sync_worker()
             except Exception as e:
                 logger.error(f"Failed to start sync worker: {e}", exc_info=True)
+
+            # Self-register with the portal as a StationPC and start heartbeat.
+            # Hardware identity is detected locally; the portal returns a stable
+            # id we persist in station_id.json.
+            try:
+                station_identity.start_heartbeat_thread()
+            except Exception as e:
+                logger.error(f"Failed to start station heartbeat: {e}", exc_info=True)
         finally:
             db.close()
     except Exception as e:

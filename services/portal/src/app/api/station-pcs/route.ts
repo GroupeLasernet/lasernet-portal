@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
       lastHeartbeatAt: pc.lastHeartbeatAt ? pc.lastHeartbeatAt.toISOString() : null,
       lastHeartbeatIp: pc.lastHeartbeatIp,
       status: pc.status,
+      approved: pc.approved,
       notes: pc.notes,
       station: pc.station
         ? {
@@ -121,6 +122,8 @@ export async function POST(request: NextRequest) {
         nickname: nickname?.trim() || null,
         notes: notes?.trim() || null,
         status: 'provisioning',
+        // Manual admin-side creation is implicitly trusted.
+        approved: true,
       },
     });
 

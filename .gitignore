@@ -48,6 +48,9 @@ services/robot/data/*.db-shm
 # Robot uploads folder
 services/robot/uploads/
 
+# Robot station identity (portal-assigned PC id, persists across reboots)
+services/robot/station_id.json
+
 # Relfar scratch / exploration scripts (not production code)
 # — uncomment to ignore; leaving commented so you can curate which ones
 # to commit vs. discard later.

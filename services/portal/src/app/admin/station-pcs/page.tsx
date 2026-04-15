@@ -16,6 +16,7 @@ interface StationPC {
   lastHeartbeatAt: string | null;
   lastHeartbeatIp: string | null;
   status: 'provisioning' | 'online' | 'offline' | 'retired';
+  approved: boolean;
   notes: string | null;
   station: {
     id: string;
@@ -36,7 +37,22 @@ interface StationLite {
   stationPCId: string | null;
 }
 
-type StatusFilter = 'all' | 'provisioning' | 'online' | 'offline' | 'retired';
+type StatusFilter = 'all' | 'pending' | 'provisioning' | 'online' | 'offline' | 'retired';
+
+// Any PC whose server-reported status is `online` but whose last heartbeat is
+// older than STALE_MS should be shown to the operator as effectively offline.
+// This is a display-only override — the next heartbeat will reconcile the DB.
+const STALE_MS = 6 * 60 * 1000;
+
+function displayStatus(pc: StationPC): StationPC['status'] {
+  if (pc.status === 'online' || pc.status === 'provisioning') {
+    if (pc.lastHeartbeatAt) {
+      const age = Date.now() - Date.parse(pc.lastHeartbeatAt);
+      if (Number.isFinite(age) && age > STALE_MS) return 'offline';
+    }
+  }
+  return pc.status;
+}
 
 const STATUS_STYLES: Record<StationPC['status'], { label: (t: TFn) => string; dot: string; chip: string }> = {
   provisioning: {
@@ -86,7 +102,12 @@ export default function StationPCsPage() {
     try {
       setLoading(true);
       const qs = new URLSearchParams();
-      if (status !== 'all') qs.set('status', status);
+      // 'pending' and 'offline' are client-side derived filters — we still
+      // fetch everything and filter below so the display-only stale override
+      // can recategorise rows that the server thinks are `online`.
+      if (status !== 'all' && status !== 'pending' && status !== 'offline') {
+        qs.set('status', status);
+      }
       if (search.trim()) qs.set('search', search.trim());
       const res = await fetch(`/api/station-pcs?${qs.toString()}`);
       const data = await res.json();
@@ -183,7 +204,28 @@ export default function StationPCsPage() {
     fetchPCs();
   };
 
-  const filtered = pcs;
+  const handleApprove = async (pc: StationPC) => {
+    try {
+      const res = await fetch(`/api/station-pcs/${pc.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved: true }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setSelected(data.stationPC);
+      fetchPCs();
+    } catch {
+      // no-op
+    }
+  };
+
+  // Apply the 'pending' and stale-offline client-side derivations.
+  const filtered = pcs.filter((pc) => {
+    if (status === 'pending') return !pc.approved;
+    if (status === 'offline') return displayStatus(pc) === 'offline';
+    return true;
+  });
 
   return (
     <div>
@@ -206,7 +248,7 @@ export default function StationPCsPage() {
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-          {(['all', 'online', 'offline', 'provisioning', 'retired'] as StatusFilter[]).map((s) => (
+          {(['all', 'pending', 'online', 'offline', 'provisioning', 'retired'] as StatusFilter[]).map((s) => (
             <button
               key={s}
               onClick={() => setStatus(s)}
@@ -248,7 +290,8 @@ export default function StationPCsPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.map((pc) => {
-                  const style = STATUS_STYLES[pc.status];
+                  const effective = displayStatus(pc);
+                  const style = STATUS_STYLES[effective];
                   const isSelected = selected?.id === pc.id;
                   return (
                     <tr
@@ -276,10 +319,17 @@ export default function StationPCsPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${style.chip}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
-                          {style.label(t)}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${style.chip}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
+                            {style.label(t)}
+                          </span>
+                          {!pc.approved && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300">
+                              {t('stationPcs', 'pending')}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-500">
                         {pc.lastHeartbeatAt
@@ -306,6 +356,7 @@ export default function StationPCsPage() {
               stations={stations}
               onAssign={handleAssignStation}
               onRetire={handleRetire}
+              onApprove={handleApprove}
               onChange={(updated) => {
                 setSelected(updated);
                 fetchPCs();
@@ -418,6 +469,7 @@ function StationPCDetail({
   stations,
   onAssign,
   onRetire,
+  onApprove,
   onChange,
   t,
 }: {
@@ -425,6 +477,7 @@ function StationPCDetail({
   stations: StationLite[];
   onAssign: (pc: StationPC, stationId: string | null) => void;
   onRetire: (pc: StationPC) => void;
+  onApprove: (pc: StationPC) => void;
   onChange: (updated: StationPC) => void;
   t: TFn;
 }) {
@@ -435,7 +488,7 @@ function StationPCDetail({
   const [notes, setNotes] = useState(pc.notes || '');
   const [saving, setSaving] = useState(false);
 
-  const style = STATUS_STYLES[pc.status];
+  const style = STATUS_STYLES[displayStatus(pc)];
 
   const save = async () => {
     setSaving(true);
@@ -478,6 +531,33 @@ function StationPCDetail({
           {style.label(t)}
         </span>
       </div>
+
+      {/* Quarantine banner — shown until an operator approves a self-registered PC */}
+      {!pc.approved && (
+        <div className="mb-5 rounded-lg border border-yellow-300 bg-yellow-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-0.5">
+              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-200 text-yellow-800 text-xs font-bold">
+                !
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-yellow-900">
+                {t('stationPcs', 'quarantineTitle')}
+              </div>
+              <div className="text-xs text-yellow-800 mt-1">
+                {t('stationPcs', 'quarantineBody')}
+              </div>
+              <button
+                onClick={() => onApprove(pc)}
+                className="mt-3 inline-flex items-center px-3 py-1.5 rounded-md bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium transition-colors"
+              >
+                {t('stationPcs', 'approve')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Assignment */}
       <div className="mb-5 pb-5 border-b border-gray-100">

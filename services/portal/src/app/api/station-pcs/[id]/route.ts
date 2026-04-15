@@ -64,6 +64,9 @@ export async function PATCH(
       }
       data.status = body.status;
     }
+    if (typeof body.approved === 'boolean') {
+      data.approved = body.approved;
+    }
 
     const pc = await prisma.stationPC.update({
       where: { id },

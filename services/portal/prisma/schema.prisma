@@ -306,6 +306,13 @@ model StationPC {
   //   "retired"      — decommissioned, kept for history
   status       String   @default("provisioning")
 
+  // Quarantine flag for self-registered PCs. A PC created via
+  // POST /api/station-pcs/register starts with approved=false and
+  // heartbeats from it are accepted (to populate versions/IP) but it stays
+  // visually flagged in the admin UI until an operator clicks "Approve".
+  // PCs created manually via the admin page are approved=true by default.
+  approved      Boolean  @default(false)
+
   notes        String?  @db.Text
 
   createdAt    DateTime @default(now())
