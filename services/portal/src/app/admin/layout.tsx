@@ -31,20 +31,20 @@ const adminLinks = [
     ),
   },
   {
-    labelKey: 'machines',
-    href: '/admin/machines',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.42 15.17l-5.1-3.26a2 2 0 01-.94-1.64V4.41a2 2 0 012.94-1.76l5.1 3.26a2 2 0 01.94 1.64v5.86a2 2 0 01-2.94 1.76zM20.16 12.83l-5.1 3.26a2 2 0 01-2.94-1.76V8.47a2 2 0 01.94-1.64l5.1-3.26a2 2 0 012.94 1.76v5.86a2 2 0 01-.94 1.64z" />
-      </svg>
-    ),
-  },
-  {
     labelKey: 'stationPCs',
     href: '/admin/station-pcs',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
+  {
+    labelKey: 'machines',
+    href: '/admin/machines',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.42 15.17l-5.1-3.26a2 2 0 01-.94-1.64V4.41a2 2 0 012.94-1.76l5.1 3.26a2 2 0 01.94 1.64v5.86a2 2 0 01-2.94 1.76zM20.16 12.83l-5.1 3.26a2 2 0 01-2.94-1.76V8.47a2 2 0 01.94-1.64l5.1-3.26a2 2 0 012.94 1.76v5.86a2 2 0 01-.94 1.64z" />
       </svg>
     ),
   },

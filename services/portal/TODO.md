@@ -6,7 +6,7 @@
 
 ## In Progress
 
-- [ ] **Removed Station PC should return to "To be approved"** *(2026-04-15)* — when a PC is unlinked/removed from a station, it currently has no clear place to go and there's no UI affordance to re-assign it. Desired behaviour: removing a PC sends it back to the **To be approved** queue in the Station PCs tab, where it can then be re-approved and re-assigned to another station via the normal approval flow. Needs a backend status flip (approved → pending / unassigned) on unlink, plus confirmation that the PC shows up in the pending list after removal.
+_(nothing actively in flight)_
 
 ## Deferred / Nice-to-have
 
@@ -17,6 +17,7 @@
 
 ## Recently Shipped
 
+- [x] **Removed Station PC returns to "To be approved"** *(2026-04-15)* — `/api/station-pcs/[id]` PATCH now flips `approved=false` + `status=provisioning` on detach (when `assignToStationId=null` and the caller didn't explicitly pass `approved`), so the PC reappears in the pending queue. Frontend detail panel adds an explicit "Unassign & send back to approval" button plus a confirm dialog explaining the consequence. Reassignment from Station A → Station B leaves `approved=true` untouched.
 - [x] **Sidebar reorder — Station PCs above Machines** *(2026-04-15)* — swapped array positions in `src/app/admin/layout.tsx` so operators reach station PC management before the machine list.
 - [x] **Google Places autocomplete on station address** *(2026-04-15)* — new `src/components/AddressAutocomplete.tsx` lazy-loads the Places JS library (no `@types/google.maps` dep — local shims). Picking a suggestion auto-fills addressLine / city / province / postalCode / country via `parseComponents` and persists immediately.
 - [x] **Station deployment address — business vs. custom, with Street View + map** *(2026-04-15)* — added 6 nullable address columns on `Station` + `addressLocked` boolean (migration `20260415_station_address.sql`, applied to Neon). Radio toggles between ManagedClient/QuickBooks billing address and a custom install address. Locked-by-default checkbox required to edit. Street View + Google Maps iframe render side-by-side when geocoded.

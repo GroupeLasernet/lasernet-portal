@@ -79,6 +79,10 @@ export async function PATCH(
 
       // Always detach any Station currently pointing at this PC first, so the
       // unique constraint on Station.stationPCId can't bite us during the swap.
+      const priorAssignments = await prisma.station.findMany({
+        where: { stationPCId: id },
+        select: { id: true },
+      });
       await prisma.station.updateMany({
         where: { stationPCId: id },
         data: { stationPCId: null },
@@ -89,6 +93,21 @@ export async function PATCH(
         await prisma.station.update({
           where: { id: targetStationId },
           data: { stationPCId: id },
+        });
+      } else if (priorAssignments.length > 0 && typeof body.approved !== 'boolean') {
+        // Unlinking without a new target → send the PC back to the
+        // "To be approved" queue so the operator has to explicitly
+        // re-approve before it can be reassigned. Skip this if the caller
+        // explicitly passed `approved` (honour the override).
+        await prisma.stationPC.update({
+          where: { id },
+          data: {
+            approved: false,
+            // Keep it visible but not "online" — heartbeat handler forces
+            // unapproved PCs into provisioning anyway, but set it now so the
+            // UI doesn't lag until the next heartbeat.
+            status: existing.status === 'retired' ? 'retired' : 'provisioning',
+          },
         });
       }
     }

@@ -207,6 +207,11 @@ export default function StationPCsPage() {
   };
 
   const handleAssignStation = async (pc: StationPC, stationId: string | null) => {
+    // If the operator is detaching this PC from its current station, warn them:
+    // per product spec, unlinking sends the PC back to the "To be approved" queue.
+    if (stationId === null && pc.station) {
+      if (!confirm(t('stationPcs', 'confirmUnassign'))) return;
+    }
     try {
       const res = await fetch(`/api/station-pcs/${pc.id}`, {
         method: 'PATCH',
@@ -667,9 +672,24 @@ function StationPCDetail({
           ))}
         </select>
         {pc.station && (
-          <p className="text-xs text-gray-500 mt-1">
-            {t('stationPcs', 'client')}: {pc.station.client.displayName}
-          </p>
+          <>
+            <p className="text-xs text-gray-500 mt-1">
+              {t('stationPcs', 'client')}: {pc.station.client.displayName}
+            </p>
+            <button
+              type="button"
+              onClick={() => onAssign(pc, null)}
+              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-yellow-300 bg-yellow-50 text-yellow-800 hover:bg-yellow-100 text-xs font-medium transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 015.656 0M10.172 13.828a4 4 0 01-5.656 0m5.656 0l-5.656 5.657M13.828 10.172l5.657-5.657" />
+              </svg>
+              {t('stationPcs', 'unassignBackToApproval')}
+            </button>
+            <p className="text-xs text-gray-400 mt-1.5 italic">
+              {t('stationPcs', 'unassignHint')}
+            </p>
+          </>
         )}
       </div>
 
