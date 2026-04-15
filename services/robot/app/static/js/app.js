@@ -205,6 +205,23 @@ function updateConnectionUI(state) {
             btnDisable.className = "btn btn-sm btn-warning servo-btn";
         }
     }
+
+    // Highlight Free Mode button when drag teaching is active
+    const btnFreeMode = document.getElementById("btnFreeMode");
+    if (btnFreeMode) {
+        if (state.connected || state.simulation_mode) {
+            if (state.drag_mode) {
+                btnFreeMode.className = "btn btn-sm btn-info servo-btn active-state";
+                btnFreeMode.textContent = "Free Mode ON";
+            } else {
+                btnFreeMode.className = "btn btn-sm btn-info servo-btn dim-state";
+                btnFreeMode.textContent = "Free Mode";
+            }
+        } else {
+            btnFreeMode.className = "btn btn-sm btn-info servo-btn";
+            btnFreeMode.textContent = "Free Mode";
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -306,6 +323,24 @@ async function clearAlarm() {
     flashBtn(caller);
     await api("/api/robot/clear-alarm", { method: "POST" });
     toast("Alarm cleared", "success");
+}
+
+async function toggleFreeMode() {
+    const btn = document.getElementById("btnFreeMode");
+    flashBtn(btn);
+    try {
+        const res = await api("/api/robot/drag-mode", {
+            method: "POST",
+            body: JSON.stringify({}),  // empty body = toggle
+            headers: { "Content-Type": "application/json" }
+        });
+        if (res && typeof res.drag_mode !== "undefined") {
+            toast(res.drag_mode ? "Free Mode ON — you can move the arm by hand" : "Free Mode OFF",
+                  res.drag_mode ? "success" : "info");
+        }
+    } catch (e) {
+        // error already shown by api()
+    }
 }
 
 async function stopRobot() {

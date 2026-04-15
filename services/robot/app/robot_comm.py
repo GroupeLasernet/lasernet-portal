@@ -39,6 +39,7 @@ class RobotState:
     moving: bool = False
     error: bool = False
     error_msg: str = ""
+    drag_mode: bool = False
     pose: CartesianPose = field(default_factory=CartesianPose)
     joint_positions: List[float] = field(default_factory=lambda: [0.0] * 6)
 
@@ -408,6 +409,24 @@ class ElfinRobot:
         self._state.error = False
         self._state.error_msg = ""
         return "OK"
+
+    def set_drag_mode(self, enabled: bool) -> str:
+        """
+        Enable/disable Drag Teaching (Free Mode / hand-guiding).
+        When ON, the arm becomes compliant and can be moved by hand.
+        Han's Robot SDK command: DragTeachSwitch, rbtID, nState
+            nState: 0 = off, 1 = on
+        Note: servos must be enabled before entering drag mode.
+        """
+        n_state = 1 if enabled else 0
+        self._send_cmd("DragTeachSwitch", 0, n_state)
+        self._state.drag_mode = bool(enabled)
+        return "OK"
+
+    def toggle_drag_mode(self) -> bool:
+        """Toggle drag mode and return the new state."""
+        self.set_drag_mode(not self._state.drag_mode)
+        return self._state.drag_mode
 
     def stop(self) -> str:
         """Immediately stop all motion."""

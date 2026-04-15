@@ -795,6 +795,24 @@ def robot_clear_alarm(_license_ok=Depends(require_license)):
         raise HTTPException(503, f"Robot communication error: {e}")
 
 
+@app.post("/api/robot/drag-mode")
+def robot_drag_mode(payload: dict = None, _license_ok=Depends(require_license)):
+    """
+    Set or toggle Free Mode (drag teaching / hand-guiding).
+    Body: {"enabled": true|false}  — explicit set
+          {}  or  omitted           — toggle current state
+    """
+    robot = get_robot()
+    try:
+        if payload and "enabled" in payload:
+            robot.set_drag_mode(bool(payload["enabled"]))
+        else:
+            robot.toggle_drag_mode()
+        return {"response": "OK", "drag_mode": robot.get_state().drag_mode}
+    except ConnectionError as e:
+        raise HTTPException(503, f"Robot communication error: {e}")
+
+
 @app.post("/api/robot/run-program/{program_id}")
 def robot_run_program(program_id: int, db: Session = Depends(get_db), _license_ok=Depends(require_license)):
     prog = db.query(RobotProgram).get(program_id)
