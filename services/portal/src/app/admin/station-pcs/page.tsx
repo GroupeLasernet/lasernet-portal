@@ -44,7 +44,28 @@ type StatusFilter = 'all' | 'pending' | 'provisioning' | 'online' | 'offline' | 
 // This is a display-only override — the next heartbeat will reconcile the DB.
 const STALE_MS = 6 * 60 * 1000;
 
-function displayStatus(pc: StationPC): StationPC['status'] {
+// Display-only status type — extends the DB-level states with 'assigned',
+// which is what a bound PC shows when its underlying DB status is stale
+// (e.g. legacy 'retired' row that never got revived).
+type DisplayStatus = StationPC['status'] | 'assigned';
+
+function displayStatus(pc: StationPC): DisplayStatus {
+  // If the PC is currently bound to a Station, the "retired" label is
+  // misleading — it hasn't been retired, it's been re-deployed. Treat the
+  // heartbeat-derived connectivity as the source of truth instead, falling
+  // back to a neutral 'assigned' badge when we've never heard from it.
+  if (pc.station) {
+    if (pc.lastHeartbeatAt) {
+      const age = Date.now() - Date.parse(pc.lastHeartbeatAt);
+      if (Number.isFinite(age)) {
+        if (age > STALE_MS) return 'offline';
+        if (pc.status === 'online') return 'online';
+        return 'assigned';
+      }
+    }
+    return pc.status === 'online' ? 'online' : 'assigned';
+  }
+
   if (pc.status === 'online' || pc.status === 'provisioning') {
     if (pc.lastHeartbeatAt) {
       const age = Date.now() - Date.parse(pc.lastHeartbeatAt);
@@ -54,7 +75,7 @@ function displayStatus(pc: StationPC): StationPC['status'] {
   return pc.status;
 }
 
-const STATUS_STYLES: Record<StationPC['status'], { label: (t: TFn) => string; dot: string; chip: string }> = {
+const STATUS_STYLES: Record<DisplayStatus, { label: (t: TFn) => string; dot: string; chip: string }> = {
   provisioning: {
     label: (t) => t('stationPcs', 'statusProvisioning'),
     dot: 'bg-amber-500',
@@ -74,6 +95,11 @@ const STATUS_STYLES: Record<StationPC['status'], { label: (t: TFn) => string; do
     label: (t) => t('stationPcs', 'statusRetired'),
     dot: 'bg-gray-400',
     chip: 'bg-gray-100 text-gray-700',
+  },
+  assigned: {
+    label: (t) => t('stationPcs', 'statusAssigned') || 'Assigned',
+    dot: 'bg-blue-500',
+    chip: 'bg-blue-100 text-blue-800',
   },
 };
 

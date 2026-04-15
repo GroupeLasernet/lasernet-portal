@@ -544,6 +544,7 @@ const translations = {
     statusOnline: { fr: 'En ligne', en: 'Online' },
     statusOffline: { fr: 'Hors ligne', en: 'Offline' },
     statusRetired: { fr: 'Retiré', en: 'Retired' },
+    statusAssigned: { fr: 'Assigné', en: 'Assigned' },
     lastHeartbeat: { fr: 'Dernier signal', en: 'Last heartbeat' },
     softwareVersions: { fr: 'Versions logicielles', en: 'Software versions' },
     retireButton: { fr: 'Retirer ce PC', en: 'Retire this PC' },

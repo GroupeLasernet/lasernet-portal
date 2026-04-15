@@ -20,6 +20,37 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    // Self-heal pass: any PC with a Station bound AND status='retired' is in
+    // an inconsistent state — the PC got reassigned via a path that didn't
+    // revive it (or the revival fix landed after the row got into this
+    // state). Flip it back to 'provisioning' + approved=true and log a
+    // 'retired_to_assigned' system reconciliation event so Hugo sees it in
+    // the PC's history. Idempotent: runs on every list fetch and no-ops
+    // once the inconsistent rows are cleared.
+    const stuck = await prisma.stationPC.findMany({
+      where: { status: 'retired', station: { isNot: null } },
+      include: { station: { select: { id: true, stationNumber: true, title: true } } },
+    });
+    for (const pc of stuck) {
+      await prisma.stationPC.update({
+        where: { id: pc.id },
+        data: { status: 'provisioning', approved: true },
+      });
+      await prisma.stationPCAssignment.create({
+        data: {
+          stationPCId: pc.id,
+          stationId: pc.station?.id ?? null,
+          stationNumber: pc.station?.stationNumber ?? null,
+          stationTitle: pc.station?.title ?? null,
+          action: 'assigned',
+          reason: 'reconciled',
+          actorEmail: null,
+          actorName: 'system',
+          note: 'Auto-revived from retired — PC had a Station bound',
+        },
+      });
+    }
+
     const pcs = await prisma.stationPC.findMany({
       where,
       include: {
