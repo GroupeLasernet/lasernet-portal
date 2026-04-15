@@ -295,6 +295,7 @@ const translations = {
     // Laser model option labels (values stay English — DB field)
     laserModelCleaning: { fr: 'Nettoyage', en: 'Cleaning' },
     laserModelWelding: { fr: 'Soudage', en: 'Welding' },
+    invoiceAnchoredMachines: { fr: 'Sur les factures liées', en: 'On linked invoices' },
     noMachines: { fr: 'Aucune machine (aucun article de facture lié)', en: 'No machines (no invoice items linked)' },
     noRobotStatus: { fr: 'Aucune entrée de statut robot', en: 'No robot status entries' },
     noLaserStatus: { fr: 'Aucune entrée de statut laser', en: 'No laser status entries' },
