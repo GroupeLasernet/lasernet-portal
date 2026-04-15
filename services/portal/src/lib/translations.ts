@@ -286,6 +286,13 @@ const translations = {
     machineCreatedLabel: { fr: 'Machine créée', en: 'Machine created' },
     machineCreatedLockHint: { fr: 'Machine créée — le numéro de série et la taxonomie sont verrouillés. Un super-admin sera requis pour remplacer le numéro de série.', en: 'Machine created — serial and taxonomy are locked. A super-admin will be needed to replace the serial.' },
     serialLockedHint: { fr: 'Numéro verrouillé — super-admin uniquement', en: 'Serial locked — super-admin only' },
+    // Accessory subcategory option labels (values stay English — DB field)
+    subcategoryLaser: { fr: 'Laser', en: 'Laser' },
+    subcategoryTraditionalWelding: { fr: 'Soudage traditionnel', en: 'Traditional welding' },
+    subcategorySanding: { fr: 'Sablage', en: 'Sanding' },
+    // Laser model option labels (values stay English — DB field)
+    laserModelCleaning: { fr: 'Nettoyage', en: 'Cleaning' },
+    laserModelWelding: { fr: 'Soudage', en: 'Welding' },
     noMachines: { fr: 'Aucune machine (aucun article de facture lié)', en: 'No machines (no invoice items linked)' },
     noRobotStatus: { fr: 'Aucune entrée de statut robot', en: 'No robot status entries' },
     noLaserStatus: { fr: 'Aucune entrée de statut laser', en: 'No laser status entries' },

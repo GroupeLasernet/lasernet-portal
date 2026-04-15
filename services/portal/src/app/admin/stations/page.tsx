@@ -207,10 +207,14 @@ type MachineSubcategory = 'laser' | 'traditional_welding' | 'sanding' | null;
 
 const ROBOT_MODELS = ['E03', 'E05', 'E10', 'E12', 'E12+Rail3M', 'E12+Rail4M'] as const;
 const LASER_MODELS = ['Cleaning', 'Welding'] as const;
-const ACCESSORY_SUBCATEGORIES: { value: Exclude<MachineSubcategory, null>; label: string }[] = [
-  { value: 'laser', label: 'Laser' },
-  { value: 'traditional_welding', label: 'Traditional welding' },
-  { value: 'sanding', label: 'Sanding' },
+// Subcategory values are stable identifiers stored in the DB — labels
+// are resolved through t() at render time so the UI honours the active
+// language. See laserModelLabel() below for the mirror-image treatment
+// of Cleaning/Welding.
+const ACCESSORY_SUBCATEGORY_VALUES: Exclude<MachineSubcategory, null>[] = [
+  'laser',
+  'traditional_welding',
+  'sanding',
 ];
 
 /**
@@ -491,9 +495,15 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
                     className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                   >
                     <option value="">{t('stations', 'selectSubcategory') || 'Select…'}</option>
-                    {ACCESSORY_SUBCATEGORIES.map((s) => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
+                    {ACCESSORY_SUBCATEGORY_VALUES.map((v) => {
+                      const labelKey =
+                        v === 'laser' ? 'subcategoryLaser'
+                        : v === 'traditional_welding' ? 'subcategoryTraditionalWelding'
+                        : 'subcategorySanding';
+                      return (
+                        <option key={v} value={v}>{t('stations', labelKey)}</option>
+                      );
+                    })}
                   </select>
                 </div>
               ) : <div />}
@@ -509,9 +519,18 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
                     className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                   >
                     <option value="">{t('stations', 'selectModel') || 'Select model…'}</option>
-                    {modelOptions.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
+                    {modelOptions.map((m) => {
+                      // Robot model SKUs (E03, E05, …) are product codes —
+                      // show the raw value. Laser models are user-facing
+                      // words (Cleaning/Welding) — translate them.
+                      const label =
+                        m === 'Cleaning' ? t('stations', 'laserModelCleaning')
+                        : m === 'Welding' ? t('stations', 'laserModelWelding')
+                        : m;
+                      return (
+                        <option key={m} value={m}>{label}</option>
+                      );
+                    })}
                   </select>
                 ) : (
                   <input
