@@ -412,14 +412,28 @@ class ElfinRobot:
 
     def set_drag_mode(self, enabled: bool) -> str:
         """
-        Enable/disable Drag Teaching (Free Mode / hand-guiding).
+        Enable/disable Free Drive (hand-guiding / drag teach).
         When ON, the arm becomes compliant and can be moved by hand.
-        Han's Robot SDK command: DragTeachSwitch, rbtID, nState
-            nState: 0 = off, 1 = on
-        Note: servos must be enabled before entering drag mode.
+
+        Han's Robot SDK (verified against huayan-robotics/SDK_sample Java source
+        HansRobotAPI_Base.java, Oct 2025):
+            ON  → "GrpOpenFreeDriver,0,;"   (HRIF_GrpOpenFreeDriver_base)
+            OFF → "GrpCloseFreeDriver,0,;"  (HRIF_GrpCloseFreeDriver_base)
+
+        FSM transitions: StandBy(33) → RobotOpeningFreeDriver(29) → FreeDriver(31)
+                         FreeDriver(31) → RobotClosingFreeDriver(30) → StandBy(33)
+
+        Preconditions:
+        - Controller connected (StartMaster)
+        - Robot electrified (Electrify)
+        - Robot enabled (GrpEnable)  ← if not enabled → error 20018 StateRefuse
+        - Not in Error / EmergencyStop / SafeGuard state
         """
-        n_state = 1 if enabled else 0
-        self._send_cmd("DragTeachSwitch", 0, n_state)
+        if enabled:
+            # _send_cmd auto-prepends rbtID=0 → wire: GrpOpenFreeDriver,0,;
+            self._send_cmd("GrpOpenFreeDriver")
+        else:
+            self._send_cmd("GrpCloseFreeDriver")
         self._state.drag_mode = bool(enabled)
         return "OK"
 

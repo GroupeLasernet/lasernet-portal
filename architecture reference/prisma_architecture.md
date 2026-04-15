@@ -117,11 +117,20 @@ Prisma/                                  (monorepo root)
 
 ## 5. Hardware
 
-### Cobot — Elfin Pro E03 (Han's Robot)
-- TCP control at `192.168.10.10:10003`.
-- Protocol: Han's Robot SDK text commands (e.g. `DragTeachSwitch, 0, 1`).
+### Cobot — HUAYAN Robotics (Han's Robot subsidiary) — confirmed 2026-04-14 via pendant splash
+- **Brand: Huayan Robotics** (Shenzhen), a **subsidiary of Han's Robot**. Huayan uses the Han's Robot SDK / TCP protocol — so Han's command names like `DragTeachSwitch`, `Electrify`, `GrpEnable` are correct. Device serial: `GK021450001`.
+- Controller is Linux-based with 3 NICs: `enp1s0` = 192.168.156.2 (dedicated cable to pendant), `enp3s0` = 192.168.0.10, `enp4s0` = 192.168.10.10 (robot PC link).
+- Pendant (tablet) at 192.168.156.100 talks to the robot over an isolated 192.168.156.0/24 subnet via dedicated cable. Not visible from robot PC's 192.168.10.x network.
+- TCP control (from robot PC) at `192.168.10.10:10003`.
+- **Protocol status:** `robot_comm.py` uses the Han's Robot TCP command family — correct for this hardware. Verified against **huayan-robotics/SDK_sample** (GitHub, Java source `HansRobotAPI_Base.java`, Oct 2025). See `architecture reference/huayan-sdk-reference/` for saved SDK extracts.
+- **Free Drive / drag teach commands (confirmed 2026-04-14):**
+  - ON:  `GrpOpenFreeDriver,0,;`  (NOT `DragTeachSwitch` — old code was wrong)
+  - OFF: `GrpCloseFreeDriver,0,;`
+  - FSM: StandBy → RobotOpeningFreeDriver → FreeDriver, and back via RobotClosingFreeDriver.
+- **Error codes:** `20018` = `StateRefuse` (robot not in an accepting state — idempotent for Electrify/StartMaster/GrpEnable when already in target state). `20005`/`20007` are NOT in the SDK enum — likely controller-side "unknown command / invalid param" responses.
+- **Pendant safety login:** username `admin`, password `admin`. Required on pendant before physical Free Mode button works.
+- **Physical Free Mode:** button on the arm. When pressed, the pendant UI freezes (drag mode is exclusive to that session). Suggests drag teach may be hardware-gated and not triggerable from TCP at all — to be confirmed.
 - NEVER expose port 10003 to the internet. All remote access must go through FastAPI 8080 behind Cloudflare Access.
-- Known error codes: 20018 / 20007 — Prisma's TCP login/command sequence is slightly off vs. the pendant. Arm moves fine from native software, fails on some Prisma commands. Parked (not blocking).
 
 ### Laser — Relfar V4 (RDWelder V4, RuiDa / DWIN)
 - TCP control at port `123`. IP depends on network (home 192.168.1.250, business 192.168.20.225, AP mode 192.168.1.5).
