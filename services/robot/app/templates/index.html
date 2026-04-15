@@ -184,16 +184,22 @@
                         <h3>Arm Position</h3>
                         <div style="display:flex; gap:6px; flex-wrap:wrap;">
                             <button class="btn btn-sm btn-accent position-btn" onclick="goQuantum()">Quantum</button>
-                            <button class="btn btn-sm btn-accent position-btn" id="travelBtn"
-                                    onmousedown="travelPressStart()" onmouseup="travelPressEnd()" onmouseleave="travelPressCancel()"
-                                    ontouchstart="travelPressStart()" ontouchend="travelPressEnd()" ontouchcancel="travelPressCancel()">
-                                Travel
-                                <span id="travelHoldBar" class="travel-hold-bar"></span>
+                            <button class="btn btn-sm btn-accent position-btn" id="btnPos1"
+                                    onmousedown="positionPressStart(1)" onmouseup="positionPressEnd(1)" onmouseleave="positionPressCancel(1)"
+                                    ontouchstart="positionPressStart(1)" ontouchend="positionPressEnd(1)" ontouchcancel="positionPressCancel(1)">
+                                Position 1
+                                <span id="pos1HoldBar" class="travel-hold-bar"></span>
+                            </button>
+                            <button class="btn btn-sm btn-accent position-btn" id="btnPos2"
+                                    onmousedown="positionPressStart(2)" onmouseup="positionPressEnd(2)" onmouseleave="positionPressCancel(2)"
+                                    ontouchstart="positionPressStart(2)" ontouchend="positionPressEnd(2)" ontouchcancel="positionPressCancel(2)">
+                                Position 2
+                                <span id="pos2HoldBar" class="travel-hold-bar"></span>
                             </button>
                             <button class="btn btn-sm btn-info position-btn" id="btnFreeMode" onclick="toggleFreeMode()" title="Drag teaching — move the arm by hand">Free Mode</button>
                             <button class="btn btn-sm btn-danger position-btn" onclick="emergencyStop()" title="Stop all motion immediately">Stop</button>
                         </div>
-                        <div class="travel-hint" id="travelHint">Tap = go to saved travel position · Hold 2s = save current pose</div>
+                        <div class="travel-hint" id="travelHint">Tap = go to saved position · Hold 2s = save current pose</div>
                     </div>
                     <div class="panel-section">
                         <h3>Speed</h3>

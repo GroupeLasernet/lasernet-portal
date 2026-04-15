@@ -112,8 +112,11 @@ class RobotSettings(Base):
     orientation_ry = Column(Float, default=0.0)
     orientation_rz = Column(Float, default=0.0)
     approach_height = Column(Float, default=20.0)
-    # Travel / folded position joint angles (JSON list of 6 floats, degrees)
-    travel_joints = Column(JSON, default=lambda: [0.0, -90.0, 135.0, 0.0, 45.0, 0.0])
+    # Saved pose slots (JSON list of 6 floats, degrees).
+    # Position 1 is stored in `travel_joints` for backward compatibility with
+    # pre-April-2026 deployments — the UI calls it "Position 1" now.
+    travel_joints    = Column(JSON, default=lambda: [0.0, -90.0, 135.0, 0.0, 45.0, 0.0])
+    position2_joints = Column(JSON, default=lambda: [0.0, -90.0, 135.0, 0.0, 45.0, 0.0])
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -243,12 +246,14 @@ class LicenseState(Base):
 def init_db():
     """Create all tables and apply lightweight column migrations."""
     Base.metadata.create_all(bind=engine)
-    # Lightweight migration: add travel_joints column to robot_settings if missing
+    # Lightweight migrations: add pose-slot columns to robot_settings if missing
     from sqlalchemy import text
     with engine.begin() as conn:
         cols = [row[1] for row in conn.execute(text("PRAGMA table_info(robot_settings)"))]
         if "travel_joints" not in cols:
             conn.execute(text("ALTER TABLE robot_settings ADD COLUMN travel_joints JSON"))
+        if "position2_joints" not in cols:
+            conn.execute(text("ALTER TABLE robot_settings ADD COLUMN position2_joints JSON"))
 
     # Ensure sync_cursor singleton row exists
     db = SessionLocal()

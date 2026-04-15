@@ -206,11 +206,23 @@ function updateConnectionUI(state) {
         }
     }
 
-    // Free Mode — sticky-toggle button + full-screen blur overlay while engaged.
+    // Free Mode — sticky-toggle button + full-screen overlay while engaged.
     // The CSS class on <body> drives the overlay; the button's own highlight
     // (red glow, pulse) is also gated by body.free-mode-active via style.css.
+    //
+    // IMPORTANT: we only latch free-mode-active if the user has explicitly
+    // toggled Free Mode this session (see window._freeModeUserIntent). This
+    // prevents a stale drag_mode=true in the polled state from applying the
+    // overlay on fresh page load — which previously caused the 3D canvas to
+    // appear dimmed / "dismantled" because it was rendered behind the tint.
     const btnFreeMode = document.getElementById("btnFreeMode");
-    const freeActive = !!state.drag_mode && (state.connected || state.simulation_mode);
+    const stateSaysActive = !!state.drag_mode && (state.connected || state.simulation_mode);
+    const freeActive = stateSaysActive && !!window._freeModeUserIntent;
+
+    // If the server reports Free Mode is OFF, clear the user-intent latch so a
+    // server-side timeout / error exit drops us out of Free Mode in the UI too.
+    if (!stateSaysActive) window._freeModeUserIntent = false;
+
     document.body.classList.toggle("free-mode-active", freeActive);
     if (btnFreeMode) {
         btnFreeMode.textContent = freeActive ? "Exit Free Mode" : "Free Mode";
@@ -332,6 +344,10 @@ async function toggleFreeMode() {
             headers: { "Content-Type": "application/json" }
         });
         if (res && typeof res.drag_mode !== "undefined") {
+            // Latch user intent so updateConnectionUI() will keep the overlay
+            // on across poll ticks (updateConnectionUI requires both server
+            // state AND this flag before turning the overlay on).
+            window._freeModeUserIntent = !!res.drag_mode;
             // Immediate UI sync — don't wait for the next poll tick.
             document.body.classList.toggle("free-mode-active", !!res.drag_mode);
             if (btn) {
@@ -527,66 +543,76 @@ async function goQuantum() {
 }
 
 // ---------------------------------------------------------------------------
-// Travel position (tap = go, hold 2s = save current pose)
+// Saved positions (tap = go, hold 2s = save current pose).
+// One set of handlers drives all slots; each slot has its own state record so
+// pressing two buttons concurrently doesn't cross wires.
 // ---------------------------------------------------------------------------
-const TRAVEL_HOLD_MS = 2000;
-let _travelHoldTimer = null;
-let _travelHoldStart = 0;
-let _travelProgressTimer = null;
-let _travelDidSave = false;
+const POSITION_HOLD_MS = 2000;
+const _posState = {
+    1: { holdTimer: null, progressTimer: null, holdStart: 0, didSave: false,
+         btnId: "btnPos1", barId: "pos1HoldBar" },
+    2: { holdTimer: null, progressTimer: null, holdStart: 0, didSave: false,
+         btnId: "btnPos2", barId: "pos2HoldBar" },
+};
 
-function _travelSetBar(pct) {
-    const bar = document.getElementById("travelHoldBar");
+function _posSetBar(slot, pct) {
+    const st = _posState[slot];
+    if (!st) return;
+    const bar = document.getElementById(st.barId);
     if (bar) bar.style.width = pct + "%";
 }
 
-function travelPressStart() {
-    _travelDidSave = false;
-    _travelHoldStart = Date.now();
-    const btn = document.getElementById("travelBtn");
+function positionPressStart(slot) {
+    const st = _posState[slot];
+    if (!st) return;
+    st.didSave = false;
+    st.holdStart = Date.now();
+    const btn = document.getElementById(st.btnId);
     if (btn) btn.classList.add("saving");
 
-    // Progress bar animation
-    _travelProgressTimer = setInterval(() => {
-        const elapsed = Date.now() - _travelHoldStart;
-        const pct = Math.min(100, (elapsed / TRAVEL_HOLD_MS) * 100);
-        _travelSetBar(pct);
+    st.progressTimer = setInterval(() => {
+        const elapsed = Date.now() - st.holdStart;
+        const pct = Math.min(100, (elapsed / POSITION_HOLD_MS) * 100);
+        _posSetBar(slot, pct);
     }, 50);
 
-    // Save trigger after full hold
-    _travelHoldTimer = setTimeout(async () => {
-        _travelDidSave = true;
-        _travelSetBar(100);
+    st.holdTimer = setTimeout(async () => {
+        st.didSave = true;
+        _posSetBar(slot, 100);
         try {
-            const res = await api("/api/robot/travel-position/save", { method: "POST" });
-            toast("Travel position saved", "success");
-            console.log("Saved travel joints:", res.joints);
+            const res = await api(`/api/robot/position/${slot}/save`, { method: "POST" });
+            toast(`Position ${slot} saved`, "success");
+            console.log(`Saved Position ${slot} joints:`, res.joints);
         } catch (e) { /* api() toasts the error */ }
-    }, TRAVEL_HOLD_MS);
+    }, POSITION_HOLD_MS);
 }
 
-async function travelPressEnd() {
-    const wasHoldSave = _travelDidSave;
-    travelPressCancel(); // clears timers + bar
-    if (wasHoldSave) return; // already handled the save
+async function positionPressEnd(slot) {
+    const st = _posState[slot];
+    if (!st) return;
+    const wasHoldSave = st.didSave;
+    positionPressCancel(slot); // clears timers + bar
+    if (wasHoldSave) return;   // save already fired — don't also go
 
-    // Short tap — go to saved travel position
+    // Short tap — go to saved position
     const speedPct = parseInt(document.getElementById("speedSlider").value) || 10;
     const speed = (speedPct / 100) * 180;
     try {
-        await api("/api/robot/travel-position", {
+        await api(`/api/robot/position/${slot}`, {
             method: "POST",
             body: formData({ speed: speed }),
         });
-        toast("Moving to travel position", "success");
+        toast(`Moving to Position ${slot}`, "success");
     } catch (e) { /* handled by api() */ }
 }
 
-function travelPressCancel() {
-    if (_travelHoldTimer) { clearTimeout(_travelHoldTimer); _travelHoldTimer = null; }
-    if (_travelProgressTimer) { clearInterval(_travelProgressTimer); _travelProgressTimer = null; }
-    _travelSetBar(0);
-    const btn = document.getElementById("travelBtn");
+function positionPressCancel(slot) {
+    const st = _posState[slot];
+    if (!st) return;
+    if (st.holdTimer)     { clearTimeout(st.holdTimer);   st.holdTimer = null; }
+    if (st.progressTimer) { clearInterval(st.progressTimer); st.progressTimer = null; }
+    _posSetBar(slot, 0);
+    const btn = document.getElementById(st.btnId);
     if (btn) btn.classList.remove("saving");
 }
 
@@ -1179,6 +1205,10 @@ function stopErrorLogAutoRefresh() {
 // ---------------------------------------------------------------------------
 
 document.addEventListener("DOMContentLoaded", async () => {
+    // Always start with Free Mode OFF visually — user-intent latch gets set
+    // only when they press the button this session.
+    window._freeModeUserIntent = false;
+    document.body.classList.remove("free-mode-active");
     await loadSettings();
     loadProjects();
 });

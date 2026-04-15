@@ -1014,6 +1014,85 @@ def go_travel_position(speed: float = Form(60.0), db: Session = Depends(get_db),
 
 
 # ---------------------------------------------------------------------------
+# Generic saved-position slots (Position 1, Position 2, …)
+# Slot 1 aliases the legacy `travel_joints` column so existing saved data
+# continues to work unchanged. Slot 2 uses the new `position2_joints` column.
+# ---------------------------------------------------------------------------
+
+_POSITION_SLOT_COLUMN = {
+    1: "travel_joints",
+    2: "position2_joints",
+}
+_DEFAULT_FOLDED = [0.0, -90.0, 135.0, 0.0, 45.0, 0.0]
+
+
+def _position_column(slot: int) -> str:
+    col = _POSITION_SLOT_COLUMN.get(slot)
+    if col is None:
+        raise HTTPException(400, f"Unknown position slot {slot}. Valid slots: 1, 2")
+    return col
+
+
+@app.get("/api/robot/position/{slot}")
+def get_position(slot: int, db: Session = Depends(get_db)):
+    """Return the saved joint angles for the given position slot."""
+    col = _position_column(slot)
+    s = db.query(RobotSettings).first()
+    if not s:
+        s = RobotSettings()
+        db.add(s)
+        db.commit()
+        db.refresh(s)
+    joints = getattr(s, col, None) or list(_DEFAULT_FOLDED)
+    return {"slot": slot, "joints": joints}
+
+
+@app.post("/api/robot/position/{slot}/save")
+def save_position(slot: int, db: Session = Depends(get_db), _license_ok=Depends(require_license)):
+    """Capture the robot's CURRENT joint angles into the given position slot."""
+    col = _position_column(slot)
+    robot = get_robot()
+    try:
+        current = list(robot.get_state().joint_positions)
+        if len(current) != 6:
+            raise HTTPException(500, "Could not read 6 joint positions from robot")
+        s = db.query(RobotSettings).first()
+        if not s:
+            s = RobotSettings()
+            db.add(s)
+        setattr(s, col, current)
+        db.commit()
+        return {"response": "OK", "slot": slot, "joints": current}
+    except ConnectionError as e:
+        raise HTTPException(503, f"Robot communication error: {e}")
+
+
+@app.post("/api/robot/position/{slot}")
+def go_position(slot: int, speed: float = Form(60.0), db: Session = Depends(get_db), _license_ok=Depends(require_license)):
+    """Move robot to the joint angles saved under the given position slot."""
+    col = _position_column(slot)
+    robot = get_robot()
+    speed = min(speed, 180.0)
+    s = db.query(RobotSettings).first()
+    joints = (getattr(s, col, None) if s else None) or list(_DEFAULT_FOLDED)
+    if len(joints) != 6:
+        raise HTTPException(500, f"Stored position {slot} does not have 6 joints")
+
+    try:
+        p = list(robot.get_state().cartesian_position)
+        accel = max(speed * 1.5, speed + 20)
+        robot._prepare_motion()
+        robot.move_waypoint(
+            p[0], p[1], p[2], p[3], p[4], p[5],
+            speed=speed, accel=accel, move_type=0,
+            use_joint=1, joints=joints
+        )
+        return {"response": "OK", "message": f"Moving to Position {slot}", "slot": slot, "joints": joints}
+    except ConnectionError as e:
+        raise HTTPException(503, f"Robot communication error: {e}")
+
+
+# ---------------------------------------------------------------------------
 # Robot settings
 # ---------------------------------------------------------------------------
 
