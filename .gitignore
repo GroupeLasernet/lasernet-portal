@@ -38,3 +38,19 @@ logs/
 
 # Prisma
 prisma/migrations/migration_lock.toml
+
+# Robot service runtime data (SQLite, live DB)
+services/robot/data/*.db
+services/robot/data/*.db-journal
+services/robot/data/*.db-wal
+services/robot/data/*.db-shm
+
+# Robot uploads folder
+services/robot/uploads/
+
+# Relfar scratch / exploration scripts (not production code)
+# — uncomment to ignore; leaving commented so you can curate which ones
+# to commit vs. discard later.
+# services/relfar/*.pcap
+# services/relfar/*_results.json
+# services/relfar/register_scan.txt
