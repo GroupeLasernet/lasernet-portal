@@ -566,9 +566,17 @@ export default function AdminClientsPage() {
         await refreshStations();
       }
     } else {
-      // Create new station via /api/stations
+      // Create new station via /api/stations.
+      // Tag every item with its source invoice up-front so a later
+      // `handleRemoveStationInvoice` call can strip them correctly.
+      // Without the tag the strip filter falls through and items linger.
       const name = stationName.trim() || `Station — ${previewInvoice.invoiceNumber}`;
-      const notes = JSON.stringify({ invoiceId: previewInvoice.id, invoiceNumber: previewInvoice.invoiceNumber, items });
+      const taggedItems = items.map((it) => ({
+        ...it,
+        sourceInvoiceId: previewInvoice.id,
+        sourceInvoiceNumber: previewInvoice.invoiceNumber,
+      }));
+      const notes = JSON.stringify({ invoiceId: previewInvoice.id, invoiceNumber: previewInvoice.invoiceNumber, items: taggedItems });
 
       try {
         const res = await fetch('/api/stations', {
@@ -673,49 +681,16 @@ export default function AdminClientsPage() {
 
     try {
       if (inv.stationInvoiceId) {
+        // Backend DELETE handler is now authoritative: it deletes the
+        // StationInvoice row AND reconciles notes.items / notes.machineData /
+        // notes.invoices / primary invoiceNumber in a single transaction.
+        // No more two-step optimistic notes PATCH from the frontend — which
+        // used to fail silently and leave ghost machines behind.
         const res = await fetch(
           `/api/stations/${stationId}/invoices/${inv.stationInvoiceId}`,
           { method: 'DELETE' }
         );
         if (!res.ok) throw new Error('delete failed');
-        // Also strip the invoice's items from notes.items so the "(N items)"
-        // count in the add-to-existing-station dropdown reflects reality.
-        try {
-          const getRes = await fetch(`/api/stations/${stationId}`);
-          const getData = await getRes.json();
-          let meta: Record<string, unknown> = {};
-          try { meta = JSON.parse(getData.station?.notes || '{}'); } catch { /* ignore */ }
-          const currentItems = Array.isArray(meta.items)
-            ? (meta.items as { sourceInvoiceId?: string; sourceInvoiceNumber?: string }[])
-            : [];
-          const kept = currentItems.filter(it =>
-            it.sourceInvoiceId !== inv.id &&
-            it.sourceInvoiceNumber !== inv.invoiceNumber
-          );
-          // Also clear the legacy `notes.invoices` entry + primary fields if
-          // they point at the invoice we just removed.
-          const legacyInvoices = Array.isArray(meta.invoices)
-            ? (meta.invoices as { id: string; number: string }[]).filter(
-                x => x.number !== inv.invoiceNumber && x.id !== inv.id
-              )
-            : [];
-          meta.invoices = legacyInvoices;
-          if (meta.invoiceNumber === inv.invoiceNumber) {
-            if (legacyInvoices.length > 0) {
-              meta.invoiceId = legacyInvoices[0].id;
-              meta.invoiceNumber = legacyInvoices[0].number;
-            } else {
-              delete meta.invoiceId;
-              delete meta.invoiceNumber;
-            }
-          }
-          meta.items = kept;
-          await fetch(`/api/stations/${stationId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notes: JSON.stringify(meta) }),
-          });
-        } catch { /* best-effort; refresh below will still pull canonical state */ }
       } else {
         // Legacy path: pull the station's current notes, strip the invoice,
         // PATCH it back.
@@ -733,7 +708,24 @@ export default function AdminClientsPage() {
               x => x.number !== inv.invoiceNumber && x.id !== inv.id
             )
           : [];
-        if (meta.invoiceNumber === inv.invoiceNumber) {
+        // Also strip the invoice's line items from meta.items — same
+        // logic as the DB path. Untagged items belong to the primary,
+        // so they must be dropped when the primary is the one going away.
+        const deletingPrimaryLegacy = meta.invoiceNumber === inv.invoiceNumber;
+        const currentItems = Array.isArray(meta.items)
+          ? (meta.items as { sourceInvoiceId?: string; sourceInvoiceNumber?: string }[])
+          : [];
+        const keptItems = currentItems.filter(it => {
+          const tagMatches =
+            it.sourceInvoiceId === inv.id ||
+            it.sourceInvoiceNumber === inv.invoiceNumber;
+          if (tagMatches) return false;
+          const untagged = !it.sourceInvoiceId && !it.sourceInvoiceNumber;
+          if (deletingPrimaryLegacy && untagged) return false;
+          return true;
+        });
+        meta.items = keptItems;
+        if (deletingPrimaryLegacy) {
           // Promote the next invoice (if any) to primary so the "From
           // invoice" caption doesn't go stale.
           if (invoices.length > 0) {
@@ -1259,7 +1251,7 @@ export default function AdminClientsPage() {
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-400 mt-0.5">{t('clients', 'fromInvoice')} {station.invoiceNumber} — {formatDate(station.createdAt)}</p>
-                                {station.linkedInvoices && station.linkedInvoices.length > 1 && (
+                                {station.linkedInvoices && station.linkedInvoices.length > 0 && (
                                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                                     <span className="text-[10px] text-gray-400 uppercase tracking-wide mr-1">
                                       {t('clients', 'linkedInvoices') || 'Linked invoices'}:
