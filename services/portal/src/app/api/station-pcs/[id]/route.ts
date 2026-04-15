@@ -98,7 +98,45 @@ export async function PATCH(
       include: { station: { include: { managedClient: true } } },
     });
 
-    return NextResponse.json({ stationPC: refreshed });
+    if (!refreshed) {
+      return NextResponse.json({ error: 'Station PC not found after update' }, { status: 500 });
+    }
+
+    // Shape the response to match GET /api/station-pcs (mapped `client` field
+    // instead of raw `managedClient`) so the admin UI doesn't crash when it
+    // reads pc.station.client.displayName after a PATCH.
+    const stationPC = {
+      id: refreshed.id,
+      serial: refreshed.serial,
+      macAddress: refreshed.macAddress,
+      hostname: refreshed.hostname,
+      nickname: refreshed.nickname,
+      installedAt: refreshed.installedAt.toISOString(),
+      robotVersion: refreshed.robotVersion,
+      relfarVersion: refreshed.relfarVersion,
+      lastHeartbeatAt: refreshed.lastHeartbeatAt ? refreshed.lastHeartbeatAt.toISOString() : null,
+      lastHeartbeatIp: refreshed.lastHeartbeatIp,
+      status: refreshed.status,
+      approved: refreshed.approved,
+      notes: refreshed.notes,
+      station: refreshed.station
+        ? {
+            id: refreshed.station.id,
+            stationNumber: refreshed.station.stationNumber,
+            title: refreshed.station.title,
+            status: refreshed.station.status,
+            client: {
+              id: refreshed.station.managedClient.id,
+              displayName: refreshed.station.managedClient.displayName,
+              companyName: refreshed.station.managedClient.companyName,
+            },
+          }
+        : null,
+      createdAt: refreshed.createdAt.toISOString(),
+      updatedAt: refreshed.updatedAt.toISOString(),
+    };
+
+    return NextResponse.json({ stationPC });
   } catch (error) {
     console.error('Error updating station PC:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
