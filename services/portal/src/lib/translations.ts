@@ -349,6 +349,8 @@ const translations = {
     subtitle: { fr: 'Gérer toutes les machines physiques (robots et lasers)', en: 'Manage all physical machines (robots and lasers)' },
     newMachine: { fr: 'Nouvelle machine', en: 'New Machine' },
     machineDetails: { fr: 'Détails de la machine', en: 'Machine Details' },
+    openRobotSoftware: { fr: 'Ouvrir le logiciel du robot', en: 'Open robot software' },
+    openLaserSoftware: { fr: 'Ouvrir le logiciel du laser', en: 'Open laser software' },
     location: { fr: 'Emplacement', en: 'Location' },
     newLocation: { fr: 'Nouvel emplacement', en: 'New Location' },
     client: { fr: 'Client', en: 'Client' },

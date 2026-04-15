@@ -34,7 +34,22 @@ export async function GET(request: NextRequest) {
           take: 5,
         },
         stations: {
-          include: { station: true },
+          include: {
+            station: {
+              include: {
+                stationPC: {
+                  select: {
+                    id: true,
+                    serial: true,
+                    hostname: true,
+                    nickname: true,
+                    lastHeartbeatIp: true,
+                    status: true,
+                  },
+                },
+              },
+            },
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -85,6 +100,16 @@ export async function GET(request: NextRequest) {
         stationNumber: sm.station.stationNumber,
         title: sm.station.title,
         status: sm.station.status,
+        stationPC: sm.station.stationPC
+          ? {
+              id: sm.station.stationPC.id,
+              serial: sm.station.stationPC.serial,
+              hostname: sm.station.stationPC.hostname,
+              nickname: sm.station.stationPC.nickname,
+              lastHeartbeatIp: sm.station.stationPC.lastHeartbeatIp,
+              status: sm.station.stationPC.status,
+            }
+          : null,
       })),
       // §9.1 licensing
       licenseMode: m.licenseMode,

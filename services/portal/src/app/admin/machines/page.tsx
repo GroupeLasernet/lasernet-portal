@@ -4,9 +4,28 @@ import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import PageHeader from '@/components/PageHeader';
 
+interface MachineStationLink {
+  id: string;
+  stationNumber: string;
+  title: string;
+  status: string;
+  stationPC: {
+    id: string;
+    serial: string;
+    hostname: string | null;
+    nickname: string | null;
+    lastHeartbeatIp: string | null;
+    status: string;
+  } | null;
+}
+
 interface Machine {
   id: string;
   serialNumber: string;
+  // New taxonomy (source of truth — source: /api/machines returns these)
+  category: 'robot' | 'accessory';
+  subcategory: 'laser' | 'traditional_welding' | 'sanding' | null;
+  // Legacy alias kept by the API so old code keeps working.
   type: 'robot' | 'laser';
   model: string;
   nickname?: string;
@@ -22,7 +41,7 @@ interface Machine {
   client: { id: string; displayName: string; companyName: string } | null;
   invoice: { id: string; invoiceNumber: string } | null;
   recentEvents: { id: string; eventType: string; notes?: string; createdAt: string }[];
-  stations: { id: string; stationNumber: string; title: string; status: string }[];
+  stations: MachineStationLink[];
   // §9.1 licensing fields
   licenseMode?: 'unlicensed' | 'sold' | 'rented' | 'killed';
   expiresAt?: string | null;
@@ -41,6 +60,70 @@ interface ManagedClient {
 type ViewMode = 'list' | 'map';
 type TypeFilter = 'all' | 'robot' | 'laser';
 type StatusFilter = 'all' | 'active' | 'in_repair' | 'refunded' | 'decommissioned';
+
+// ---- Machine taxonomy helpers --------------------------------------------
+// Avatar short code + accent colour per category/subcategory. Keeps each row
+// visually distinguishable so Hugo isn't staring at a sea of blue "R" tiles.
+function getAvatar(machine: Machine): { label: string; bg: string; fg: string } {
+  if (machine.category === 'robot') {
+    return { label: 'R', bg: 'bg-blue-100', fg: 'text-blue-600' };
+  }
+  if (machine.subcategory === 'laser') {
+    // Cleaning vs. Welding laser — both lasers, but colour them differently
+    // so a station with both reads at a glance.
+    if ((machine.model || '').toLowerCase().includes('weld')) {
+      return { label: 'LW', bg: 'bg-purple-100', fg: 'text-purple-600' };
+    }
+    return { label: 'L', bg: 'bg-orange-100', fg: 'text-orange-600' };
+  }
+  if (machine.subcategory === 'traditional_welding') {
+    return { label: 'W', bg: 'bg-purple-100', fg: 'text-purple-600' };
+  }
+  if (machine.subcategory === 'sanding') {
+    return { label: 'S', bg: 'bg-emerald-100', fg: 'text-emerald-600' };
+  }
+  return { label: '?', bg: 'bg-gray-100', fg: 'text-gray-600' };
+}
+
+// Render-friendly subcategory label — keeps FR/EN via the `t()` helper when
+// available, otherwise falls back to the raw underscore-less value.
+function getSubcategoryLabel(
+  machine: Machine,
+  t: (section: string, key: string) => string,
+): string | null {
+  if (machine.category === 'robot') return null;
+  if (machine.subcategory === 'laser') return t('stations', 'subcategoryLaser');
+  if (machine.subcategory === 'traditional_welding')
+    return t('stations', 'subcategoryTraditionalWelding');
+  if (machine.subcategory === 'sanding') return t('stations', 'subcategorySanding');
+  return null;
+}
+
+// Build the URL to the local software UI served by the station PC.
+//   - Robot (FastAPI)     → http://<pc-ip>:8080
+//   - Laser (Relfar Flask) → http://<pc-ip>:5000
+// Returns null if we don't know the PC's IP yet (no heartbeat recorded).
+// We only attach it to the primary station link; a machine on >1 station is
+// edge-case territory that we'll cross when we get there.
+function getSoftwareUrl(machine: Machine): {
+  url: string;
+  label: 'robot' | 'laser';
+  pcLabel: string;
+} | null {
+  const stationLink = machine.stations[0];
+  const pc = stationLink?.stationPC;
+  const ip = pc?.lastHeartbeatIp;
+  if (!pc || !ip) return null;
+  const pcLabel = pc.nickname || pc.hostname || pc.serial;
+  if (machine.category === 'robot') {
+    return { url: `http://${ip}:8080`, label: 'robot', pcLabel };
+  }
+  if (machine.category === 'accessory' && machine.subcategory === 'laser') {
+    return { url: `http://${ip}:5000`, label: 'laser', pcLabel };
+  }
+  // Traditional welding / sanding don't have Atelier-DSM-hosted software UIs.
+  return null;
+}
 
 function getStatusConfig(t: (section: string, key: string) => string) {
   return {
@@ -317,68 +400,125 @@ function ListView({ machines, onSelectMachine, statusConfig }: { machines: Machi
 
   return (
     <div className="grid gap-4">
-      {machines.map((machine) => (
-        <button
-          key={machine.id}
-          onClick={() => onSelectMachine(machine)}
-          className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition text-left"
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex gap-4 flex-1">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <span className="text-sm font-bold text-blue-600">
-                    {machine.type === 'robot' ? 'R' : 'L'}
-                  </span>
-                </div>
-              </div>
+      {machines.map((machine) => {
+        const avatar = getAvatar(machine);
+        const subcategoryLabel = getSubcategoryLabel(machine, t);
+        const software = getSoftwareUrl(machine);
+        const stationLink = machine.stations[0] || null;
+        const categoryLabel =
+          machine.category === 'robot'
+            ? t('stations', 'categoryRobot')
+            : t('stations', 'categoryAccessory');
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-semibold text-gray-900">{machine.serialNumber}</h3>
-                  <span className="text-sm text-gray-600">{machine.model}</span>
-                  {machine.nickname && (
-                    <span className="text-sm bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                      {machine.nickname}
+        return (
+          <div
+            key={machine.id}
+            className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition"
+          >
+            <div className="flex items-start justify-between">
+              <button
+                onClick={() => onSelectMachine(machine)}
+                className="flex gap-4 flex-1 text-left"
+              >
+                <div className="flex-shrink-0">
+                  <div className={`w-12 h-12 rounded-lg ${avatar.bg} flex items-center justify-center`}>
+                    <span className={`text-sm font-bold ${avatar.fg}`}>
+                      {avatar.label}
                     </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                  {machine.client && (
-                    <span>{machine.client.displayName}</span>
-                  )}
-                  {machine.ipAddress && (
-                    <div className="flex items-center gap-1">
-                      <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0" /></svg>
-                      <span className="font-mono text-xs">{machine.ipAddress}</span>
-                    </div>
-                  )}
-                  {machine.city && machine.province && (
-                    <div className="flex items-center gap-1">
-                      <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                      <span>{machine.city}, {machine.province}</span>
-                    </div>
-                  )}
-                </div>
-
-                {machine.invoice && (
-                  <div className="text-xs text-gray-500">
-                    Invoice: {machine.invoice.invoiceNumber}
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
 
-            <div className="flex items-center gap-3 ml-4">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusConfig[machine.status].color}`}>
-                {statusConfig[machine.status].label}
-              </span>
-              <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                <div className="flex-1 min-w-0">
+                  {/* Line 1 — serial + taxonomy chips */}
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h3 className="font-semibold text-gray-900">{machine.serialNumber}</h3>
+                    <span className="text-xs font-medium bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                      {categoryLabel}
+                    </span>
+                    {subcategoryLabel && (
+                      <span className="text-xs font-medium bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                        {subcategoryLabel}
+                      </span>
+                    )}
+                    <span className="text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                      {machine.model}
+                    </span>
+                    {machine.nickname && (
+                      <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                        {machine.nickname}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Line 2 — client + IP + city */}
+                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-2 flex-wrap">
+                    {machine.client && <span>{machine.client.displayName}</span>}
+                    {machine.ipAddress && (
+                      <div className="flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0" /></svg>
+                        <span className="font-mono text-xs">{machine.ipAddress}</span>
+                      </div>
+                    )}
+                    {machine.city && machine.province && (
+                      <div className="flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        <span>{machine.city}, {machine.province}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Line 3 — station + invoice (always shown when present, for robots + lasers alike) */}
+                  <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                    {stationLink && (
+                      <span className="inline-flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                        <span className="font-medium text-gray-700">
+                          #{stationLink.stationNumber}
+                        </span>
+                        <span className="text-gray-500">— {stationLink.title}</span>
+                      </span>
+                    )}
+                    {machine.invoice && (
+                      <span className="inline-flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        <span className="font-medium text-gray-700">
+                          #{machine.invoice.invoiceNumber}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+
+              <div className="flex items-center gap-3 ml-4 flex-shrink-0">
+                {software && (
+                  <a
+                    href={software.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    title={`${software.url} (${software.pcLabel})`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1.5 ${
+                      software.label === 'robot'
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-orange-600 text-white hover:bg-orange-700'
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                    {software.label === 'robot'
+                      ? t('machines', 'openRobotSoftware')
+                      : t('machines', 'openLaserSoftware')}
+                  </a>
+                )}
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusConfig[machine.status].color}`}>
+                  {statusConfig[machine.status].label}
+                </span>
+                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </div>
             </div>
           </div>
-        </button>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -468,6 +608,13 @@ function DetailPanel({
   const [relocateData, setRelocateData] = useState({ address: machine.address || '', city: machine.city || '', province: machine.province || '', postalCode: machine.postalCode || '' });
   const [selectedClientId, setSelectedClientId] = useState('');
 
+  const software = getSoftwareUrl(machine);
+  const subcategoryLabel = getSubcategoryLabel(machine, t);
+  const categoryLabel =
+    machine.category === 'robot'
+      ? t('stations', 'categoryRobot')
+      : t('stations', 'categoryAccessory');
+
   return (
     <div className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-lg z-50 overflow-y-auto">
       <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
@@ -481,14 +628,40 @@ function DetailPanel({
       </div>
 
       <div className="p-6 space-y-6">
+        {/* Quick action: open the real robot/laser software UI in a new tab */}
+        {software && (
+          <a
+            href={software.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold text-white transition ${
+              software.label === 'robot'
+                ? 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-orange-600 hover:bg-orange-700'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+            {software.label === 'robot'
+              ? t('machines', 'openRobotSoftware')
+              : t('machines', 'openLaserSoftware')}
+            <span className="text-xs font-normal opacity-80">({software.pcLabel})</span>
+          </a>
+        )}
+
         {/* Machine Info */}
         <div>
           <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'machineDetails')}</h3>
           <div className="space-y-2 text-sm">
             <div>
-              <span className="text-gray-600">{t('machines', 'type')}:</span>
-              <span className="ml-2 font-medium text-gray-900 capitalize">{machine.type}</span>
+              <span className="text-gray-600">{t('stations', 'category')}:</span>
+              <span className="ml-2 font-medium text-gray-900">{categoryLabel}</span>
             </div>
+            {subcategoryLabel && (
+              <div>
+                <span className="text-gray-600">{t('stations', 'subcategory')}:</span>
+                <span className="ml-2 font-medium text-gray-900">{subcategoryLabel}</span>
+              </div>
+            )}
             <div>
               <span className="text-gray-600">{t('machines', 'modelRequired')}:</span>
               <span className="ml-2 font-medium text-gray-900">{machine.model}</span>
