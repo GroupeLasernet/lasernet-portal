@@ -119,15 +119,22 @@ if (-not (Test-Path $nssmPath)) {
 # ---------------------------------------------------------------------------
 if (-not $SkipConfig) {
     Write-Step "Station configuration"
-    if (-not $RobotSerial) {
-        $RobotSerial = Read-Host "Robot serial number (leave blank to skip)"
-    }
-    if (-not $PortalUrl) {
+    if ($PortalUrl) {
+        Write-Host "Portal URL (from installer): $PortalUrl" -ForegroundColor Green
+    } else {
         $PortalUrl = Read-Host "Portal URL (e.g. https://portal.atelierdsm.com) [blank = offline-only]"
     }
-    $licSecret = Read-Host "ROBOT_LICENSE_SECRET (blank = leave unset for now)"
+    if (-not $RobotSerial) {
+        $RobotSerial = Read-Host "Robot arm serial number (from the sticker on the controller; blank = skip)"
+    }
+    # ROBOT_LICENSE_SECRET is no longer prompted here. The PC auto-registers
+    # with the portal on first boot; an operator approves it from the portal
+    # UI at /admin/station-pcs. The HMAC secret is only needed if/when
+    # LICENSE_STRICT is flipped on server-side — at that point, edit the .env
+    # by hand on the station PC.
+    $licSecret = ""
 
-    $envLines = @(
+    $robotEnvLines = @(
         "ROBOT_SERIAL=$RobotSerial",
         "PORTAL_URL=$PortalUrl",
         "ROBOT_LICENSE_SECRET=$licSecret",
@@ -135,11 +142,41 @@ if (-not $SkipConfig) {
         "SYNC_ENABLED=true",
         "LICENSE_STRICT=false"
     )
-    $envBody = $envLines -join "`r`n"
+    Set-Content -Path "$PrismaPath\services\robot\.env" -Value ($robotEnvLines -join "`r`n") -Encoding UTF8
 
-    Set-Content -Path "$PrismaPath\services\robot\.env" -Value $envBody -Encoding UTF8
-    Set-Content -Path "$PrismaPath\services\relfar\.env" -Value $envBody -Encoding UTF8
-    Write-Host ".env files written."
+    # Relfar runs dual-homed: station PC joins the controller's RDWelder AP
+    # (SSID RDWelder / 12345678 -> fixed gateway 192.168.1.5) over WiFi while
+    # Ethernet stays on the business LAN. These defaults assume that pattern.
+    $relfarEnvLines = @(
+        "RELFAR_HOST=192.168.1.5",
+        "RELFAR_BIND=192.168.1.2",
+        "# RELFAR_PORT=123",
+        "# RELFAR_POLL=0.5"
+    )
+    Set-Content -Path "$PrismaPath\services\relfar\.env" -Value ($relfarEnvLines -join "`r`n") -Encoding UTF8
+    Write-Host ".env files written (robot + relfar)."
+}
+
+# ---------------------------------------------------------------------------
+# 5b. Pin the Relfar AP WiFi profile to auto-connect on boot
+# ---------------------------------------------------------------------------
+# If the RDWelder WiFi profile already exists on this PC, flag it as auto-
+# connect so the RelfarBridge service can reach 192.168.1.5 after every
+# reboot without human intervention. If the profile doesn't exist yet, the
+# operator must connect to RDWelder (password 12345678) once manually.
+Write-Step "Configuring RDWelder WiFi auto-connect"
+try {
+    $wlanProfiles = netsh wlan show profiles 2>$null
+    if ($wlanProfiles -match "RDWelder") {
+        netsh wlan set profileparameter name="RDWelder" connectionmode=auto | Out-Null
+        Write-Host "  -> RDWelder profile set to auto-connect."
+    } else {
+        Write-Host "  !! RDWelder WiFi profile not found on this PC." -ForegroundColor Yellow
+        Write-Host "     Connect to the Relfar's AP once (SSID: RDWelder, password: 12345678)"
+        Write-Host "     then re-run this script (or run the netsh command above manually)."
+    }
+} catch {
+    Write-Host "  !! Could not configure WiFi auto-connect: $_" -ForegroundColor Yellow
 }
 
 # ---------------------------------------------------------------------------

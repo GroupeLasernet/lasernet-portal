@@ -98,6 +98,31 @@ export default function StationPCsPage() {
   const [formError, setFormError] = useState('');
   const [formSubmitting, setFormSubmitting] = useState(false);
 
+  // Installer-generator modal state
+  const [showInstallerModal, setShowInstallerModal] = useState(false);
+  const [installerPortalUrl, setInstallerPortalUrl] = useState('');
+  // Pre-fill the portal URL field with whatever origin the operator is
+  // currently browsing from — almost always what they want baked in.
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setInstallerPortalUrl(window.location.origin);
+    }
+  }, []);
+
+  const handleDownloadInstaller = () => {
+    const url = installerPortalUrl.trim();
+    if (!url) return;
+    const href = `/api/admin/station-installer/generate?portalUrl=${encodeURIComponent(url)}`;
+    // Simple anchor click → triggers browser download via Content-Disposition.
+    const a = document.createElement('a');
+    a.href = href;
+    a.download = 'atelier-dsm-station-install.cmd';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setShowInstallerModal(false);
+  };
+
   const fetchPCs = useCallback(async () => {
     try {
       setLoading(true);
@@ -233,15 +258,23 @@ export default function StationPCsPage() {
         title={t('stationPcs', 'title')}
         subtitle={t('stationPcs', 'subtitle')}
         actions={
-          <button
-            onClick={() => {
-              resetForm();
-              setShowNewModal(true);
-            }}
-            className="btn-primary"
-          >
-            + {t('stationPcs', 'newPC')}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowInstallerModal(true)}
+              className="btn-secondary"
+            >
+              {t('stationPcs', 'generateInstaller')}
+            </button>
+            <button
+              onClick={() => {
+                resetForm();
+                setShowNewModal(true);
+              }}
+              className="btn-primary"
+            >
+              + {t('stationPcs', 'newPC')}
+            </button>
+          </div>
         }
       />
 
@@ -366,6 +399,63 @@ export default function StationPCsPage() {
           )}
         </div>
       </div>
+
+      {/* Installer-generator modal */}
+      {showInstallerModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setShowInstallerModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+              {t('stationPcs', 'generateInstallerTitle')}
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              {t('stationPcs', 'generateInstallerBody')}
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('stationPcs', 'generateInstallerPortalUrl')}
+                </label>
+                <input
+                  type="url"
+                  value={installerPortalUrl}
+                  onChange={(e) => setInstallerPortalUrl(e.target.value)}
+                  className="input-field"
+                  placeholder="https://portal.atelierdsm.com"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {t('stationPcs', 'generateInstallerPortalUrlHint')}
+                </p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs rounded-lg p-3 leading-relaxed">
+                {t('stationPcs', 'generateInstallerHowTo')}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowInstallerModal(false)}
+                className="btn-secondary"
+              >
+                {t('common', 'cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadInstaller}
+                disabled={!installerPortalUrl.trim()}
+                className="btn-primary disabled:opacity-50"
+              >
+                {t('stationPcs', 'generateInstallerDownload')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New-PC modal */}
       {showNewModal && (

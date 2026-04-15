@@ -502,6 +502,13 @@ const translations = {
     softwareVersions: { fr: 'Versions logicielles', en: 'Software versions' },
     retireButton: { fr: 'Retirer ce PC', en: 'Retire this PC' },
     confirmRetire: { fr: 'Retirer ce PC ? Il sera marqué comme retiré mais conservé pour l\'historique.', en: 'Retire this PC? It will be marked as retired but kept for history.' },
+    generateInstaller: { fr: 'Générer un installateur', en: 'Generate installer' },
+    generateInstallerTitle: { fr: 'Générer un installateur pour un PC de station', en: 'Generate a station-PC installer' },
+    generateInstallerBody: { fr: 'Téléchargez un fichier .cmd à copier sur une clé USB et à exécuter sur le PC de station. L\'URL du portail est intégrée — le PC s\'enregistrera automatiquement, puis apparaîtra ici avec le badge « À approuver ».', en: 'Download a .cmd file to copy onto a USB stick and run on the station PC. The portal URL is baked in — the PC will self-register and then appear here with a "Pending" badge.' },
+    generateInstallerPortalUrl: { fr: 'URL du portail à intégrer', en: 'Portal URL to bake in' },
+    generateInstallerPortalUrlHint: { fr: 'Par défaut : l\'URL du portail actuel. Modifiez pour cibler un portail de staging ou un tunnel Cloudflare.', en: 'Defaults to the current portal URL. Change to target a staging portal or Cloudflare tunnel.' },
+    generateInstallerHowTo: { fr: '1. Téléchargez le fichier .cmd. 2. Copiez-le sur une clé USB. 3. Sur le PC de station (fraîchement installé, avec Python 3.11+ et Git déjà installés), faites un clic droit et choisissez « Exécuter en tant qu\'administrateur ». 4. Le script clone le dépôt, installe les services et démarre le robot. 5. Revenez ici et approuvez le nouveau PC.', en: '1. Download the .cmd file. 2. Copy it onto a USB stick. 3. On the station PC (fresh install, with Python 3.11+ and Git already installed), right-click and choose "Run as administrator". 4. The script clones the repo, installs the services, and starts the robot. 5. Come back here and approve the new PC.' },
+    generateInstallerDownload: { fr: 'Télécharger install.cmd', en: 'Download install.cmd' },
   },
 
   // ============================================================
