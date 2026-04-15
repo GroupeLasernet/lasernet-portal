@@ -209,6 +209,13 @@
                             <span id="speedValue">10</span><span>%</span>
                             <button class="btn btn-sm" onclick="changeSpeed(5)">+</button>
                         </div>
+                        <div class="speed-control" style="margin-top: 8px;" title="Multiplies the 100% speed ceiling. 1.0× = default 180 mm/s or °/s.">
+                            <button class="btn btn-sm" onclick="changeSpeedMult(-0.1)">−</button>
+                            <input type="range" id="speedMultSlider" min="1" max="30" value="10" step="1" oninput="updateSpeedMult(this.value)">
+                            <span id="speedMultValue">1.0</span><span>×</span>
+                            <button class="btn btn-sm" onclick="changeSpeedMult(0.1)">+</button>
+                        </div>
+                        <div class="travel-hint" style="margin-top: 4px;">Multiplier — raises the absolute ceiling. Max TBD.</div>
                     </div>
                     <div class="panel-section">
                         <div style="display:flex; gap:6px; flex-wrap:wrap;">

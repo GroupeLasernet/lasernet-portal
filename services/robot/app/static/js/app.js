@@ -210,18 +210,41 @@ function updateConnectionUI(state) {
     // The CSS class on <body> drives the overlay; the button's own highlight
     // (red glow, pulse) is also gated by body.free-mode-active via style.css.
     //
-    // IMPORTANT: we only latch free-mode-active if the user has explicitly
-    // toggled Free Mode this session (see window._freeModeUserIntent). This
-    // prevents a stale drag_mode=true in the polled state from applying the
-    // overlay on fresh page load — which previously caused the 3D canvas to
-    // appear dimmed / "dismantled" because it was rendered behind the tint.
+    // IMPORTANT: we only latch free-mode-active if EITHER
+    //   (a) the user clicked the UI Free Mode button (window._freeModeUserIntent), OR
+    //   (b) the backend reports drag_mode_source === "wrist_button" (physical
+    //       button on the arm flange triggered it — see robot_comm.py
+    //       _poll_wrist_buttons).
+    // This prevents a stale drag_mode=true in the polled state from applying
+    // the overlay on fresh page load while still honoring the hardware button.
     const btnFreeMode = document.getElementById("btnFreeMode");
     const stateSaysActive = !!state.drag_mode && (state.connected || state.simulation_mode);
-    const freeActive = stateSaysActive && !!window._freeModeUserIntent;
+    const wristTriggered = state.drag_mode_source === "wrist_button";
+    const freeActive = stateSaysActive && (!!window._freeModeUserIntent || wristTriggered);
 
     // If the server reports Free Mode is OFF, clear the user-intent latch so a
     // server-side timeout / error exit drops us out of Free Mode in the UI too.
     if (!stateSaysActive) window._freeModeUserIntent = false;
+
+    // Wrist Waypoint button — backend bumps state.waypoint_capture_count on
+    // each rising edge. Toast the captured pose so Hugo has feedback that the
+    // button fired and what was recorded.
+    if (typeof state.waypoint_capture_count === "number") {
+        if (typeof window._lastWaypointCount === "undefined") {
+            window._lastWaypointCount = state.waypoint_capture_count;
+        } else if (state.waypoint_capture_count > window._lastWaypointCount) {
+            window._lastWaypointCount = state.waypoint_capture_count;
+            const p = state.last_captured_pose;
+            if (Array.isArray(p) && p.length >= 6) {
+                toast(
+                    `Waypoint captured: X=${p[0].toFixed(1)} Y=${p[1].toFixed(1)} Z=${p[2].toFixed(1)}`,
+                    "success"
+                );
+            } else {
+                toast("Waypoint button pressed", "success");
+            }
+        }
+    }
 
     document.body.classList.toggle("free-mode-active", freeActive);
     if (btnFreeMode) {
@@ -388,6 +411,30 @@ function changeSpeed(delta) {
     updateSpeed(v);
 }
 
+// Speed multiplier — scales the absolute 100% ceiling.
+// Slider stores integer 1..30 == 0.1× .. 3.0× (divide by 10 for display/use).
+// Max is a placeholder; raise once Hugo picks the final safe ceiling.
+function _getSpeedMult() {
+    const raw = parseInt(document.getElementById("speedMultSlider")?.value || "10");
+    return Math.max(1, raw) / 10;   // 0.1× minimum, whatever the upper bound is
+}
+
+function updateSpeedMult(val) {
+    const mult = (parseInt(val) / 10).toFixed(1);
+    const el = document.getElementById("speedMultValue");
+    if (el) el.textContent = mult;
+}
+
+function changeSpeedMult(delta) {
+    const slider = document.getElementById("speedMultSlider");
+    if (!slider) return;
+    // delta is in multiplier units (e.g. 0.1), convert to slider units
+    let v = parseInt(slider.value) + Math.round(delta * 10);
+    v = Math.max(parseInt(slider.min), Math.min(parseInt(slider.max), v));
+    slider.value = v;
+    updateSpeedMult(v);
+}
+
 // ---------------------------------------------------------------------------
 // Joint Jog
 // ---------------------------------------------------------------------------
@@ -406,7 +453,7 @@ async function jogJoint(jointNum, direction) {
 
     const step = parseFloat(document.getElementById("jogStep").value) || 10;
     const speedPct = parseInt(document.getElementById("speedSlider").value) || 10;
-    const speed = (speedPct / 100) * 180; // Cap at 180°/s max
+    const speed = (speedPct / 100) * 180 * _getSpeedMult(); // base 180°/s × multiplier
 
     try {
         await api("/api/robot/jog-joint", {
@@ -434,7 +481,7 @@ async function jogCartesian(axis, direction) {
         ? (parseFloat(document.getElementById("jogRotStep").value) || 5)
         : (parseFloat(document.getElementById("jogStep").value) || 10);
     const speedPct = parseInt(document.getElementById("speedSlider").value) || 10;
-    const speed = (speedPct / 100) * 180; // Cap at 180
+    const speed = (speedPct / 100) * 180 * _getSpeedMult(); // base 180 × multiplier
 
     try {
         await api("/api/robot/jog", {
@@ -509,7 +556,7 @@ async function moveGo(jointNum) {
 
     const angle = parseFloat(document.getElementById(`moveJ${jointNum}`).value) || 0;
     const speedPct = parseInt(document.getElementById("speedSlider").value) || 10;
-    const speed = (speedPct / 100) * 180;
+    const speed = (speedPct / 100) * 180 * _getSpeedMult();
 
     // Immediately dim the button
     goBtn.classList.remove('ready');
@@ -531,7 +578,7 @@ async function goQuantum() {
     flashBtn(caller);
 
     const speedPct = parseInt(document.getElementById("speedSlider").value) || 10;
-    const speed = (speedPct / 100) * 180;
+    const speed = (speedPct / 100) * 180 * _getSpeedMult();
 
     try {
         await api("/api/robot/quantum", {
@@ -596,7 +643,7 @@ async function positionPressEnd(slot) {
 
     // Short tap — go to saved position
     const speedPct = parseInt(document.getElementById("speedSlider").value) || 10;
-    const speed = (speedPct / 100) * 180;
+    const speed = (speedPct / 100) * 180 * _getSpeedMult();
     try {
         await api(`/api/robot/position/${slot}`, {
             method: "POST",

@@ -64,6 +64,11 @@ CommandName,arg1,arg2,...,argN,;
 | **Open Free Drive (drag teach)** | **`GrpOpenFreeDriver,0,;`** | HRIF_GrpOpenFreeDriver_base |
 | **Close Free Drive** | **`GrpCloseFreeDriver,0,;`** | HRIF_GrpCloseFreeDriver_base |
 | Force-based free drive (needs F/T sensor) | `SetForceFreeDriveMode,0,0,<1/0>,;` | HRIF_SetForceFreeDriveMode |
+| **Read wrist buttons (all 4 at once)** | **`ReadEndBTN,0,;`** → `nBit1,nBit2,nBit3,nBit4` | HRIF_ReadEndBTN_base |
+| Read single end-flange DI bit | `ReadEI,0,<bit>,;` → `nVal` | HRIF_ReadEndDI_base |
+| Read single end-flange DO bit | `ReadEO,0,<bit>,;` → `nVal` | HRIF_ReadEndDO_base |
+| Set end-flange DO bit | `SetEndDO,0,<bit>,<val>,;` | HRIF_SetEndDO_base |
+| Read end-flange analog input | `ReadEAI,0,<bit>,;` → `dVal` | HRIF_ReadEndAI_base |
 
 ### What `DragTeachSwitch` is
 Not a valid command. It was a wrong guess in earlier `robot_comm.py` code. The controller

@@ -801,6 +801,11 @@ def robot_drag_mode(payload: dict = None, _license_ok=Depends(require_license)):
     Set or toggle Free Mode (drag teaching / hand-guiding).
     Body: {"enabled": true|false}  — explicit set
           {}  or  omitted           — toggle current state
+
+    The state field `drag_mode_source` is set to "ui" on enable (UI-initiated)
+    so the frontend knows this was a user click, not a wrist-button press. The
+    wrist-button poll in robot_comm.py sets it to "wrist_button" when the
+    hardware button triggers the toggle.
     """
     robot = get_robot()
     try:
@@ -808,7 +813,10 @@ def robot_drag_mode(payload: dict = None, _license_ok=Depends(require_license)):
             robot.set_drag_mode(bool(payload["enabled"]))
         else:
             robot.toggle_drag_mode()
-        return {"response": "OK", "drag_mode": robot.get_state().drag_mode}
+        # Stamp the source so the UI knows where the toggle came from.
+        st = robot.get_state()
+        st.drag_mode_source = "ui" if st.drag_mode else ""
+        return {"response": "OK", "drag_mode": st.drag_mode, "drag_mode_source": st.drag_mode_source}
     except ConnectionError as e:
         raise HTTPException(503, f"Robot communication error: {e}")
 

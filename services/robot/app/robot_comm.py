@@ -40,8 +40,24 @@ class RobotState:
     error: bool = False
     error_msg: str = ""
     drag_mode: bool = False
+    # drag_mode_source tells the UI what caused drag mode to turn on:
+    #   "ui"            — user clicked the on-screen Free Mode button
+    #   "wrist_button"  — user pressed the physical button on the arm flange
+    #   ""              — drag mode is off, source is irrelevant
+    # The frontend uses this to decide whether to honor the user-intent latch
+    # (the overlay engages for "wrist_button" even though the user didn't click).
+    drag_mode_source: str = ""
     pose: CartesianPose = field(default_factory=CartesianPose)
     joint_positions: List[float] = field(default_factory=lambda: [0.0] * 6)
+    # Last four wrist-flange button states (raw, from ReadEndBTN). We don't know
+    # which bit is Free Mode vs Waypoint vs other until Hugo tests — the poll
+    # logs them all and drives logic off the configured bit indices below.
+    wrist_buttons: List[int] = field(default_factory=lambda: [0, 0, 0, 0])
+    # Monotonic counter of wrist Waypoint presses — lets the UI show a toast
+    # and fetch the captured pose on change without needing push notifications.
+    waypoint_capture_count: int = 0
+    # Last pose captured via the wrist Waypoint button (None until first press).
+    last_captured_pose: Optional[List[float]] = None
 
     @property
     def cartesian_position(self) -> List[float]:
@@ -65,6 +81,14 @@ class ElfinRobot:
 
     MAX_SESSION_SECONDS = 24 * 60 * 60  # 24 hours
     WATCHDOG_TIMEOUT_SECONDS = 15        # 15 seconds
+
+    # Wrist-button bit mapping (zero-indexed into the 4-tuple returned by
+    # ReadEndBTN,0,; == [nBit1, nBit2, nBit3, nBit4]). We don't have the
+    # official Elfin E03 Pro datasheet mapping, so these defaults are a best
+    # guess. If the wrong button triggers Free Mode, swap the two indices.
+    # Logs at info level every state change so Hugo can verify on first use.
+    WRIST_BTN_FREE_MODE_BIT = 0   # which index of the 4-tuple is Free Mode
+    WRIST_BTN_WAYPOINT_BIT  = 1   # which index of the 4-tuple is Waypoint
 
     def __init__(self, ip: str = "192.168.10.10", port: int = 10003, timeout: float = 10.0):
         self.ip = ip
@@ -356,10 +380,66 @@ class ElfinRobot:
                 # Read robot state every 2nd poll (~1s) to update enabled/error flags
                 if poll_count % 2 == 0:
                     self._read_robot_state_cached()
+                # Poll wrist-flange buttons every tick — cheap and we want a
+                # fast response when Hugo presses them.
+                self._poll_wrist_buttons()
             except Exception as e:
                 logger.debug(f"Poll error: {e}")
             poll_count += 1
             time.sleep(0.5)
+
+    def _poll_wrist_buttons(self):
+        """
+        Read the 4 wrist-flange buttons via ReadEndBTN,0,; and react to rising
+        edges (transitions 0 → 1 since the last poll).
+
+        - Free Mode button press → toggles drag mode. If drag mode was on we
+          close it; if off we open it. Source marked 'wrist_button' so the UI
+          engages the overlay even without a user-intent click.
+        - Waypoint button press → captures current pose into
+          state.last_captured_pose and bumps waypoint_capture_count so the UI
+          can detect the event and toast.
+
+        Safe to skip in simulation mode — the physical buttons don't exist.
+        """
+        if self._simulation_mode:
+            return
+        try:
+            data = self._send_cmd("ReadEndBTN")
+        except Exception as e:
+            logger.debug(f"ReadEndBTN poll error: {e}")
+            return
+        if len(data) < 4:
+            return
+        try:
+            new_states = [int(data[i]) != 0 and 1 or 0 for i in range(4)]
+        except (ValueError, IndexError):
+            return
+
+        prev_states = self._state.wrist_buttons
+        self._state.wrist_buttons = new_states
+
+        # Rising-edge detection per bit
+        free_bit = self.WRIST_BTN_FREE_MODE_BIT
+        wp_bit   = self.WRIST_BTN_WAYPOINT_BIT
+
+        free_rising = (prev_states[free_bit] == 0 and new_states[free_bit] == 1)
+        wp_rising   = (prev_states[wp_bit]   == 0 and new_states[wp_bit]   == 1)
+
+        if free_rising:
+            logger.info("Wrist button: Free Mode press detected (bit %d)", free_bit)
+            try:
+                target = not self._state.drag_mode
+                self.set_drag_mode(target)
+                self._state.drag_mode_source = "wrist_button" if target else ""
+            except Exception as e:
+                logger.warning(f"Wrist Free Mode toggle failed: {e}")
+
+        if wp_rising:
+            logger.info("Wrist button: Waypoint press detected (bit %d)", wp_bit)
+            # Snapshot current pose for the UI to surface.
+            self._state.last_captured_pose = list(self._state.cartesian_position)
+            self._state.waypoint_capture_count += 1
 
     def _read_robot_state_cached(self):
         """Read robot state (moving, enabled, error) and cache it."""
@@ -581,8 +661,10 @@ class ElfinRobot:
         p = list(self._state.cartesian_position)
         delta = degrees if direction == 1 else -degrees
         j[axis_id] += delta
-        # Cap speed to safe max for joints
-        speed = min(speed, 180.0)
+        # Cap speed to safe max for joints.
+        # Raised 180 -> 540 to let the UI speed multiplier (up to 3×) through.
+        # Hugo to revise once the final multiplier max is decided.
+        speed = min(speed, 540.0)
         # Accel must always be greater than speed
         accel = max(speed * 1.5, speed + 20)
         self.move_waypoint(
@@ -607,8 +689,8 @@ class ElfinRobot:
         p = list(self._state.cartesian_position)
         delta = distance if direction == 1 else -distance
         p[axis_id] += delta
-        # Cap speed to safe max
-        speed = min(speed, 180.0)
+        # Cap speed to safe max (raised 180 -> 540 for UI multiplier headroom).
+        speed = min(speed, 540.0)
         # Accel must always be greater than speed
         accel = max(speed * 1.5, speed + 20)
         self.move_waypoint(
