@@ -94,19 +94,26 @@ export async function PATCH(
           where: { id: targetStationId },
           data: { stationPCId: id },
         });
-        // Assigning a PC to a Station IS an implicit approval — if the PC
-        // was sitting in the "To be approved" queue (e.g. after a previous
-        // unlink that flipped approved=false), flip it back to approved.
-        // Retired PCs are left alone. Honour an explicit `approved: false`
-        // override from the caller.
-        if (
-          !existing.approved &&
-          existing.status !== 'retired' &&
-          body.approved !== false
-        ) {
+        // Assigning a PC to a Station IS an implicit revival:
+        //   - If it was sitting in "To be approved" (approved=false), re-approve.
+        //   - If it was retired, un-retire it (status=provisioning until the
+        //     next heartbeat proves it's online) AND re-approve, because
+        //     attaching to a new station is a deliberate reuse signal.
+        // Honour explicit `approved`/`status` overrides from the caller.
+        const revive: Record<string, unknown> = {};
+        if (!existing.approved && body.approved !== true && body.approved !== false) {
+          revive.approved = true;
+        }
+        if (existing.status === 'retired' && body.status === undefined) {
+          revive.status = 'provisioning';
+          // Retired PCs also have approved=false in practice; make sure we
+          // flip that too even if the caller didn't pass `approved`.
+          if (body.approved !== false) revive.approved = true;
+        }
+        if (Object.keys(revive).length > 0) {
           await prisma.stationPC.update({
             where: { id },
-            data: { approved: true },
+            data: revive,
           });
         }
       } else if (priorAssignments.length > 0 && typeof body.approved !== 'boolean') {
