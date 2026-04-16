@@ -608,6 +608,9 @@ model LocalBusiness {
 model VisitGroup {
   id              String   @id @default(cuid())
 
+  // Custom display name (editable by admin)
+  displayName     String?
+
   // Link to business (at most one of these)
   managedClientId String?
   managedClient   ManagedClient? @relation(fields: [managedClientId], references: [id], onDelete: SetNull)

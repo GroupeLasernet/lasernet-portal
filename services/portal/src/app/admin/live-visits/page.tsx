@@ -19,6 +19,7 @@ interface VisitGroup {
   id: string;
   status: 'active' | 'completed' | 'cancelled';
   startedAt: string;
+  displayName: string | null;
   managedClient: { id: string; companyName: string; displayName: string } | null;
   localBusiness: { id: string; name: string } | null;
   visitors: Visitor[];
@@ -57,6 +58,10 @@ export default function LiveVisitsPage() {
     name: '', address: '', city: '', province: '', phone: '', email: '',
   });
 
+  // Inline name editing per group
+  const [editingNameGroupId, setEditingNameGroupId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState('');
+
   // Mobile move dropdown
   const [mobileMovingVisitId, setMobileMovingVisitId] = useState<string | null>(null);
 
@@ -71,6 +76,7 @@ export default function LiveVisitsPage() {
         id: vg.id,
         status: vg.status,
         startedAt: vg.createdAt,
+        displayName: vg.displayName || null,
         managedClient: vg.managedClient || null,
         localBusiness: vg.localBusiness || null,
         visitCount: vg.visits?.length ?? vg._count?.visits ?? 0,
@@ -117,11 +123,9 @@ export default function LiveVisitsPage() {
 
   // ── Business display ──
   const getBusinessName = (vg: VisitGroup) => {
+    if (vg.displayName) return vg.displayName;
     if (vg.managedClient) return vg.managedClient.companyName || vg.managedClient.displayName;
     if (vg.localBusiness) return vg.localBusiness.name;
-    // Fallback to first visitor's company
-    const firstCompany = vg.visitors.find(v => v.company)?.company;
-    if (firstCompany) return firstCompany;
     return t('liveVisits', 'unnamedGroup');
   };
 
@@ -134,6 +138,19 @@ export default function LiveVisitsPage() {
   const isLinked = (vg: VisitGroup) => !!(vg.managedClient || vg.localBusiness);
 
   const totalVisitors = visitGroups.reduce((sum, vg) => sum + vg.visitors.length, 0);
+
+  // ── Save group display name ──
+  const handleSaveGroupName = async (groupId: string, name: string) => {
+    setEditingNameGroupId(null);
+    try {
+      await fetch(`/api/visit-groups/${groupId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: name.trim() || null }),
+      });
+      await fetchVisitGroups();
+    } catch { /* silently fail */ }
+  };
 
   // ── Drag-and-drop handlers ──
   const handleDragStart = (e: React.DragEvent, visitId: string, groupId: string) => {
@@ -355,7 +372,32 @@ export default function LiveVisitsPage() {
                   <div className="p-4 border-b border-white/10">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-lg font-bold text-white truncate">{bizName}</h3>
+                        {editingNameGroupId === vg.id ? (
+                          <input
+                            type="text"
+                            value={editingNameValue}
+                            onChange={(e) => setEditingNameValue(e.target.value)}
+                            onBlur={() => handleSaveGroupName(vg.id, editingNameValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveGroupName(vg.id, editingNameValue);
+                              if (e.key === 'Escape') setEditingNameGroupId(null);
+                            }}
+                            placeholder={t('liveVisits', 'businessName')}
+                            className="w-full bg-gray-800 border border-brand-500 rounded-lg px-2 py-1 text-lg font-bold text-white placeholder-white/30 focus:outline-none"
+                            autoFocus
+                          />
+                        ) : (
+                          <h3
+                            className="text-lg font-bold text-white truncate cursor-pointer hover:text-brand-300 transition-colors"
+                            onClick={() => {
+                              setEditingNameGroupId(vg.id);
+                              setEditingNameValue(vg.displayName || '');
+                            }}
+                            title={t('liveVisits', 'editName')}
+                          >
+                            {bizName}
+                          </h3>
+                        )}
                         <div className="flex items-center gap-2 mt-1">
                           {bizType && (
                             <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${

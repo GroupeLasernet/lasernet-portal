@@ -789,6 +789,7 @@ const translations = {
     linkBusiness: { fr: 'Lier une entreprise', en: 'Link Business' },
     createBusiness: { fr: 'Créer une entreprise', en: 'Create Business' },
     unnamedGroup: { fr: 'Groupe sans nom', en: 'Unnamed Group' },
+    editName: { fr: 'Cliquer pour renommer', en: 'Click to rename' },
     setMainContact: { fr: 'Définir comme contact principal', en: 'Set as main contact' },
     moveVisitor: { fr: 'Déplacer le visiteur', en: 'Move visitor' },
     moveTo: { fr: 'Déplacer vers...', en: 'Move to...' },

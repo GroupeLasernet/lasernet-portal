@@ -57,7 +57,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { managedClientId, localBusinessId, mainContactId, status, notes, expectedFollowUpAt } = body;
+  const { managedClientId, localBusinessId, mainContactId, status, notes, expectedFollowUpAt, displayName } = body;
 
   try {
     const current = await prisma.visitGroup.findUnique({ where: { id: params.id } });
@@ -66,6 +66,7 @@ export async function PATCH(
     }
 
     const data: any = {};
+    if (displayName !== undefined) data.displayName = displayName || null;
     if (managedClientId !== undefined) data.managedClientId = managedClientId || null;
     if (localBusinessId !== undefined) data.localBusinessId = localBusinessId || null;
     if (mainContactId !== undefined) data.mainContactId = mainContactId || null;
