@@ -47,6 +47,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ items, connected: true });
   } catch (error) {
     console.error('GET /api/quickbooks/inventory error:', error);
-    return NextResponse.json({ error: 'Failed to fetch inventory', items: [] }, { status: 500 });
+    // Still report connected status even when the query fails
+    const tokens = await getTokensFromDB().catch(() => null);
+    return NextResponse.json({ error: 'Failed to fetch inventory', items: [], connected: isConnected(tokens) }, { status: 500 });
   }
 }

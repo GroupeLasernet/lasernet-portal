@@ -297,7 +297,8 @@ export default function VisitsPage() {
 
   const handleDragOver = (e: React.DragEvent, groupId: string) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    // Use 'copy' when dragging sidebar items, 'move' when dragging visitors
+    e.dataTransfer.dropEffect = draggedSidebarItemRef.current ? 'copy' : 'move';
     setDragOverGroupId(groupId);
   };
 
@@ -364,7 +365,16 @@ export default function VisitsPage() {
     try {
       const res = await fetch(`/api/kiosk/businesses?q=${encodeURIComponent(query)}`);
       const data = await res.json();
-      setBusinessResults(Array.isArray(data) ? data : data.businesses || []);
+      const raw: any[] = Array.isArray(data) ? data : data.results || data.businesses || [];
+      // Map API types to our interface types (managed → qb)
+      const mapped: BusinessSearchResult[] = raw.map((b: any) => ({
+        id: b.id,
+        name: b.name,
+        type: b.type === 'managed' ? 'qb' : b.type,
+        managedClientId: b.type === 'managed' ? b.id : b.managedClientId,
+        localBusinessId: b.type === 'local' ? b.id : b.localBusinessId,
+      }));
+      setBusinessResults(mapped);
     } catch { setBusinessResults([]); }
     setSearchingBusiness(false);
   }, []);
@@ -900,7 +910,8 @@ export default function VisitsPage() {
                                       onDragStart={(e) => {
                                         e.stopPropagation();
                                         draggedSidebarItemRef.current = { name: item.name, type: item.type };
-                                        e.dataTransfer.effectAllowed = 'copy';
+                                        e.dataTransfer.effectAllowed = 'copyMove';
+                                        e.dataTransfer.setData('application/sidebar-item', JSON.stringify(item));
                                         e.dataTransfer.setData('text/plain', item.name);
                                       }}
                                       className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-800/50 border border-white/5 hover:border-white/15 cursor-grab active:cursor-grabbing text-xs text-white/60 hover:text-white/80 transition-colors"
@@ -919,8 +930,25 @@ export default function VisitsPage() {
                         </div>
                       )}
 
-                      {/* ── Visitor cards + dropped needs column ── */}
-                      <div className="flex-1 p-4 space-y-2 min-h-[80px]">
+                      {/* ── Visitor cards + dropped needs column (also a drop target for sidebar items) ── */}
+                      <div
+                        className="flex-1 p-4 space-y-2 min-h-[80px]"
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          e.dataTransfer.dropEffect = draggedSidebarItemRef.current ? 'copy' : 'move';
+                        }}
+                        onDrop={(e) => {
+                          const sidebarItem = draggedSidebarItemRef.current;
+                          if (sidebarItem) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDragOverGroupId(null);
+                            handleSidebarDrop(vg.id, sidebarItem.name, sidebarItem.type);
+                            draggedSidebarItemRef.current = null;
+                          }
+                        }}
+                      >
                         {vg.visitors.length === 0 ? (
                           <div className="flex items-center justify-center h-full text-white/20 text-sm py-6">-</div>
                         ) : (
