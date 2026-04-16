@@ -41,7 +41,7 @@ Single active monorepo. Three services under `services/`:
 
 Other repo roots: `shared/`, `scripts/`, `ARCHITECTURE.md`, `BACKLOG.md`, `REMOTE_ACCESS_HANDOFF.md`, `README.md`, `docker-compose.yml`, `vercel.json`, `start-all.bat`, `push-update.bat`.
 
-**Authoritative docs inside the repo:** `ARCHITECTURE.md` (system map — update FIRST on architectural changes) and `BACKLOG.md` (in-progress + deferred work).
+**Authoritative docs inside the repo:** `HANDOFF.md` (full system map — paste into a fresh chat), `BACKLOG.md` (in-progress + deferred work), `services/portal/TODO.md` (per-service shipping log). There is no `ARCHITECTURE.md` at the root anymore — older memories that reference it are stale; use `HANDOFF.md` instead. The standalone deep-dive lives at `architecture reference/prisma_architecture.md`.
 
 ## 3. The PCs — who runs what
 
@@ -122,12 +122,15 @@ Prisma/                                  (monorepo root)
 - Controller is Linux-based with 3 NICs: `enp1s0` = 192.168.156.2 (dedicated cable to pendant), `enp3s0` = 192.168.0.10, `enp4s0` = 192.168.10.10 (robot PC link).
 - Pendant (tablet) at 192.168.156.100 talks to the robot over an isolated 192.168.156.0/24 subnet via dedicated cable. Not visible from robot PC's 192.168.10.x network.
 - TCP control (from robot PC) at `192.168.10.10:10003`.
-- **Protocol status:** `robot_comm.py` uses the Han's Robot TCP command family — correct for this hardware. Verified against **huayan-robotics/SDK_sample** (GitHub, Java source `HansRobotAPI_Base.java`, Oct 2025). See `architecture reference/huayan-sdk-reference/` for saved SDK extracts.
+- **Protocol status:** `robot_comm.py` uses the Han's Robot TCP command family — correct for this hardware. Verified against **huayan-robotics/SDK_sample** (GitHub, Java source `HansRobotAPI_Base.java`, Oct 2025) — this is the authoritative reference for command wire format.
 - **Free Drive / drag teach commands (confirmed 2026-04-14):**
-  - ON:  `GrpOpenFreeDriver,0,;`  (NOT `DragTeachSwitch` — old code was wrong)
+  - ON:  `GrpOpenFreeDriver,0,;`  (NOT `DragTeachSwitch` — that was a wrong guess in the old code)
   - OFF: `GrpCloseFreeDriver,0,;`
   - FSM: StandBy → RobotOpeningFreeDriver → FreeDriver, and back via RobotClosingFreeDriver.
-- **Error codes:** `20018` = `StateRefuse` (robot not in an accepting state — idempotent for Electrify/StartMaster/GrpEnable when already in target state). `20005`/`20007` are NOT in the SDK enum — likely controller-side "unknown command / invalid param" responses.
+- **Error code meanings (from SDK `ErrorCode.java`):**
+  - `20018` = `StateRefuse` — the robot is not in a state that accepts this command. This is why Electrify/StartMaster/GrpEnable return 20018 when the robot is already electrified/connected/enabled. Idempotent, not fatal — just treat as "already in target state".
+  - `20005`, `20007` — NOT in the SDK's ErrorCode enum. These are likely controller-side responses for unknown commands or invalid params (20005 was being triggered because `DragTeachSwitch` is not a real command).
+  - `39500` isNotConnect, `39501` paramsError, `39502` returnError, `39503` SocketError, `39504` Connect2CPSFailed, `39505` CmdError.
 - **Pendant safety login:** username `admin`, password `admin`. Required on pendant before physical Free Mode button works.
 - **Physical Free Mode:** button on the arm. When pressed, the pendant UI freezes (drag mode is exclusive to that session). Suggests drag teach may be hardware-gated and not triggerable from TCP at all — to be confirmed.
 - NEVER expose port 10003 to the internet. All remote access must go through FastAPI 8080 behind Cloudflare Access.
@@ -200,18 +203,43 @@ Read from `services/robot/.env` via `load_dotenv()` in `config.py`:
 4. ROBOT PC (Admin): `Restart-Service ElfinRobot` and/or `nssm restart RelfarBridge`.
 5. Portal: Vercel auto-deploys from GitHub main on push.
 
-## 13. Current high-level status (2026-04-14)
+## 13. Current high-level status (2026-04-15)
 
-- Free Mode button (cobot drag-teach) shipped end-to-end. Needs `Restart-Service ElfinRobot` to activate.
-- Portal `/api/sync/push` + `/api/sync/pull` NOT YET BUILT — sync disabled.
-- In-app updater for stations: backlogged.
-- Cloudflare Tunnel: blocked on always-on PC.
-- QB token auto-refresh loop: backlogged.
-- Elfin 20018/20007 TCP error debug: parked, not blocking.
-- Machine tracking rearchitecture phase 2: backlogged.
+**Recently shipped (since 2026-04-14):**
+- Three-entity domain model live in production: `Station` ↔ `StationPC` (1:1) ↔ `Machine` (M:N via `StationMachine`). `/admin/station-pcs` CRUD + sidebar nav + assignment audit trail (`StationPCAssignment`).
+- StationPC self-registration + heartbeat with approval quarantine; portal-generated one-click installer; "retired" reused on re-assignment.
+- Machine taxonomy ON: `category` (robot|accessory) + `subcategory` (laser|traditional_welding|sanding|...) + `model` chips on every Machines card; auto-create on serial entry from the Stations hold-to-save flow.
+- Machines list shows: serial + Category/Subcategory/Model chips + nickname + client + IP + city + Station `#<num> — <title>` + Invoice `#<num>` + **Open software** click-through (port 8080 robot, 5000 laser).
+- StationPC `localIp` field (migration `20260415_station_pc_local_ip.sql`) — manual LAN IP override so the Open-software button hits a reachable address. `getSoftwareUrl()` prefers `localIp` over public `lastHeartbeatIp`. Editable from the StationPC detail panel.
+- Self-heal on `GET /api/machines`: any orphaned Machine (no `StationMachine` row) gets backfilled from `Machine.invoiceId → StationInvoice.stationId`, then from `Station.notes.machineData[].machineId`. `POST /api/machines` also accepts `stationId` and writes the join row at creation time. Idempotent.
+- Stations: Google Places autocomplete on address (auto-fills city/province/postal/country), deep-link from clients, multi-invoice chips, deployment address with Street View + map + lock.
+- Free Mode button (cobot drag-teach) shipped end-to-end (`GrpOpenFreeDriver` / `GrpCloseFreeDriver`).
+- Robot wrist buttons wired client-side; speed multiplier 6x; jog accel boost. **Hardware Free Mode + Waypoint buttons are confirmed working at the controller/pendant level (2026-04-14)** — Prisma still doesn't poll end-flange DI from the SDK, so the wrist buttons don't yet trigger Prisma-side actions.
+- Robot licensing + HMAC signing live (`v1|serial|mode|expiresAt|killSwitch|signedAt`); soft-pass while `LICENSE_STRICT=false`.
+- Relfar SQLite persistence + dual-homed RDWelder AP deployment pattern.
+
+**Not yet built / blocked:**
+- Portal `/api/sync/push` + `/api/sync/pull` — NOT BUILT, sync disabled.
+- In-app updater for stations — backlogged (must exist before shipping at scale).
+- Cloudflare Tunnel — blocked on always-on PC at the shop. Until then, "Open software" requires same-LAN + manual `localIp`.
+- Interactive remote-support iframe in `/admin/station-pcs/[id]` — depends on Cloudflare Tunnel.
+- StationPC heartbeat endpoint to update `robotVersion` / `relfarVersion` — partially in place (heartbeat exists, version fields not pushed yet).
+- QB token auto-refresh loop — backlogged.
+- Elfin 20018/20007 TCP error debug — parked, not blocking (`20018` = StateRefuse / already-in-target-state, idempotent).
+- Machine tracking rearchitecture phase 2 (move serial+type from `Station.notes.machineData[]` into Machine rows as source of truth) — partially shipped via auto-create + self-heal; full migration still backlogged.
+- Laser source telemetry: stays in Relfar (do NOT model laser sources as separate Machine rows — see `project_laser_source_handling.md`).
+- `ROBOT_LICENSE_SECRET` deployed in both Vercel + station `.env`, then flip `LICENSE_STRICT=true`.
+
+**For the demo path (right now):**
+1. Robot PC connected to laser's `RDWelder` WiFi (`12345678`).
+2. Robot PC: `python run.py` from `C:\Prisma\services\robot` (port 8080).
+3. Robot PC: `python relfar_server.py` from `C:\Prisma\services\relfar` (port 5000).
+4. Portal: paste Robot PC's LAN IP into `/admin/station-pcs/[id]` → `localIp` field.
+5. From any same-LAN browser: `/admin/machines` → click a card → **Open software** → opens `http://<lan-ip>:8080|5000`.
 
 ## 14. When in doubt
 
-- Read `ARCHITECTURE.md` in the Prisma root FIRST.
+- Read `HANDOFF.md` in the Prisma root FIRST.
 - Check `BACKLOG.md` for "where were we".
+- Check `services/portal/TODO.md` for portal-specific shipped/in-progress items.
 - Check individual memory files for specifics (see MEMORY.md index).
