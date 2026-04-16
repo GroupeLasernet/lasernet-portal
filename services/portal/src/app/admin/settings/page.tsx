@@ -816,13 +816,13 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
   useEffect(() => {
     (async () => {
       try {
-        const [statusRes, invRes] = await Promise.all([
-          fetch('/api/quickbooks/status'),
-          fetch('/api/quickbooks/inventory'),
-        ]);
+        const statusRes = await fetch('/api/quickbooks/status');
         const statusData = await statusRes.json();
-        const invData = await invRes.json();
         setConnected(statusData.connected ?? false);
+      } catch {}
+      try {
+        const invRes = await fetch('/api/quickbooks/inventory');
+        const invData = await invRes.json();
         setItems(invData.items || []);
       } catch {}
       setLoading(false);
@@ -979,17 +979,17 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Fetch QB connection status + accounts in parallel
+  // Fetch QB connection status + accounts separately so a failing query doesn't hide connected status
   useEffect(() => {
     (async () => {
       try {
-        const [statusRes, accRes] = await Promise.all([
-          fetch('/api/quickbooks/status'),
-          fetch('/api/quickbooks/accounts'),
-        ]);
+        const statusRes = await fetch('/api/quickbooks/status');
         const statusData = await statusRes.json();
-        const accData = await accRes.json();
         setQbConnected(statusData.connected ?? false);
+      } catch {}
+      try {
+        const accRes = await fetch('/api/quickbooks/accounts');
+        const accData = await accRes.json();
         setAccounts(accData.accounts || []);
       } catch {}
       setLoadingAccounts(false);
