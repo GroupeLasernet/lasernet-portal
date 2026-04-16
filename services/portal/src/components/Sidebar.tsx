@@ -17,9 +17,10 @@ interface SidebarProps {
   bottomLinks?: SidebarLink[];
   userName: string;
   userRole: string;
+  onLinkClick?: () => void;
 }
 
-export default function Sidebar({ links, bottomLinks, userName, userRole }: SidebarProps) {
+export default function Sidebar({ links, bottomLinks, userName, userRole, onLinkClick }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -48,13 +49,14 @@ export default function Sidebar({ links, bottomLinks, userName, userRole }: Side
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {links.map((link) => {
           const isActive = pathname === link.href;
           return (
             <Link
               key={link.href}
               href={link.href}
+              onClick={onLinkClick}
               className={isActive ? 'sidebar-link-active' : 'sidebar-link'}
             >
               {link.icon}
@@ -74,6 +76,7 @@ export default function Sidebar({ links, bottomLinks, userName, userRole }: Side
                 <Link
                   key={link.href}
                   href={link.href}
+                  onClick={onLinkClick}
                   className={isActive ? 'sidebar-link-active' : 'sidebar-link'}
                 >
                   {link.icon}

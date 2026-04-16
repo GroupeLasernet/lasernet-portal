@@ -14,6 +14,7 @@ interface DashboardShellProps {
 export default function DashboardShell({ children, requiredRole, links, bottomLinks }: DashboardShellProps) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -49,10 +50,53 @@ export default function DashboardShell({ children, requiredRole, links, bottomLi
 
   return (
     <div className="min-h-screen flex bg-gray-50">
-      <Sidebar links={links} bottomLinks={bottomLinks} userName={user?.name || ''} userRole={user?.role || ''} />
-      <main className="flex-1 p-8 overflow-auto">
-        {children}
-      </main>
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar — always visible on md+, slide-in overlay on mobile */}
+      <div className={`
+        fixed inset-y-0 left-0 z-40 transform transition-transform duration-200 ease-in-out
+        md:static md:translate-x-0 md:z-auto
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <Sidebar
+          links={links}
+          bottomLinks={bottomLinks}
+          userName={user?.name || ''}
+          userRole={user?.role || ''}
+          onLinkClick={() => setSidebarOpen(false)}
+        />
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Mobile top bar with hamburger */}
+        <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
+            aria-label="Open menu"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <img
+            src="/prisma-logo.svg"
+            alt="Prisma"
+            className="h-8 object-contain"
+          />
+        </div>
+
+        <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

@@ -10,11 +10,11 @@ const t = {
     register: "S'enregistrer",
     staffLink: 'Connexion employ\u00e9',
     name: 'Nom complet',
-    email: 'Courriel (optionnel)',
+    email: 'Courriel',
     phone: 'T\u00e9l\u00e9phone (optionnel)',
     company: 'Entreprise (optionnel)',
     purpose: 'Objet de la visite',
-    purposePlaceholder: 'S\u00e9lectionnez...',
+    purposePlaceholder: 'Raison de votre visite\u2026',
     purposeInquiry: 'Demande d\u2019information',
     purposeDemo: 'D\u00e9monstration',
     purposeMeeting: 'Rendez-vous',
@@ -33,6 +33,14 @@ const t = {
     cameraError: 'Cam\u00e9ra non disponible',
     submitting: 'Envoi en cours\u2026',
     back: 'Retour',
+    visitingNow: 'En visite',
+    welcomeBack: 'Bon retour',
+    orRegisterNew: 'Ou remplir le formulaire ci-dessous',
+    checkingIn: 'Enregistrement\u2026',
+    businessFound: 'Entreprise reconnue',
+    linkedTo: 'Li\u00e9 \u00e0',
+    qbClient: 'Client QB',
+    localBusiness: 'Entreprise locale',
   },
   en: {
     welcome: 'Welcome to Atelier DSM',
@@ -40,11 +48,11 @@ const t = {
     register: 'Register',
     staffLink: 'Staff Login',
     name: 'Full Name',
-    email: 'Email (optional)',
+    email: 'Email',
     phone: 'Phone (optional)',
     company: 'Company (optional)',
     purpose: 'Purpose of Visit',
-    purposePlaceholder: 'Select...',
+    purposePlaceholder: 'Reason for your visit\u2026',
     purposeInquiry: 'Inquiry',
     purposeDemo: 'Demo',
     purposeMeeting: 'Meeting',
@@ -63,11 +71,34 @@ const t = {
     cameraError: 'Camera unavailable',
     submitting: 'Submitting\u2026',
     back: 'Back',
+    visitingNow: 'Visiting now',
+    welcomeBack: 'Welcome back',
+    orRegisterNew: 'Or fill out the form below',
+    checkingIn: 'Checking in\u2026',
+    businessFound: 'Business recognized',
+    linkedTo: 'Linked to',
+    qbClient: 'QB Client',
+    localBusiness: 'Local business',
   },
 } as const
 
 type Lang = keyof typeof t
 type Screen = 'welcome' | 'form' | 'thanks'
+
+interface LeadSuggestion {
+  id: string
+  name: string
+  email: string | null
+  company: string | null
+  photo: string | null
+}
+
+interface BusinessSuggestion {
+  id: string
+  name: string
+  email: string | null
+  type: 'managed' | 'local'
+}
 
 const PURPOSE_KEYS = ['purposeInquiry', 'purposeDemo', 'purposeMeeting', 'purposeService', 'purposeOther'] as const
 const PURPOSE_VALUES = ['inquiry', 'demo', 'meeting', 'service', 'other'] as const
@@ -86,6 +117,172 @@ export default function KioskPage() {
   const [purpose, setPurpose] = useState('')
   const [photo, setPhoto] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  /* ---- name search / autocomplete ---- */
+  const [suggestions, setSuggestions] = useState<LeadSuggestion[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [selectedLead, setSelectedLead] = useState<LeadSuggestion | null>(null)
+  const [quickCheckingIn, setQuickCheckingIn] = useState(false)
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
+
+  /* ---- business search / autocomplete ---- */
+  const [businessSuggestions, setBusinessSuggestions] = useState<BusinessSuggestion[]>([])
+  const [showBusinessSuggestions, setShowBusinessSuggestions] = useState(false)
+  const [selectedBusiness, setSelectedBusiness] = useState<BusinessSuggestion | null>(null)
+  const [businessAutoDetected, setBusinessAutoDetected] = useState(false)
+  const businessSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const businessSuggestionsRef = useRef<HTMLDivElement>(null)
+  const emailDomainTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const searchLeads = useCallback(async (query: string) => {
+    if (query.trim().length < 2) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+    try {
+      const res = await fetch(`/api/kiosk/search?q=${encodeURIComponent(query.trim())}`)
+      const data = await res.json()
+      setSuggestions(data.results || [])
+      setShowSuggestions((data.results || []).length > 0)
+    } catch {
+      setSuggestions([])
+      setShowSuggestions(false)
+    }
+  }, [])
+
+  const searchBusinesses = useCallback(async (query: string) => {
+    if (query.trim().length < 2) {
+      setBusinessSuggestions([])
+      setShowBusinessSuggestions(false)
+      return
+    }
+    try {
+      const res = await fetch(`/api/kiosk/businesses?q=${encodeURIComponent(query.trim())}`)
+      const data = await res.json()
+      setBusinessSuggestions(data.results || [])
+      setShowBusinessSuggestions((data.results || []).length > 0)
+    } catch {
+      setBusinessSuggestions([])
+      setShowBusinessSuggestions(false)
+    }
+  }, [])
+
+  const searchBusinessByDomain = useCallback(async (domain: string) => {
+    if (domain.length < 2) return
+    try {
+      const res = await fetch(`/api/kiosk/businesses?domain=${encodeURIComponent(domain)}`)
+      const data = await res.json()
+      const results: BusinessSuggestion[] = data.results || []
+      if (results.length > 0) {
+        return results[0]
+      }
+      return null
+    } catch {
+      return null
+    }
+  }, [])
+
+  const handleNameChange = (value: string) => {
+    setName(value)
+    setSelectedLead(null)
+    if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    searchTimeout.current = setTimeout(() => searchLeads(value), 300)
+  }
+
+  const handleSelectLead = (lead: LeadSuggestion) => {
+    setSelectedLead(lead)
+    setName(lead.name)
+    setEmail(lead.email || '')
+    setCompany(lead.company || '')
+    setShowSuggestions(false)
+  }
+
+  const handleQuickCheckIn = async (lead: LeadSuggestion) => {
+    setQuickCheckingIn(true)
+    try {
+      await fetch('/api/kiosk/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: lead.name,
+          email: lead.email,
+          phone: null,
+          company: lead.company,
+          purpose: null,
+          photo: null,
+          ...(selectedBusiness ? { companyId: selectedBusiness.id, companyType: selectedBusiness.type } : {}),
+        }),
+      })
+      setScreen('thanks')
+    } catch {
+      setScreen('thanks')
+    } finally {
+      setQuickCheckingIn(false)
+    }
+  }
+
+  const handleCompanyChange = (value: string) => {
+    setCompany(value)
+    // Clear selected business if user manually edits the field
+    if (selectedBusiness && value !== selectedBusiness.name) {
+      setSelectedBusiness(null)
+      setBusinessAutoDetected(false)
+    }
+    if (businessSearchTimeout.current) clearTimeout(businessSearchTimeout.current)
+    businessSearchTimeout.current = setTimeout(() => searchBusinesses(value), 300)
+  }
+
+  const handleSelectBusiness = (biz: BusinessSuggestion) => {
+    setSelectedBusiness(biz)
+    setCompany(biz.name)
+    setShowBusinessSuggestions(false)
+    setBusinessAutoDetected(false)
+  }
+
+  const handleEmailChange = useCallback(
+    (value: string) => {
+      setEmail(value)
+
+      // Domain auto-matching
+      if (emailDomainTimeout.current) clearTimeout(emailDomainTimeout.current)
+
+      const atIndex = value.indexOf('@')
+      if (atIndex >= 0) {
+        const domain = value.slice(atIndex + 1).trim().toLowerCase()
+        if (domain.length >= 2) {
+          emailDomainTimeout.current = setTimeout(async () => {
+            const match = await searchBusinessByDomain(domain)
+            if (match) {
+              // Only auto-select if no business is currently selected
+              setSelectedBusiness((current) => {
+                if (current) return current
+                setCompany(match.name)
+                setBusinessAutoDetected(true)
+                return match
+              })
+            }
+          }, 300)
+        }
+      }
+    },
+    [searchBusinessByDomain],
+  )
+
+  /* close suggestions when clicking outside */
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false)
+      }
+      if (businessSuggestionsRef.current && !businessSuggestionsRef.current.contains(e.target as Node)) {
+        setShowBusinessSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   /* ---- camera ---- */
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -160,6 +357,14 @@ export default function KioskPage() {
     setStaffEmail('')
     setStaffPassword('')
     setStaffError('')
+    setSuggestions([])
+    setShowSuggestions(false)
+    setSelectedLead(null)
+    setQuickCheckingIn(false)
+    setBusinessSuggestions([])
+    setShowBusinessSuggestions(false)
+    setSelectedBusiness(null)
+    setBusinessAutoDetected(false)
   }, [])
 
   /* auto-reset from thanks screen */
@@ -185,11 +390,12 @@ export default function KioskPage() {
           company: company.trim() || null,
           purpose: purpose || null,
           photo: photo || null,
+          ...(selectedBusiness ? { companyId: selectedBusiness.id, companyType: selectedBusiness.type } : {}),
         }),
       })
       setScreen('thanks')
     } catch {
-      /* silently move to thanks — kiosk should not block on network errors */
+      /* silently move to thanks -- kiosk should not block on network errors */
       setScreen('thanks')
     }
   }
@@ -342,23 +548,91 @@ export default function KioskPage() {
           <h2 className="text-3xl font-bold mb-8">{l.register}</h2>
 
           <form onSubmit={handleRegister} className="flex flex-col gap-5">
-            {/* Name */}
-            <input
-              type="text"
-              placeholder={l.name}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              autoFocus
-              className="bg-white/10 border border-white/20 rounded-xl text-lg py-4 px-6 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-brand-600 transition-shadow"
-            />
+            {/* Name -- with autocomplete search */}
+            <div className="relative" ref={suggestionsRef}>
+              <input
+                type="text"
+                placeholder={l.name}
+                value={name}
+                onChange={(e) => handleNameChange(e.target.value)}
+                onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true) }}
+                required
+                autoFocus
+                autoComplete="off"
+                className="w-full bg-white/10 border border-white/20 rounded-xl text-lg py-4 px-6 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-brand-600 transition-shadow"
+              />
+
+              {/* Suggestions dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-20 left-0 right-0 mt-2 bg-gray-900 border border-white/20 rounded-xl overflow-hidden shadow-2xl">
+                  {suggestions.map((lead) => (
+                    <div
+                      key={lead.id}
+                      className="flex items-center gap-4 px-5 py-4 hover:bg-white/10 transition-colors border-b border-white/10 last:border-b-0"
+                    >
+                      {/* Avatar */}
+                      <div className="flex-shrink-0">
+                        {lead.photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={lead.photo} alt="" className="w-12 h-12 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-brand-600/30 flex items-center justify-center text-brand-300 font-bold text-lg">
+                            {lead.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-semibold truncate">{lead.name}</p>
+                        <p className="text-white/50 text-sm truncate">
+                          {[lead.email, lead.company].filter(Boolean).join(' \u2022 ') || '\u00a0'}
+                        </p>
+                      </div>
+
+                      {/* Quick check-in button */}
+                      <button
+                        type="button"
+                        disabled={quickCheckingIn}
+                        onClick={() => handleQuickCheckIn(lead)}
+                        className="flex-shrink-0 bg-brand-600 hover:bg-brand-500 active:scale-[0.97] disabled:opacity-50 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all"
+                      >
+                        {quickCheckingIn ? l.checkingIn : l.visitingNow}
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Or register new */}
+                  <div className="px-5 py-3 bg-white/5 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowSuggestions(false)}
+                      className="text-sm text-white/40 hover:text-white/60 transition-colors"
+                    >
+                      {l.orRegisterNew}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Selected lead banner */}
+            {selectedLead && (
+              <div className="flex items-center gap-3 bg-brand-600/10 border border-brand-600/30 rounded-xl px-5 py-3">
+                <svg className="w-5 h-5 text-brand-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-brand-300 text-sm">{l.welcomeBack}, <strong>{selectedLead.name}</strong></p>
+              </div>
+            )}
 
             {/* Email */}
             <input
               type="email"
               placeholder={l.email}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => handleEmailChange(e.target.value)}
+              required
               className="bg-white/10 border border-white/20 rounded-xl text-lg py-4 px-6 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-brand-600 transition-shadow"
             />
 
@@ -371,14 +645,89 @@ export default function KioskPage() {
               className="bg-white/10 border border-white/20 rounded-xl text-lg py-4 px-6 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-brand-600 transition-shadow"
             />
 
-            {/* Company */}
-            <input
-              type="text"
-              placeholder={l.company}
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              className="bg-white/10 border border-white/20 rounded-xl text-lg py-4 px-6 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-brand-600 transition-shadow"
-            />
+            {/* Company -- with business autocomplete */}
+            <div className="relative" ref={businessSuggestionsRef}>
+              <input
+                type="text"
+                placeholder={l.company}
+                value={company}
+                onChange={(e) => handleCompanyChange(e.target.value)}
+                onFocus={() => { if (businessSuggestions.length > 0) setShowBusinessSuggestions(true) }}
+                autoComplete="off"
+                className="w-full bg-white/10 border border-white/20 rounded-xl text-lg py-4 px-6 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-brand-600 transition-shadow"
+              />
+
+              {/* Business suggestions dropdown */}
+              {showBusinessSuggestions && businessSuggestions.length > 0 && (
+                <div className="absolute z-20 left-0 right-0 mt-2 bg-gray-900 border border-white/20 rounded-xl overflow-hidden shadow-2xl">
+                  {businessSuggestions.map((biz) => (
+                    <button
+                      key={`${biz.type}-${biz.id}`}
+                      type="button"
+                      onClick={() => handleSelectBusiness(biz)}
+                      className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/10 transition-colors border-b border-white/10 last:border-b-0 text-left"
+                    >
+                      {/* Icon */}
+                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white/60" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3H21m-3.75 3H21" />
+                        </svg>
+                      </div>
+
+                      {/* Name + type badge */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-semibold truncate">{biz.name}</p>
+                        {biz.email && <p className="text-white/40 text-sm truncate">{biz.email}</p>}
+                      </div>
+
+                      {/* Type badge */}
+                      <span className={`flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        biz.type === 'managed'
+                          ? 'bg-blue-500/20 text-blue-300'
+                          : 'bg-amber-500/20 text-amber-300'
+                      }`}>
+                        {biz.type === 'managed' ? l.qbClient : l.localBusiness}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Selected business banner */}
+            {selectedBusiness && (
+              <div className="flex items-center gap-3 bg-white/5 border border-white/15 rounded-xl px-5 py-3">
+                <svg className="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.314a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.34 8.374" />
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white/80 text-sm">
+                    {businessAutoDetected ? l.businessFound : l.linkedTo}{' '}
+                    <strong className="text-white">{selectedBusiness.name}</strong>
+                  </p>
+                </div>
+                <span className={`flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                  selectedBusiness.type === 'managed'
+                    ? 'bg-blue-500/20 text-blue-300'
+                    : 'bg-amber-500/20 text-amber-300'
+                }`}>
+                  {selectedBusiness.type === 'managed' ? l.qbClient : l.localBusiness}
+                </span>
+                {/* Clear button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedBusiness(null)
+                    setBusinessAutoDetected(false)
+                  }}
+                  className="flex-shrink-0 text-white/30 hover:text-white/60 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
 
             {/* Purpose */}
             <select

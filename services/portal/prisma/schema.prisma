@@ -80,6 +80,7 @@ model ManagedClient {
   machines        Machine[]
   trainingEvents  TrainingEvent[]
   leads           Lead[]
+  visitGroups     VisitGroup[]
 }
 
 // ============================================================
@@ -577,6 +578,114 @@ model QBCache {
 }
 
 // ============================================================
+// LOCAL BUSINESSES — Non-QB businesses (prospects not yet in QuickBooks)
+// Added 2026-04-16: Editable business profiles for walk-in visitors
+// ============================================================
+model LocalBusiness {
+  id          String   @id @default(cuid())
+  name        String
+  address     String?
+  city        String?
+  province    String?
+  postalCode  String?
+  country     String?  @default("Canada")
+  phone       String?
+  email       String?
+  website     String?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  visitGroups VisitGroup[]
+  leads       Lead[]
+}
+
+// ============================================================
+// VISIT GROUPS — Groups multiple visitors arriving together
+// Links to a business (ManagedClient or LocalBusiness) and tracks
+// the overall visit lifecycle: active → completed → follow-up sent.
+// ============================================================
+model VisitGroup {
+  id              String   @id @default(cuid())
+
+  // Link to business (at most one of these)
+  managedClientId String?
+  managedClient   ManagedClient? @relation(fields: [managedClientId], references: [id], onDelete: SetNull)
+  localBusinessId String?
+  localBusiness   LocalBusiness? @relation(fields: [localBusinessId], references: [id], onDelete: SetNull)
+
+  // Main contact from the group (lead ID)
+  mainContactId   String?
+
+  // Status
+  status          String   @default("active") // "active" | "completed"
+  notes           String?  @db.Text
+
+  expectedFollowUpAt DateTime?
+  completedAt     DateTime?
+  summarySentAt   DateTime?  // when summary was emailed to main contact
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  visits          Visit[]
+  files           VisitFile[]
+  needs           VisitNeed[]
+
+  @@index([status])
+  @@index([managedClientId])
+  @@index([localBusinessId])
+}
+
+// ============================================================
+// VISIT FILES — Photos, documents, files attached to a visit group
+// ============================================================
+model VisitFile {
+  id              String   @id @default(cuid())
+  visitGroupId    String
+  visitGroup      VisitGroup @relation(fields: [visitGroupId], references: [id], onDelete: Cascade)
+
+  fileName        String
+  fileType        String   // "image" | "document" | "video" | "other"
+  fileData        String   @db.Text // base64 data URL or file URL
+  fileSize        Int?     // bytes
+
+  uploadedById    String?
+  notes           String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([visitGroupId])
+}
+
+// ============================================================
+// VISIT NEEDS — What visitors expect from the visit
+// Salesperson checks these off during/after the visit; each has
+// a status and optional expected delivery date.
+// ============================================================
+model VisitNeed {
+  id              String   @id @default(cuid())
+  visitGroupId    String
+  visitGroup      VisitGroup @relation(fields: [visitGroupId], references: [id], onDelete: Cascade)
+
+  // "info" | "quote" | "manual" | "photos" | "videos" | "reports" | "other"
+  type            String
+  description     String?  @db.Text
+  status          String   @default("pending") // "pending" | "in_progress" | "sent" | "completed"
+  expectedDate    DateTime?
+  completedAt     DateTime?
+
+  assignedToId    String?
+  notes           String?  @db.Text
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([visitGroupId])
+}
+
+// ============================================================
 // CRM — LEADS, CALLS, VISITS, MESSAGES
 // Added 2026-04-16: Sales pipeline & walk-in registration system
 // ============================================================
@@ -590,6 +699,10 @@ model Lead {
   // Link to existing client (null = new prospect)
   managedClientId String?
   managedClient   ManagedClient? @relation(fields: [managedClientId], references: [id], onDelete: SetNull)
+
+  // Link to local business (non-QB prospect)
+  localBusinessId String?
+  localBusiness   LocalBusiness? @relation(fields: [localBusinessId], references: [id], onDelete: SetNull)
 
   // Contact info (always populated, even if linked to ManagedClient)
   name            String
@@ -626,6 +739,7 @@ model Lead {
   activities      LeadActivity[]
 
   @@index([managedClientId])
+  @@index([localBusinessId])
   @@index([assignedToId])
   @@index([stage])
 }
@@ -656,6 +770,10 @@ model Visit {
   id              String   @id @default(cuid())
   leadId          String
   lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  // Group visit (null = solo visitor)
+  visitGroupId    String?
+  visitGroup      VisitGroup? @relation(fields: [visitGroupId], references: [id], onDelete: SetNull)
 
   // Self-registered info from kiosk
   visitorName     String

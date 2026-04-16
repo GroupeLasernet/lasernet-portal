@@ -378,7 +378,9 @@ export default function AdminLeadsPage() {
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
 
       {/* ── LEFT PANEL ────────────────────────────────────────────────────── */}
-      <div className={`flex flex-col border-r bg-white ${selectedLead ? 'w-1/2 xl:w-2/5' : 'w-full'} transition-all duration-200`}>
+      <div className={`flex flex-col border-r bg-white transition-all duration-200 ${
+        selectedLead ? 'hidden md:flex md:w-1/2 xl:w-2/5' : 'w-full'
+      }`}>
         <div className="p-6 border-b">
           <PageHeader
             title={t('leads', 'title')}
@@ -566,11 +568,22 @@ export default function AdminLeadsPage() {
 
       {/* ── RIGHT PANEL ───────────────────────────────────────────────────── */}
       {selectedLead ? (
-        <div className="flex-1 overflow-y-auto bg-gray-50">
-          <div className="p-6 space-y-6">
+        <div className="fixed inset-0 z-40 md:static md:z-auto flex-1 overflow-y-auto bg-gray-50">
+          <div className="p-4 sm:p-6 space-y-6">
+
+            {/* Mobile back button */}
+            <button
+              onClick={() => setSelectedId(null)}
+              className="md:hidden flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              {t('leads', 'filterAll')}
+            </button>
 
             {/* Lead header */}
-            <div className="bg-white rounded-xl shadow-sm border p-6">
+            <div className="bg-white rounded-xl shadow-sm border p-4 sm:p-6">
               <div className="flex items-start gap-4">
                 {selectedLead.photo ? (
                   <img src={selectedLead.photo} alt={selectedLead.name} className="w-16 h-16 rounded-full object-cover flex-shrink-0" />
@@ -605,8 +618,8 @@ export default function AdminLeadsPage() {
             </div>
 
             {/* Editable fields */}
-            <div className="bg-white rounded-xl shadow-sm border p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-xl shadow-sm border p-4 sm:p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Stage */}
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'stage')}</label>
@@ -938,7 +951,7 @@ export default function AdminLeadsPage() {
         </div>
       ) : (
         /* No lead selected */
-        <div className="flex-1 flex items-center justify-center bg-gray-50">
+        <div className="flex-1 hidden md:flex items-center justify-center bg-gray-50">
           <p className="text-gray-400 text-sm">{t('leads', 'selectLead')}</p>
         </div>
       )}
