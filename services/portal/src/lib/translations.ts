@@ -67,7 +67,7 @@ const translations = {
     videos: { fr: 'Vidéos', en: 'Videos' },
     invoices: { fr: 'Factures', en: 'Invoices' },
     leads: { fr: 'Leads', en: 'Leads' },
-    liveVisits: { fr: 'Visites en cours', en: 'Live Visits' },
+    liveVisits: { fr: 'Visites', en: 'Visits' },
     businesses: { fr: 'Entreprises', en: 'Businesses' },
     signOut: { fr: 'Déconnexion', en: 'Sign Out' },
     signingOut: { fr: 'Déconnexion...', en: 'Signing out...' },
@@ -772,9 +772,23 @@ const translations = {
   // LIVE VISITS (big-screen dashboard)
   // ============================================================
   liveVisits: {
-    title: { fr: 'Visites en cours', en: 'Live Visits' },
-    subtitle: { fr: 'Tableau de bord des visites actives', en: 'Active visits dashboard' },
+    title: { fr: 'Visites', en: 'Visits' },
+    subtitle: { fr: 'Agenda, suivis et visites en cours', en: 'Agenda, follow-ups and live visits' },
+    // Page sections
+    agendaTitle: { fr: 'Agenda', en: 'Agenda' },
+    followUpTitle: { fr: 'Suivis requis', en: 'Follow-up needed' },
+    liveTitle: { fr: 'Visites en cours', en: 'Live Visits' },
+    noFollowUps: { fr: 'Aucun suivi requis', en: 'No follow-ups needed' },
     noActiveVisits: { fr: 'Aucune visite en cours', en: 'No active visits' },
+    // Agenda
+    mon: { fr: 'L', en: 'M' },
+    tue: { fr: 'M', en: 'T' },
+    wed: { fr: 'M', en: 'W' },
+    thu: { fr: 'J', en: 'T' },
+    fri: { fr: 'V', en: 'F' },
+    sat: { fr: 'S', en: 'S' },
+    sun: { fr: 'D', en: 'S' },
+    today: { fr: "Aujourd'hui", en: 'Today' },
     visitingSince: { fr: 'En visite depuis', en: 'Visiting since' },
     mainContact: { fr: 'Contact principal', en: 'Main contact' },
     visitors: { fr: 'Visiteurs', en: 'Visitors' },
@@ -789,7 +803,7 @@ const translations = {
     linkBusiness: { fr: 'Lier une entreprise', en: 'Link Business' },
     createBusiness: { fr: 'Créer une entreprise', en: 'Create Business' },
     unnamedGroup: { fr: 'Groupe sans nom', en: 'Unnamed Group' },
-    editName: { fr: 'Cliquer pour renommer', en: 'Click to rename' },
+    editName: { fr: 'Renommer', en: 'Rename' },
     setMainContact: { fr: 'Définir comme contact principal', en: 'Set as main contact' },
     moveVisitor: { fr: 'Déplacer le visiteur', en: 'Move visitor' },
     moveTo: { fr: 'Déplacer vers...', en: 'Move to...' },
