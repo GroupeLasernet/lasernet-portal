@@ -71,6 +71,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Dedup check: if this lead already has a visit from today, skip creating another one
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const existingVisitToday = await prisma.visit.findFirst({
+      where: {
+        leadId: lead.id,
+        visitedAt: { gte: todayStart },
+      },
+    });
+
+    if (existingVisitToday) {
+      // Already checked in today — return success without creating a duplicate visit
+      return NextResponse.json(
+        {
+          success: true,
+          leadId: lead.id,
+          visitId: existingVisitToday.id,
+          alreadyCheckedIn: true,
+        },
+        { status: 200 },
+      );
+    }
+
     // Resolve visit group
     let resolvedGroupId: string | null = visitGroupId || null;
 

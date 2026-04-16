@@ -42,6 +42,7 @@ const t = {
     linkedTo: 'Li\u00e9 \u00e0',
     qbClient: 'Client QB',
     localBusiness: 'Entreprise locale',
+    previousVisitor: 'Visiteur pr\u00e9c\u00e9dent',
   },
   en: {
     welcome: 'Welcome to Atelier DSM',
@@ -81,6 +82,7 @@ const t = {
     linkedTo: 'Linked to',
     qbClient: 'QB Client',
     localBusiness: 'Local business',
+    previousVisitor: 'Previous visitor',
   },
 } as const
 
@@ -99,7 +101,7 @@ interface BusinessSuggestion {
   id: string
   name: string
   email: string | null
-  type: 'managed' | 'local'
+  type: 'managed' | 'local' | 'lead'
 }
 
 const PURPOSE_KEYS = ['purposeInquiry', 'purposeDemo', 'purposeMeeting', 'purposeService', 'purposeOther'] as const
@@ -706,9 +708,10 @@ export default function KioskPage() {
                       <span className={`flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ${
                         biz.type === 'managed'
                           ? 'bg-blue-500/20 text-blue-300'
-                          : 'bg-amber-500/20 text-amber-300'
+                          : biz.type === 'local' ? 'bg-amber-500/20 text-amber-300'
+                          : 'bg-purple-500/20 text-purple-300'
                       }`}>
-                        {biz.type === 'managed' ? l.qbClient : l.localBusiness}
+                        {biz.type === 'managed' ? l.qbClient : biz.type === 'local' ? l.localBusiness : l.previousVisitor}
                       </span>
                     </button>
                   ))}
@@ -731,9 +734,10 @@ export default function KioskPage() {
                 <span className={`flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ${
                   selectedBusiness.type === 'managed'
                     ? 'bg-blue-500/20 text-blue-300'
-                    : 'bg-amber-500/20 text-amber-300'
+                    : selectedBusiness.type === 'local' ? 'bg-amber-500/20 text-amber-300'
+                    : 'bg-purple-500/20 text-purple-300'
                 }`}>
-                  {selectedBusiness.type === 'managed' ? l.qbClient : l.localBusiness}
+                  {selectedBusiness.type === 'managed' ? l.qbClient : selectedBusiness.type === 'local' ? l.localBusiness : l.previousVisitor}
                 </span>
                 {/* Clear button */}
                 <button

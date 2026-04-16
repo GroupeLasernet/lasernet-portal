@@ -25,14 +25,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    type Result = { id: string; name: string; email: string | null; type: 'managed' | 'local' };
+    type Result = { id: string; name: string; email: string | null; type: 'managed' | 'local' | 'lead' };
     const results: Result[] = [];
 
     if (domain) {
       // Domain search — match the part after @ in email fields
       const domainPattern = `@${domain}`;
 
-      const [managedClients, localBusinesses] = await Promise.all([
+      const [managedClients, localBusinesses, leads] = await Promise.all([
         prisma.managedClient.findMany({
           where: {
             email: { contains: domainPattern, mode: 'insensitive' },
@@ -46,6 +46,15 @@ export async function GET(request: NextRequest) {
           },
           take: 5,
           select: { id: true, name: true, email: true },
+        }),
+        prisma.lead.findMany({
+          where: {
+            email: { contains: domainPattern, mode: 'insensitive' },
+            company: { not: null },
+          },
+          distinct: ['company'],
+          take: 5,
+          select: { id: true, company: true, email: true },
         }),
       ]);
 
@@ -65,9 +74,20 @@ export async function GET(request: NextRequest) {
           type: 'local',
         });
       }
+      // Add leads with company names not already in results
+      for (const lead of leads) {
+        if (lead.company && !results.some(r => r.name.toLowerCase() === lead.company!.toLowerCase())) {
+          results.push({
+            id: lead.id,
+            name: lead.company,
+            email: lead.email,
+            type: 'lead',
+          });
+        }
+      }
     } else {
       // Company name search
-      const [managedClients, localBusinesses] = await Promise.all([
+      const [managedClients, localBusinesses, leads] = await Promise.all([
         prisma.managedClient.findMany({
           where: {
             OR: [
@@ -85,6 +105,14 @@ export async function GET(request: NextRequest) {
           take: 5,
           select: { id: true, name: true, email: true },
         }),
+        prisma.lead.findMany({
+          where: {
+            company: { contains: q, mode: 'insensitive' },
+          },
+          distinct: ['company'],
+          take: 5,
+          select: { id: true, company: true, email: true },
+        }),
       ]);
 
       for (const mc of managedClients) {
@@ -102,6 +130,17 @@ export async function GET(request: NextRequest) {
           email: lb.email,
           type: 'local',
         });
+      }
+      // Add leads with company names not already in results
+      for (const lead of leads) {
+        if (lead.company && !results.some(r => r.name.toLowerCase() === lead.company!.toLowerCase())) {
+          results.push({
+            id: lead.id,
+            name: lead.company,
+            email: lead.email,
+            type: 'lead',
+          });
+        }
       }
     }
 
