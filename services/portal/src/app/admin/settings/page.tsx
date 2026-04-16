@@ -693,14 +693,18 @@ function VisitSidebarSettings({ t }: { t: (s: string, k: string) => string }) {
     } catch {}
   }, []);
 
-  // Fetch QB inventory items
+  // Fetch QB connection status + inventory items in parallel
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/quickbooks/inventory');
-        const data = await res.json();
-        setQbConnected(data.connected ?? false);
-        setQbItems(data.items || []);
+        const [statusRes, invRes] = await Promise.all([
+          fetch('/api/quickbooks/status'),
+          fetch('/api/quickbooks/inventory'),
+        ]);
+        const statusData = await statusRes.json();
+        const invData = await invRes.json();
+        setQbConnected(statusData.connected ?? false);
+        setQbItems(invData.items || []);
       } catch {}
       setLoadingQb(false);
     })();
@@ -809,14 +813,18 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Fetch QB accounts on mount
+  // Fetch QB connection status + accounts in parallel
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/quickbooks/accounts');
-        const data = await res.json();
-        setQbConnected(data.connected ?? false);
-        setAccounts(data.accounts || []);
+        const [statusRes, accRes] = await Promise.all([
+          fetch('/api/quickbooks/status'),
+          fetch('/api/quickbooks/accounts'),
+        ]);
+        const statusData = await statusRes.json();
+        const accData = await accRes.json();
+        setQbConnected(statusData.connected ?? false);
+        setAccounts(accData.accounts || []);
       } catch {}
       setLoadingAccounts(false);
     })();

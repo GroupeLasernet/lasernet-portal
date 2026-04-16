@@ -86,6 +86,9 @@ export default function VisitsPage() {
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Fullscreen mode for the live visits dark container
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   // Mobile move dropdown
   const [mobileMovingVisitId, setMobileMovingVisitId] = useState<string | null>(null);
 
@@ -650,7 +653,11 @@ export default function VisitsPage() {
       {/* ════════════════════════════════════════════════════════════════════════
           SECTION 3 — LIVE VISITS (dark container)
           ════════════════════════════════════════════════════════════════════════ */}
-      <div className="bg-gray-950 rounded-2xl border border-white/10 overflow-hidden">
+      <div className={`bg-gray-950 border border-white/10 overflow-hidden transition-all duration-300 ${
+        isFullscreen
+          ? 'fixed inset-0 z-50 rounded-none flex flex-col'
+          : 'rounded-2xl'
+      }`}>
 
         {/* Header */}
         <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between">
@@ -670,11 +677,27 @@ export default function VisitsPage() {
               <span className="text-2xl font-bold text-white tabular-nums">{totalVisitors}</span>
               <span className="text-xs text-white/40">{t('liveVisits', 'visitors')}</span>
             </div>
+            {/* Fullscreen toggle */}
+            <button
+              onClick={() => setIsFullscreen(f => !f)}
+              className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+              title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            >
+              {isFullscreen ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
 
         {/* Live visit containers */}
-        <div className="p-6" style={{ minHeight: '75vh' }}>
+        <div className={`p-6 ${isFullscreen ? 'flex-1 overflow-y-auto' : ''}`} style={{ minHeight: isFullscreen ? undefined : '75vh' }}>
           {activeGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
