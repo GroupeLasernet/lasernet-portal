@@ -29,6 +29,41 @@ async function main() {
 
   console.log(`Admin user created: ${admin.email} (id: ${admin.id})`);
 
+  // Create sales user (admin with sales subrole)
+  const sales = await prisma.user.upsert({
+    where: { email: 'sales@lasernet.ca' },
+    update: {},
+    create: {
+      email: 'sales@lasernet.ca',
+      name: 'Sales Dev',
+      password: 'sales123', // Change this in production!
+      role: 'admin',
+      subrole: 'sales',
+      company: 'LaserNet',
+      phone: '514-555-0101',
+      status: 'active',
+    },
+  });
+
+  console.log(`Sales user created: ${sales.email} (id: ${sales.id})`);
+
+  // Create client user
+  const client = await prisma.user.upsert({
+    where: { email: 'client@lasernet.ca' },
+    update: {},
+    create: {
+      email: 'client@lasernet.ca',
+      name: 'Client Dev',
+      password: 'client123', // Change this in production!
+      role: 'client',
+      company: 'LaserNet',
+      phone: '514-555-0102',
+      status: 'active',
+    },
+  });
+
+  console.log(`Client user created: ${client.email} (id: ${client.id})`);
+
   console.log('Seed complete!');
 }
 
