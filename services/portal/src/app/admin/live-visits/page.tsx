@@ -65,8 +65,26 @@ export default function LiveVisitsPage() {
     try {
       const res = await fetch('/api/visit-groups?status=active');
       const data = await res.json();
-      if (data.visitGroups) setVisitGroups(data.visitGroups);
-      else if (Array.isArray(data)) setVisitGroups(data);
+      const raw = data.visitGroups || (Array.isArray(data) ? data : []);
+      // Transform API shape → frontend shape
+      const transformed: VisitGroup[] = raw.map((vg: any) => ({
+        id: vg.id,
+        status: vg.status,
+        startedAt: vg.createdAt,
+        managedClient: vg.managedClient || null,
+        localBusiness: vg.localBusiness || null,
+        visitCount: vg.visits?.length ?? vg._count?.visits ?? 0,
+        visitors: (vg.visits || []).map((v: any) => ({
+          id: v.id,
+          leadId: v.leadId || v.lead?.id || '',
+          name: v.visitorName || v.lead?.name || '?',
+          email: v.visitorEmail || v.lead?.email || null,
+          company: v.visitorCompany || v.lead?.company || null,
+          photo: v.visitorPhoto || v.lead?.photo || null,
+          isMainContact: !!(vg.mainContactId && (v.leadId === vg.mainContactId || v.lead?.id === vg.mainContactId)),
+        })),
+      }));
+      setVisitGroups(transformed);
     } catch { /* silently fail */ }
     setLoading(false);
   }, []);
