@@ -2,8 +2,11 @@
 // /api/kiosk/register — POST (public, no auth)
 // Walk-in registration from the iPad kiosk.
 // Creates or finds a Lead, then creates a Visit record.
-// Optionally links to a business (ManagedClient or LocalBusiness)
-// and manages VisitGroup membership.
+// Auto-groups visitors into VisitGroups by:
+//   1. Explicit companyId (ManagedClient or LocalBusiness)
+//   2. Company name match (same company typed today)
+//   3. Email domain match (same @domain today)
+//   4. Individual group (solo visitor)
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -51,18 +54,16 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Log creation activity
       await prisma.leadActivity.create({
         data: {
           leadId: lead.id,
           actorName: name.trim(),
           type: 'stage_change',
-          description: `Walk-in registration at kiosk`,
+          description: 'Walk-in registration at kiosk',
           toStage: 'new',
         },
       });
     } else if (businessLink.managedClientId || businessLink.localBusinessId) {
-      // Update existing lead with business link if not already set
       if (!lead.managedClientId && !lead.localBusinessId) {
         lead = await prisma.lead.update({
           where: { id: lead.id },
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Dedup check: if this lead already has a visit from today, skip creating another one
+    // Dedup check: if this lead already has a visit from today, skip
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -83,46 +84,83 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingVisitToday) {
-      // Already checked in today — return success without creating a duplicate visit
       return NextResponse.json(
         {
           success: true,
           leadId: lead.id,
           visitId: existingVisitToday.id,
+          visitGroupId: existingVisitToday.visitGroupId,
           alreadyCheckedIn: true,
         },
         { status: 200 },
       );
     }
 
-    // Resolve visit group
+    // ---- Resolve visit group ----
+    // Priority: explicit visitGroupId > explicit business > company name > email domain > new solo group
     let resolvedGroupId: string | null = visitGroupId || null;
 
-    if (!resolvedGroupId && (businessLink.managedClientId || businessLink.localBusinessId)) {
-      // Try to find an active VisitGroup for this business from today
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-
-      const existingGroup = await prisma.visitGroup.findFirst({
-        where: {
-          status: 'active',
-          createdAt: { gte: todayStart },
-          ...(businessLink.managedClientId
-            ? { managedClientId: businessLink.managedClientId }
-            : { localBusinessId: businessLink.localBusinessId }),
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      if (existingGroup) {
-        resolvedGroupId = existingGroup.id;
-      } else {
-        // Create a new VisitGroup for this business
-        const newGroup = await prisma.visitGroup.create({
-          data: {
+    if (!resolvedGroupId) {
+      // 1. Try by explicit business link (ManagedClient or LocalBusiness)
+      if (businessLink.managedClientId || businessLink.localBusinessId) {
+        const existingGroup = await prisma.visitGroup.findFirst({
+          where: {
+            status: 'active',
+            createdAt: { gte: todayStart },
             ...(businessLink.managedClientId
               ? { managedClientId: businessLink.managedClientId }
               : { localBusinessId: businessLink.localBusinessId }),
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (existingGroup) resolvedGroupId = existingGroup.id;
+      }
+
+      // 2. Try by company name — find an active group with visits from the same company today
+      if (!resolvedGroupId && company?.trim()) {
+        const companyNormalized = company.trim().toLowerCase();
+        const matchingVisit = await prisma.visit.findFirst({
+          where: {
+            visitedAt: { gte: todayStart },
+            visitorCompany: { equals: companyNormalized, mode: 'insensitive' },
+            visitGroupId: { not: null },
+            visitGroup: { status: 'active' },
+          },
+          select: { visitGroupId: true },
+          orderBy: { visitedAt: 'desc' },
+        });
+        if (matchingVisit?.visitGroupId) resolvedGroupId = matchingVisit.visitGroupId;
+      }
+
+      // 3. Try by email domain — find an active group with visits from the same domain today
+      if (!resolvedGroupId && email) {
+        const atIndex = email.indexOf('@');
+        if (atIndex >= 0) {
+          const domain = email.slice(atIndex + 1).trim().toLowerCase();
+          // Skip common free email providers
+          const freeProviders = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'live.com', 'mail.com'];
+          if (domain && !freeProviders.includes(domain)) {
+            const matchingVisit = await prisma.visit.findFirst({
+              where: {
+                visitedAt: { gte: todayStart },
+                visitorEmail: { endsWith: `@${domain}`, mode: 'insensitive' },
+                visitGroupId: { not: null },
+                visitGroup: { status: 'active' },
+              },
+              select: { visitGroupId: true },
+              orderBy: { visitedAt: 'desc' },
+            });
+            if (matchingVisit?.visitGroupId) resolvedGroupId = matchingVisit.visitGroupId;
+          }
+        }
+      }
+
+      // 4. No match — create a new group for this visitor
+      if (!resolvedGroupId) {
+        const newGroup = await prisma.visitGroup.create({
+          data: {
+            ...(businessLink.managedClientId ? { managedClientId: businessLink.managedClientId } : {}),
+            ...(businessLink.localBusinessId ? { localBusinessId: businessLink.localBusinessId } : {}),
             mainContactId: lead.id,
             status: 'active',
           },
@@ -141,7 +179,7 @@ export async function POST(request: NextRequest) {
         visitorCompany: company?.trim() || null,
         visitorPhoto: photo || null,
         purpose: purpose || 'inquiry',
-        ...(resolvedGroupId ? { visitGroupId: resolvedGroupId } : {}),
+        visitGroupId: resolvedGroupId,
       },
     });
 
@@ -160,7 +198,7 @@ export async function POST(request: NextRequest) {
         success: true,
         leadId: lead.id,
         visitId: visit.id,
-        ...(resolvedGroupId ? { visitGroupId: resolvedGroupId } : {}),
+        visitGroupId: resolvedGroupId,
       },
       { status: 201 },
     );
