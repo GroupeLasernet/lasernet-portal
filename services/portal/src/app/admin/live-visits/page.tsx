@@ -81,6 +81,11 @@ export default function VisitsPage() {
   const [editingNameGroupId, setEditingNameGroupId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState('');
 
+  // Expandable containers (click or 0.5 s hover)
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Mobile move dropdown
   const [mobileMovingVisitId, setMobileMovingVisitId] = useState<string | null>(null);
 
@@ -317,6 +322,46 @@ export default function VisitsPage() {
     } catch { /* silently fail */ }
   };
 
+  // ── Expand / collapse helpers ──
+  const expandGroup = useCallback((groupId: string) => {
+    // Clear any pending collapse
+    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    setExpandedGroupId(groupId);
+    // Auto-collapse after 30 seconds
+    collapseTimerRef.current = setTimeout(() => setExpandedGroupId(null), 30000);
+  }, []);
+
+  const collapseGroup = useCallback(() => {
+    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    setExpandedGroupId(null);
+  }, []);
+
+  const handleContainerClick = useCallback((groupId: string) => {
+    if (expandedGroupId === groupId) {
+      collapseGroup();
+    } else {
+      expandGroup(groupId);
+    }
+  }, [expandedGroupId, expandGroup, collapseGroup]);
+
+  const handleContainerMouseEnter = useCallback((groupId: string) => {
+    if (expandedGroupId === groupId) return;
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => expandGroup(groupId), 500);
+  }, [expandedGroupId, expandGroup]);
+
+  const handleContainerMouseLeave = useCallback(() => {
+    if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null; }
+  }, []);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    };
+  }, []);
+
   // ── Agenda month data ──
   const monthNames = lang === 'fr' ? MONTH_NAMES_FR : MONTH_NAMES_EN;
   const dayHeaders = lang === 'fr'
@@ -531,19 +576,46 @@ export default function VisitsPage() {
                 const isLinking = linkingGroupId === vg.id;
                 const isDragOver = dragOverGroupId === vg.id;
                 const isEditingName = editingNameGroupId === vg.id;
+                const isExpanded = expandedGroupId === vg.id;
+                const isCollapsed = expandedGroupId !== null && expandedGroupId !== vg.id;
 
+                // ── Collapsed view: just the business name ──
+                if (isCollapsed) {
+                  return (
+                    <div
+                      key={vg.id}
+                      className="flex-shrink-0 w-[140px] bg-gray-900 border border-white/10 rounded-2xl overflow-hidden flex flex-col items-center justify-center cursor-pointer hover:border-white/20 transition-all duration-300"
+                      style={{ minHeight: 120 }}
+                      onClick={() => handleContainerClick(vg.id)}
+                      onMouseEnter={() => handleContainerMouseEnter(vg.id)}
+                      onMouseLeave={handleContainerMouseLeave}
+                      onDragOver={(e) => handleDragOver(e, vg.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, vg.id)}
+                    >
+                      <p className="text-sm font-semibold text-white/70 text-center px-3 truncate w-full">{bizName}</p>
+                      <p className="text-xs text-white/30 mt-1">{vg.visitors.length} {t('liveVisits', 'visitors').toLowerCase()}</p>
+                    </div>
+                  );
+                }
+
+                // ── Normal or Expanded view ──
                 return (
                   <div
                     key={vg.id}
-                    className={`flex-shrink-0 w-[350px] bg-gray-900 border rounded-2xl overflow-hidden flex flex-col transition-colors ${
-                      isDragOver ? 'border-brand-500 bg-brand-500/5' : 'border-white/10'
+                    className={`flex-shrink-0 bg-gray-900 border rounded-2xl overflow-hidden flex flex-col transition-all duration-300 ${
+                      isDragOver ? 'border-brand-500 bg-brand-500/5' : isExpanded ? 'border-brand-400/50' : 'border-white/10'
                     }`}
+                    style={{ width: isExpanded ? 1050 : 350 }}
+                    onClick={() => handleContainerClick(vg.id)}
+                    onMouseEnter={() => handleContainerMouseEnter(vg.id)}
+                    onMouseLeave={handleContainerMouseLeave}
                     onDragOver={(e) => handleDragOver(e, vg.id)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, vg.id)}
                   >
                     {/* ── Container header ── */}
-                    <div className="p-4 border-b border-white/10">
+                    <div className="p-4 border-b border-white/10" onClick={(e) => e.stopPropagation()}>
                       {/* Row 1: Business name + type badge */}
                       <div className="flex items-center gap-2 min-w-0">
                         {isEditingName ? (
@@ -569,6 +641,17 @@ export default function VisitsPage() {
                           }`}>
                             {bizType === 'qb' ? 'QB' : 'Local'}
                           </span>
+                        )}
+                        {isExpanded && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); collapseGroup(); }}
+                            className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 text-white/40 hover:text-white/70 transition-colors"
+                            title="Collapse"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         )}
                       </div>
 
@@ -669,7 +752,7 @@ export default function VisitsPage() {
                     </div>
 
                     {/* ── Visitor cards ── */}
-                    <div className="flex-1 p-4 space-y-2 min-h-[80px]">
+                    <div className="flex-1 p-4 space-y-2 min-h-[80px]" onClick={(e) => e.stopPropagation()}>
                       {vg.visitors.length === 0 ? (
                         <div className="flex items-center justify-center h-full text-white/20 text-sm py-6">-</div>
                       ) : (
