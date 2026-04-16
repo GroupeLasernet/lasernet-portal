@@ -53,7 +53,7 @@ const MONTH_NAMES_EN = ['January', 'February', 'March', 'April', 'May', 'June', 
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function VisitsPage() {
-  const { t, language } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const [visitGroups, setVisitGroups] = useState<VisitGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -318,8 +318,8 @@ export default function VisitsPage() {
   };
 
   // ── Agenda month data ──
-  const monthNames = language === 'fr' ? MONTH_NAMES_FR : MONTH_NAMES_EN;
-  const dayHeaders = language === 'fr'
+  const monthNames = lang === 'fr' ? MONTH_NAMES_FR : MONTH_NAMES_EN;
+  const dayHeaders = lang === 'fr'
     ? ['L', 'M', 'M', 'J', 'V', 'S', 'D']
     : ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -469,7 +469,7 @@ export default function VisitsPage() {
                   <p className="font-semibold text-gray-900 truncate">{getBusinessName(vg)}</p>
                   <p className="text-xs text-gray-500 mt-1">
                     {vg.expectedFollowUpAt
-                      ? new Date(vg.expectedFollowUpAt).toLocaleDateString(language === 'fr' ? 'fr-CA' : 'en-CA')
+                      ? new Date(vg.expectedFollowUpAt).toLocaleDateString(lang === 'fr' ? 'fr-CA' : 'en-CA')
                       : ''}
                   </p>
                   {vg.notes && (
