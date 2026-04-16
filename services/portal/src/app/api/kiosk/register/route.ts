@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Dedup check: if this lead already has a visit from today, skip
+    // Dedup check: if this lead already has an ACTIVE visit today, skip
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
       where: {
         leadId: lead.id,
         visitedAt: { gte: todayStart },
+        visitGroup: { status: 'active' },
       },
     });
 

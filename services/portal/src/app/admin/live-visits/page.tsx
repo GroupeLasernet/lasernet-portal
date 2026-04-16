@@ -203,6 +203,14 @@ export default function VisitsPage() {
     } catch { /* silently fail */ }
   }, [fetchGroupNeeds]);
 
+  // ── Delete a need ──
+  const handleDeleteNeed = useCallback(async (groupId: string, needId: string) => {
+    try {
+      await fetch(`/api/visit-groups/${groupId}/needs/${needId}`, { method: 'DELETE' });
+      await fetchGroupNeeds(groupId);
+    } catch { /* silently fail */ }
+  }, [fetchGroupNeeds]);
+
   // ── Sidebar need categories (static + QB inventory groups) ──
   const sidebarSections = useMemo(() => {
     const sections: { key: string; label: string; items: { name: string; type: string }[] }[] = [
@@ -1026,13 +1034,24 @@ export default function VisitsPage() {
                           <div className="pt-2 mt-2 border-t border-white/5 space-y-1.5">
                             {currentNeeds.map(need => (
                               <div key={need.id} className="px-2 py-1.5">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs font-medium text-brand-300 truncate flex-1">{need.description || need.type}</span>
+                                <div className="flex items-center gap-2">
+                                  {/* Remove button (−) */}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteNeed(vg.id, need.id); }}
+                                    className="flex-shrink-0 w-5 h-5 rounded-full bg-red-500/15 hover:bg-red-500/30 text-red-400 hover:text-red-300 flex items-center justify-center transition-colors"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 12H4" />
+                                    </svg>
+                                  </button>
+                                  {/* Need title — bigger, white */}
+                                  <span className="text-sm font-semibold text-white truncate flex-1">{need.description || need.type}</span>
+                                  {/* Add note button (+) */}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setEditingNeedId(editingNeedId === need.id ? null : need.id); setNeedNoteValue(''); }}
-                                    className="flex-shrink-0 w-4 h-4 rounded-full bg-brand-500/20 hover:bg-brand-500/30 text-brand-400 hover:text-brand-300 flex items-center justify-center transition-colors"
+                                    className="flex-shrink-0 w-5 h-5 rounded-full bg-brand-500/20 hover:bg-brand-500/30 text-brand-400 hover:text-brand-300 flex items-center justify-center transition-colors"
                                   >
-                                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                                     </svg>
                                   </button>

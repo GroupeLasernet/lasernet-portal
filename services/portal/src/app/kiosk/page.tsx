@@ -43,6 +43,8 @@ const t = {
     qbClient: 'Client QB',
     localBusiness: 'Entreprise locale',
     previousVisitor: 'Visiteur pr\u00e9c\u00e9dent',
+    alreadyHere: 'D\u00e9j\u00e0 en visite',
+    selectPurpose: 'Choisir la raison',
   },
   en: {
     welcome: 'Welcome to Atelier DSM',
@@ -83,6 +85,8 @@ const t = {
     qbClient: 'QB Client',
     localBusiness: 'Local business',
     previousVisitor: 'Previous visitor',
+    alreadyHere: 'Already visiting',
+    selectPurpose: 'Select reason',
   },
 } as const
 
@@ -95,6 +99,7 @@ interface LeadSuggestion {
   email: string | null
   company: string | null
   photo: string | null
+  activeVisit?: boolean
 }
 
 interface BusinessSuggestion {
@@ -152,6 +157,7 @@ export default function KioskPage() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedLead, setSelectedLead] = useState<LeadSuggestion | null>(null)
   const [quickCheckingIn, setQuickCheckingIn] = useState(false)
+  const [quickPurpose, setQuickPurpose] = useState<Record<string, string>>({}) // leadId → purpose
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
@@ -239,6 +245,7 @@ export default function KioskPage() {
   }
 
   const handleQuickCheckIn = async (lead: LeadSuggestion) => {
+    const purposeValue = quickPurpose[lead.id] || null
     setQuickCheckingIn(true)
     try {
       await fetch('/api/kiosk/register', {
@@ -249,7 +256,7 @@ export default function KioskPage() {
           email: lead.email,
           phone: null,
           company: lead.company,
-          purpose: null,
+          purpose: purposeValue,
           photo: null,
           ...(selectedBusiness ? { companyId: selectedBusiness.id, companyType: selectedBusiness.type } : {}),
         }),
@@ -589,42 +596,76 @@ export default function KioskPage() {
               {/* Suggestions dropdown */}
               {showSuggestions && suggestions.length > 0 && (
                 <div className="absolute z-20 left-0 right-0 mt-2 bg-gray-900 border border-white/20 rounded-xl overflow-hidden shadow-2xl">
-                  {suggestions.map((lead) => (
-                    <div
-                      key={lead.id}
-                      className="flex items-center gap-4 px-5 py-4 hover:bg-white/10 transition-colors border-b border-white/10 last:border-b-0"
-                    >
-                      {/* Avatar */}
-                      <div className="flex-shrink-0">
-                        {lead.photo ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={lead.photo} alt="" className="w-12 h-12 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-12 h-12 rounded-full bg-brand-600/30 flex items-center justify-center text-brand-300 font-bold text-lg">
-                            {lead.name.charAt(0).toUpperCase()}
+                  {suggestions.map((lead) => {
+                    const isActive = lead.activeVisit
+                    const hasPurpose = !!(quickPurpose[lead.id])
+
+                    return (
+                      <div
+                        key={lead.id}
+                        className="px-5 py-4 hover:bg-white/10 transition-colors border-b border-white/10 last:border-b-0"
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* Avatar */}
+                          <div className="flex-shrink-0">
+                            {lead.photo ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={lead.photo} alt="" className="w-12 h-12 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-12 h-12 rounded-full bg-brand-600/30 flex items-center justify-center text-brand-300 font-bold text-lg">
+                                {lead.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-semibold truncate">{lead.name}</p>
+                            <p className="text-white/50 text-sm truncate">
+                              {[lead.email, lead.company].filter(Boolean).join(' \u2022 ') || '\u00a0'}
+                            </p>
+                            {isActive && (
+                              <p className="text-amber-400 text-xs font-medium mt-0.5">{l.alreadyHere}</p>
+                            )}
+                          </div>
+
+                          {/* Quick check-in button — disabled if active visit and no purpose selected */}
+                          <button
+                            type="button"
+                            disabled={quickCheckingIn || (isActive && !hasPurpose)}
+                            onClick={() => handleQuickCheckIn(lead)}
+                            className={`flex-shrink-0 font-semibold text-sm px-5 py-2.5 rounded-xl transition-all ${
+                              isActive && !hasPurpose
+                                ? 'bg-white/10 text-white/30 cursor-not-allowed'
+                                : 'bg-brand-600 hover:bg-brand-500 active:scale-[0.97] disabled:opacity-50 text-white'
+                            }`}
+                          >
+                            {quickCheckingIn ? l.checkingIn : l.visitingNow}
+                          </button>
+                        </div>
+
+                        {/* Purpose dropdown — shown for visitors already in an active visit */}
+                        {isActive && (
+                          <div className="mt-3 ml-16">
+                            <select
+                              value={quickPurpose[lead.id] || ''}
+                              onChange={(e) => setQuickPurpose(prev => ({ ...prev, [lead.id]: e.target.value }))}
+                              className="w-full bg-white/10 border border-white/20 rounded-lg text-sm py-2.5 px-4 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-brand-600 transition-shadow"
+                            >
+                              <option value="" disabled className="bg-gray-900">
+                                {l.selectPurpose}
+                              </option>
+                              {PURPOSE_KEYS.map((key, i) => (
+                                <option key={key} value={PURPOSE_VALUES[i]} className="bg-gray-900">
+                                  {l[key]}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         )}
                       </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-semibold truncate">{lead.name}</p>
-                        <p className="text-white/50 text-sm truncate">
-                          {[lead.email, lead.company].filter(Boolean).join(' \u2022 ') || '\u00a0'}
-                        </p>
-                      </div>
-
-                      {/* Quick check-in button */}
-                      <button
-                        type="button"
-                        disabled={quickCheckingIn}
-                        onClick={() => handleQuickCheckIn(lead)}
-                        className="flex-shrink-0 bg-brand-600 hover:bg-brand-500 active:scale-[0.97] disabled:opacity-50 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all"
-                      >
-                        {quickCheckingIn ? l.checkingIn : l.visitingNow}
-                      </button>
-                    </div>
-                  ))}
+                    )
+                  })}
 
                   {/* Or register new */}
                   <div className="px-5 py-3 bg-white/5 text-center">
