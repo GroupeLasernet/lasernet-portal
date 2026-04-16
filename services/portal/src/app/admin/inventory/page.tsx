@@ -65,6 +65,7 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
   const [connected, setConnected] = useState(false);
   const [selectedItem, setSelectedItem] = useState<QBItem | null>(null);
   const [search, setSearch] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -76,8 +77,13 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
       try {
         const invRes = await fetch('/api/quickbooks/inventory');
         const invData = await invRes.json();
+        if (invData.error) {
+          setError(invData.error);
+        }
         setItems(invData.items || []);
-      } catch {}
+      } catch (e: any) {
+        setError(e.message || 'Failed to load inventory');
+      }
       setLoading(false);
     })();
   }, []);
@@ -95,6 +101,16 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
       <div className="p-6">
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
           {t('liveVisits', 'notConnected')}
+        </div>
+      </div>
+    );
+  }
+
+  if (error && items.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {error}
         </div>
       </div>
     );
