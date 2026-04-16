@@ -270,37 +270,6 @@ export default function KioskPage() {
             >
               <h3 className="text-lg font-semibold text-white/70">{l.staffTitle}</h3>
 
-              {/* DEV MODE — visible credentials. Remove before production. */}
-              <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 space-y-1.5">
-                <p className="text-xs text-white/30 uppercase tracking-wide font-semibold">
-                  {lang === 'fr' ? 'Comptes dev (temporaire)' : 'Dev accounts (temporary)'}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => { setStaffEmail('admin@lasernet.ca'); setStaffPassword('admin123'); }}
-                  className="w-full flex justify-between items-center bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 text-sm text-white/60 hover:text-white/80 transition-colors"
-                >
-                  <span><strong className="text-white/80">Admin:</strong> admin@lasernet.ca</span>
-                  <span className="text-white/40">admin123</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setStaffEmail('sales@lasernet.ca'); setStaffPassword('sales123'); }}
-                  className="w-full flex justify-between items-center bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 text-sm text-white/60 hover:text-white/80 transition-colors"
-                >
-                  <span><strong className="text-emerald-400/80">Sales:</strong> sales@lasernet.ca</span>
-                  <span className="text-white/40">sales123</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setStaffEmail('client@lasernet.ca'); setStaffPassword('client123'); }}
-                  className="w-full flex justify-between items-center bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 text-sm text-white/60 hover:text-white/80 transition-colors"
-                >
-                  <span><strong className="text-sky-400/80">Client:</strong> client@lasernet.ca</span>
-                  <span className="text-white/40">client123</span>
-                </button>
-              </div>
-
               <input
                 type="email"
                 placeholder={l.staffEmail}

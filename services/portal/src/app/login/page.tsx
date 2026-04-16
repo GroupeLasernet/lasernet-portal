@@ -157,14 +157,30 @@ export default function LoginPage() {
           <div className="mt-5 pt-5 border-t border-gray-100">
             <p className="text-xs text-gray-500 text-center mb-3">{t('login', 'demoAccounts')}</p>
             <div className="space-y-2 text-xs text-gray-600">
-              <div className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg">
+              <button
+                type="button"
+                onClick={() => { setEmail('admin@lasernet.ca'); setPassword('admin123'); }}
+                className="w-full flex justify-between bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors cursor-pointer"
+              >
                 <span><strong>Admin:</strong> admin@lasernet.ca</span>
-                <span>admin123</span>
-              </div>
-              <div className="flex justify-between bg-gray-50 px-3 py-2 rounded-lg">
-                <span><strong>Client:</strong> client@example.com</span>
-                <span>client123</span>
-              </div>
+                <span className="text-gray-400">admin123</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail('sales@lasernet.ca'); setPassword('sales123'); }}
+                className="w-full flex justify-between bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors cursor-pointer"
+              >
+                <span><strong className="text-emerald-600">Sales:</strong> sales@lasernet.ca</span>
+                <span className="text-gray-400">sales123</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail('client@lasernet.ca'); setPassword('client123'); }}
+                className="w-full flex justify-between bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors cursor-pointer"
+              >
+                <span><strong className="text-sky-600">Client:</strong> client@lasernet.ca</span>
+                <span className="text-gray-400">client123</span>
+              </button>
             </div>
           </div>
         </div>
