@@ -98,7 +98,7 @@ export default function VisitsPage() {
   const [qbConnected, setQbConnected] = useState(false);
   const [loadingInventory, setLoadingInventory] = useState(false);
   // Needs per group (loaded when expanded)
-  const [groupNeeds, setGroupNeeds] = useState<Record<string, { id: string; type: string; description: string | null; status: string }[]>>({});
+  const [groupNeeds, setGroupNeeds] = useState<Record<string, { id: string; type: string; description: string | null; notes: string | null; status: string }[]>>({});
   // Need note editing
   const [editingNeedId, setEditingNeedId] = useState<string | null>(null);
   const [needNoteValue, setNeedNoteValue] = useState('');
@@ -1067,11 +1067,16 @@ export default function VisitsPage() {
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 12H4" />
                                     </svg>
                                   </button>
-                                  {/* Need title — bigger, white */}
-                                  <span className="text-sm font-semibold text-white truncate flex-1">{need.description || need.type}</span>
+                                  {/* Need title — bigger, white + notes gray inline */}
+                                  <span className="truncate flex-1">
+                                    <span className="text-[14px] font-semibold text-white">{need.description || need.type}</span>
+                                    {need.notes && editingNeedId !== need.id && (
+                                      <span className="text-[11px] text-white/35 font-light ml-1">: {need.notes}</span>
+                                    )}
+                                  </span>
                                   {/* Add note button (+) */}
                                   <button
-                                    onClick={(e) => { e.stopPropagation(); setEditingNeedId(editingNeedId === need.id ? null : need.id); setNeedNoteValue(''); }}
+                                    onClick={(e) => { e.stopPropagation(); setEditingNeedId(editingNeedId === need.id ? null : need.id); setNeedNoteValue(need.notes || ''); }}
                                     className="flex-shrink-0 w-5 h-5 rounded-full bg-brand-500/20 hover:bg-brand-500/30 text-brand-400 hover:text-brand-300 flex items-center justify-center transition-colors"
                                   >
                                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1079,25 +1084,25 @@ export default function VisitsPage() {
                                     </svg>
                                   </button>
                                 </div>
+                                {/* Notes are now displayed inline after the title */}
+                                {/* Note input — PATCH existing need, don't create a new one */}
                                 {editingNeedId === need.id && (
                                   <input
                                     type="text"
                                     value={needNoteValue}
                                     onChange={(e) => setNeedNoteValue(e.target.value)}
                                     placeholder={t('liveVisits', 'addNote')}
-                                    className="mt-1.5 w-full bg-transparent border-0 border-b border-white/10 px-0 py-0.5 text-[11px] text-white/50 placeholder-white/25 focus:outline-none focus:border-brand-500/50 font-light"
+                                    className="ml-7 mt-1.5 w-[calc(100%-1.75rem)] bg-transparent border-0 border-b border-white/10 px-0 py-0.5 text-[11px] text-white/35 placeholder-white/20 focus:outline-none focus:border-brand-500/50 font-light"
                                     autoFocus
                                     onBlur={async () => {
-                                      if (needNoteValue.trim()) {
-                                        try {
-                                          await fetch(`/api/visit-groups/${vg.id}/needs`, {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ type: need.type, description: `${need.description || need.type}: ${needNoteValue.trim()}` }),
-                                          });
-                                          fetchGroupNeeds(vg.id);
-                                        } catch {}
-                                      }
+                                      try {
+                                        await fetch(`/api/visit-groups/${vg.id}/needs/${need.id}`, {
+                                          method: 'PATCH',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ notes: needNoteValue.trim() || null }),
+                                        });
+                                        fetchGroupNeeds(vg.id);
+                                      } catch {}
                                       setEditingNeedId(null); setNeedNoteValue('');
                                     }}
                                     onKeyDown={(e) => {
