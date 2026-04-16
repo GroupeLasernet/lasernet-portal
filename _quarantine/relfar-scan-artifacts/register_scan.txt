@@ -1,0 +1,3 @@
+# Full register scan
+0x210A = 1 (0x0001)
+0x210B = 3 (0x0003)

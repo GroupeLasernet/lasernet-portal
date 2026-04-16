@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 700" width="800" height="700">
+<defs>
+<linearGradient id="b0" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f472b6"/><stop offset="100%" stop-color="#9d174d"/></linearGradient>
+<linearGradient id="h0" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fbcfe8"/><stop offset="100%" stop-color="#be185d"/></linearGradient>
+<linearGradient id="b1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fb923c"/><stop offset="100%" stop-color="#b91c1c"/></linearGradient>
+<linearGradient id="h1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fed7aa"/><stop offset="100%" stop-color="#dc2626"/></linearGradient>
+<linearGradient id="b2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e11d48"/><stop offset="100%" stop-color="#881337"/></linearGradient>
+<linearGradient id="h2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fda4af"/><stop offset="100%" stop-color="#9f1239"/></linearGradient>
+</defs>
+<polygon points="400.00,-3.32 680.00,481.66 515.46,386.66 400.00,186.68" fill="url(#b0)"/>
+<polygon points="680.00,481.66 120.00,481.66 284.54,386.66 515.46,386.66" fill="url(#b1)"/>
+<polygon points="120.00,481.66 400.00,-3.32 400.00,186.68 284.54,386.66" fill="url(#b2)"/>
+<polygon points="680.00,481.66 550.00,481.66 385.46,386.66 515.46,386.66" fill="url(#h0)"/>
+<polygon points="120.00,481.66 185.00,369.07 349.54,274.07 284.54,386.66" fill="url(#h1)"/>
+<polygon points="400.00,-3.32 465.00,109.27 465.00,299.27 400.00,186.68" fill="url(#h2)"/>
+<polygon points="673.50,481.66 556.50,481.66 540.91,472.66 657.91,472.66" fill="#ffffff" opacity="0.35"/>
+<polygon points="123.25,476.03 181.75,374.70 197.34,365.70 138.84,467.03" fill="#ffffff" opacity="0.35"/>
+<polygon points="403.25,2.31 461.75,103.64 461.75,121.64 403.25,20.31" fill="#ffffff" opacity="0.35"/>
+<text x="410.0" y="525.86" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="130" font-weight="100" letter-spacing="16" fill="#ffffff">PRISMA</text>
+</svg>

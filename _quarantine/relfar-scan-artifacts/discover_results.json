@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-04-13T12:03:14.866018",
+  "probes": {
+    "HF_assist_direct": null,
+    "HF_assist_broadcast": null,
+    "HLK_search": null,
+    "HLK_query": null,
+    "USR_plus": null,
+    "USR_plus_broadcast": null,
+    "wwww_broadcast": null,
+    "at_command": null,
+    "rd_broadcast_8899": null,
+    "ruida_discover_udp": null,
+    "query_8899": null,
+    "query_9999": null,
+    "query_988": null,
+    "discover_all_F": null,
+    "generic_discover": null,
+    "rd_hello_30000": null,
+    "rd_hello_40000": null,
+    "rd_hello_5000": null,
+    "query_23456": null,
+    "query_12345": null
+  }
+}

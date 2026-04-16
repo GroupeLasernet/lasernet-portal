@@ -21,6 +21,7 @@ model User {
   name        String
   password    String?  // bcrypt hash (legacy rows may still be plaintext — rehashed on next successful login)
   role        String   @default("client") // "client" | "admin"
+  subrole     String?  // null | "sales" | "support" | "technician" — admin sub-specialization
   company     String?
   phone       String?
   photo       String?  @db.Text // base64 data URL or null
@@ -33,6 +34,13 @@ model User {
 
   // Relations
   tickets     Ticket[] @relation("CreatedByUser")
+
+  // CRM relations
+  assignedLeads   Lead[]          @relation("LeadAssignee")
+  loggedCalls     Call[]          @relation("CallLogger")
+  receivedVisits  Visit[]         @relation("VisitReceiver")
+  sentMessages    LeadMessage[]   @relation("MessageSender")
+  leadActivities  LeadActivity[]  @relation("ActivityActor")
 }
 
 // ============================================================
@@ -71,6 +79,7 @@ model ManagedClient {
   stations        Station[]
   machines        Machine[]
   trainingEvents  TrainingEvent[]
+  leads           Lead[]
 }
 
 // ============================================================
@@ -565,4 +574,152 @@ model QBCache {
   customers String   @db.Text // JSON array of all customers
   cachedAt  DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// CRM — LEADS, CALLS, VISITS, MESSAGES
+// Added 2026-04-16: Sales pipeline & walk-in registration system
+// ============================================================
+
+// A lead is any person/company entering the sales funnel —
+// walk-in, inbound call, outbound call, referral, or web inquiry.
+// May link to an existing ManagedClient (returning buyer) or stand alone (new prospect).
+model Lead {
+  id              String   @id @default(cuid())
+
+  // Link to existing client (null = new prospect)
+  managedClientId String?
+  managedClient   ManagedClient? @relation(fields: [managedClientId], references: [id], onDelete: SetNull)
+
+  // Contact info (always populated, even if linked to ManagedClient)
+  name            String
+  email           String?
+  phone           String?
+  company         String?
+  photo           String?  @db.Text // selfie from kiosk (base64 data URL)
+
+  // Pipeline
+  stage           String   @default("new")
+  // Stages: new → qualified → demo_scheduled → demo_done → quote_sent → negotiation → won | lost
+  source          String   // walk_in, inbound_call, outbound_call, referral, web
+
+  // Assignment
+  assignedToId    String?
+  assignedTo      User?    @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  // Sales data
+  estimatedValue  Float?
+  nextFollowUpAt  DateTime?
+  wonAt           DateTime?
+  lostAt          DateTime?
+  lostReason      String?
+
+  notes           String?  @db.Text
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  calls           Call[]
+  visits          Visit[]
+  messages        LeadMessage[]
+  activities      LeadActivity[]
+
+  @@index([managedClientId])
+  @@index([assignedToId])
+  @@index([stage])
+}
+
+// A phone call — inbound or outbound — linked to a lead.
+model Call {
+  id              String   @id @default(cuid())
+  leadId          String
+  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  loggedById      String?
+  loggedBy        User?    @relation("CallLogger", fields: [loggedById], references: [id], onDelete: SetNull)
+
+  type            String   // "inbound" | "outbound"
+  clientType      String   @default("new") // "existing" | "new" — did the caller already buy?
+  duration        Int?     // seconds
+  notes           String?  @db.Text
+  outcome         String?  // "reached" | "no_answer" | "voicemail" | "callback_scheduled"
+
+  calledAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@index([leadId])
+}
+
+// A walk-in visit registered at the kiosk (or logged manually by staff).
+model Visit {
+  id              String   @id @default(cuid())
+  leadId          String
+  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  // Self-registered info from kiosk
+  visitorName     String
+  visitorEmail    String?
+  visitorPhone    String?
+  visitorCompany  String?
+  visitorPhoto    String?  @db.Text // selfie (base64 data URL)
+
+  // Who received them
+  receivedById    String?
+  receivedBy      User?    @relation("VisitReceiver", fields: [receivedById], references: [id], onDelete: SetNull)
+
+  purpose         String?  // "inquiry" | "demo" | "meeting" | "service" | "other"
+  notes           String?  @db.Text
+
+  visitedAt       DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@index([leadId])
+}
+
+// Messages on a lead thread — salesperson ↔ client, all logged.
+// Client messages arrive via unique link (no portal login needed).
+model LeadMessage {
+  id              String   @id @default(cuid())
+  leadId          String
+  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  // Internal user who sent (null when client sends via unique link)
+  senderId        String?
+  sender          User?    @relation("MessageSender", fields: [senderId], references: [id], onDelete: SetNull)
+
+  // Denormalized for display (client name when isFromClient=true)
+  senderName      String
+  senderEmail     String?
+  isFromClient    Boolean  @default(false)
+
+  content         String   @db.Text
+  subject         String?
+
+  sentAt          DateTime @default(now())
+
+  @@index([leadId])
+}
+
+// Audit trail: every meaningful event on a lead.
+model LeadActivity {
+  id              String   @id @default(cuid())
+  leadId          String
+  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  actorId         String?
+  actor           User?    @relation("ActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorName       String?
+
+  // "stage_change" | "note" | "call_logged" | "visit_logged" | "message_sent" | "assignment_change"
+  type            String
+  description     String   @db.Text
+
+  // For stage changes
+  fromStage       String?
+  toStage         String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([leadId])
 }

@@ -39,7 +39,7 @@ Single active monorepo. Three services under `services/`:
 | `services/robot` | Python + FastAPI ("Elfin Cobot Studio") | Local controller for the Elfin cobot | 8080 | SQLite |
 | `services/relfar` | Python + Flask ("Relfar laser bridge") | Local controller for Relfar V4 laser cleaner | 5000 | SQLite (violates DB rule — refactor backlogged) |
 
-Other repo roots: `shared/`, `scripts/`, `ARCHITECTURE.md`, `BACKLOG.md`, `REMOTE_ACCESS_HANDOFF.md`, `README.md`, `docker-compose.yml`, `vercel.json`, `start-all.bat`, `push-update.bat`.
+Other repo roots: `shared/`, `scripts/`, `_quarantine/`, `BACKLOG.md`, `HANDOFF.md`, `README.md`, `docker-compose.yml`, `vercel.json`, `start-all.bat`, `push-update.bat`.
 
 **Authoritative docs inside the repo:** `HANDOFF.md` (full system map — paste into a fresh chat), `BACKLOG.md` (in-progress + deferred work), `services/portal/TODO.md` (per-service shipping log). There is no `ARCHITECTURE.md` at the root anymore — older memories that reference it are stale; use `HANDOFF.md` instead. The standalone deep-dive lives at `architecture reference/prisma_architecture.md`.
 
@@ -75,17 +75,25 @@ There are (currently) two physical machines in play:
 
 ```
 Prisma/                                  (monorepo root)
-├── ARCHITECTURE.md                      ← source of truth, read first
+├── HANDOFF.md                           ← full system map, paste into fresh chats
 ├── BACKLOG.md                           ← active + deferred work
-├── REMOTE_ACCESS_HANDOFF.md
 ├── README.md
 ├── docker-compose.yml
 ├── vercel.json
 ├── start-all.bat
 ├── push-update.bat
+├── architecture reference/
+│   ├── prisma_architecture.md           ← deep-dive architecture doc
+│   └── huayan-sdk-reference/            ← Han's Robot SDK samples + manual
 ├── shared/
 ├── scripts/
 │   └── bootstrap-station.ps1            ← installs robot+relfar on a station PC
+├── _quarantine/                         ← PARKED FILES — not deleted, not active.
+│   │                                       Missing a file? Look here first.
+│   │                                       See _quarantine/README.md for inventory.
+│   ├── relfar-reverse-engineering/      ← 20 probe/sniff/scan scripts from protocol RE
+│   ├── relfar-scan-artifacts/           ← JSON dumps, pcap, register logs
+│   └── branding-assets/                 ← Prisma logo PNG/SVG variants
 └── services/
     ├── portal/                          (Next.js, deployed to Vercel)
     │   ├── src/app/                     ← pages + API routes
@@ -104,11 +112,11 @@ Prisma/                                  (monorepo root)
     │       ├── license.py               ← license verification + HMAC
     │       ├── templates/index.html     ← UI
     │       └── static/js/app.js         ← UI logic
-    └── relfar/                          (Python Flask)
+    └── relfar/                          (Python Flask — production only, probes quarantined)
         ├── relfar_server.py             ← entry
         ├── relfar_protocol.py           ← 5A A5 frame protocol
-        ├── scanner.py
         ├── discover.py                  ← "Find controller" network scan
+        ├── database.py                  ← SQLAlchemy persistence
         ├── data/relfar.db               ← SQLite
         ├── static/
         ├── requirements.txt

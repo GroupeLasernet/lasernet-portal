@@ -1,0 +1,63 @@
+{
+  "ip": "192.168.1.5",
+  "port": 123,
+  "timestamp": "2026-04-13T11:51:44.846579",
+  "probes": {
+    "empty": {
+      "banner": null,
+      "response": null
+    },
+    "newline": {
+      "banner": null,
+      "response": null
+    },
+    "http_get": {
+      "banner": null,
+      "response": null
+    },
+    "http_options": {
+      "banner": null,
+      "response": null
+    },
+    "ntp_request": {
+      "banner": null,
+      "response": null
+    },
+    "ruida_status": {
+      "banner": null,
+      "response": null
+    },
+    "ruida_devinfo": {
+      "banner": null,
+      "response": null
+    },
+    "ruida_jobcount": {
+      "banner": null,
+      "response": null
+    },
+    "ruida_raw_da": {
+      "banner": null,
+      "response": null
+    },
+    "hello_text": {
+      "banner": null,
+      "response": null
+    },
+    "ssh_probe": {
+      "banner": null,
+      "response": null
+    },
+    "telnet_iac": {
+      "banner": null,
+      "response": null
+    },
+    "modbus_read": {
+      "banner": null,
+      "response": null
+    },
+    "four_zeros": {
+      "banner": null,
+      "response": null
+    }
+  }
+}

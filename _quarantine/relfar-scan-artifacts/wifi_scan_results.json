@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-04-13T11:40:28.954389",
+  "controller_ip": "192.168.1.5",
+  "local_ip": "192.168.1.2",
+  "tcp_ports": {
+    "22": false,
+    "23": false,
+    "53": false,
+    "80": false,
+    "443": false,
+    "502": false,
+    "1883": false,
+    "2000": false,
+    "4000": false,
+    "5000": false,
+    "8000": false,
+    "8080": false,
+    "8888": false,
+    "9999": false,
+    "23456": false,
+    "50200": false,
+    "50201": false,
+    "50202": false
+  },
+  "udp_ports": {
+    "50200": null,
+    "50201": null,
+    "50202": null,
+    "8000": null,
+    "23456": null,
+    "502": null
+  },
+  "http": {},
+  "ruida_udp": {
+    "get_job_count": {
+      "sent": "530828e8",
+      "recv": null
+    },
+    "status_query": {
+      "sent": "530808",
+      "recv": null
+    },
+    "device_info": {
+      "sent": "9f08",
+      "recv": null
+    },
+    "read_param": {
+      "sent": "53086808",
+      "recv": null
+    },
+    "power_query": {
+      "sent": "6bc8",
+      "recv": null
+    },
+    "position": {
+      "sent": "53082808",
+      "recv": null
+    },
+    "machine_stat": {
+      "sent": "530840",
+      "recv": null
+    },
+    "hello_raw": null
+  },
+  "ruida_tcp": {}
+}
