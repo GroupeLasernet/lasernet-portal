@@ -169,9 +169,12 @@ export default function VisitsPage() {
     } catch { /* silently fail */ }
   }, []);
 
+  // Fetch needs for all active groups (so they show under visitor names)
   useEffect(() => {
-    if (expandedGroupId) fetchGroupNeeds(expandedGroupId);
-  }, [expandedGroupId, fetchGroupNeeds]);
+    for (const vg of visitGroups) {
+      if (vg.status === 'active') fetchGroupNeeds(vg.id);
+    }
+  }, [visitGroups, fetchGroupNeeds]);
 
   // ── End visit → moves to follow-up ──
   const handleEndVisit = useCallback(async (groupId: string) => {
@@ -434,6 +437,8 @@ export default function VisitsPage() {
   }, [expandedGroupId, expandGroup, collapseGroup]);
 
   const handleContainerMouseEnter = useCallback((groupId: string) => {
+    // Cancel any pending collapse when mouse re-enters any container
+    if (collapseTimerRef.current) { clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; }
     if (expandedGroupId === groupId) return;
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     hoverTimerRef.current = setTimeout(() => expandGroup(groupId), 500);
@@ -441,7 +446,12 @@ export default function VisitsPage() {
 
   const handleContainerMouseLeave = useCallback(() => {
     if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null; }
-  }, []);
+    // If a container is expanded, start a 5-second countdown to collapse
+    if (expandedGroupId) {
+      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = setTimeout(() => setExpandedGroupId(null), 5000);
+    }
+  }, [expandedGroupId]);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -906,57 +916,10 @@ export default function VisitsPage() {
                             </div>
                           ))}
 
-                          {/* Dropped needs on this group */}
-                          {currentNeeds.length > 0 && (
-                            <div className="mt-4 pt-3 border-t border-white/10">
-                              <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-2">{t('liveVisits', 'needs')}</p>
-                              <div className="space-y-1">
-                                {currentNeeds.map(need => (
-                                  <div key={need.id} className="px-2 py-1.5 rounded-lg bg-brand-500/10 border border-brand-500/20">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-xs font-medium text-brand-300 truncate flex-1">{need.description || need.type}</span>
-                                      <button
-                                        onClick={() => { setEditingNeedId(editingNeedId === need.id ? null : need.id); setNeedNoteValue(''); }}
-                                        className="flex-shrink-0 text-brand-400 hover:text-brand-300 transition-colors"
-                                      >
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
-                                      </button>
-                                    </div>
-                                    {editingNeedId === need.id && (
-                                      <input
-                                        type="text"
-                                        value={needNoteValue}
-                                        onChange={(e) => setNeedNoteValue(e.target.value)}
-                                        placeholder={t('liveVisits', 'addNote')}
-                                        className="mt-1 w-full bg-gray-900 border border-white/10 rounded px-2 py-1 text-[10px] text-white/70 placeholder-white/30 focus:outline-none focus:border-brand-500"
-                                        autoFocus
-                                        onKeyDown={async (e) => {
-                                          if (e.key === 'Enter' && needNoteValue.trim()) {
-                                            try {
-                                              await fetch(`/api/visit-groups/${vg.id}/needs`, {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ type: need.type, description: `${need.description || need.type}: ${needNoteValue.trim()}` }),
-                                              });
-                                              setEditingNeedId(null); setNeedNoteValue('');
-                                              fetchGroupNeeds(vg.id);
-                                            } catch {}
-                                          }
-                                          if (e.key === 'Escape') { setEditingNeedId(null); setNeedNoteValue(''); }
-                                        }}
-                                      />
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       )}
 
-                      {/* ── Visitor cards column ── */}
+                      {/* ── Visitor cards + dropped needs column ── */}
                       <div className="flex-1 p-4 space-y-2 min-h-[80px]">
                         {vg.visitors.length === 0 ? (
                           <div className="flex items-center justify-center h-full text-white/20 text-sm py-6">-</div>
@@ -1028,6 +991,54 @@ export default function VisitsPage() {
                               )}
                             </div>
                           ))
+                        )}
+
+                        {/* ── Dropped needs (appear under visitor names) ── */}
+                        {currentNeeds.length > 0 && (
+                          <div className="pt-2 mt-2 border-t border-white/5 space-y-1.5">
+                            {currentNeeds.map(need => (
+                              <div key={need.id} className="px-2 py-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-medium text-brand-300 truncate flex-1">{need.description || need.type}</span>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setEditingNeedId(editingNeedId === need.id ? null : need.id); setNeedNoteValue(''); }}
+                                    className="flex-shrink-0 w-4 h-4 rounded-full bg-brand-500/20 hover:bg-brand-500/30 text-brand-400 hover:text-brand-300 flex items-center justify-center transition-colors"
+                                  >
+                                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                  </button>
+                                </div>
+                                {editingNeedId === need.id && (
+                                  <input
+                                    type="text"
+                                    value={needNoteValue}
+                                    onChange={(e) => setNeedNoteValue(e.target.value)}
+                                    placeholder={t('liveVisits', 'addNote')}
+                                    className="mt-1.5 w-full bg-transparent border-0 border-b border-white/10 px-0 py-0.5 text-[11px] text-white/50 placeholder-white/25 focus:outline-none focus:border-brand-500/50 font-light"
+                                    autoFocus
+                                    onBlur={async () => {
+                                      if (needNoteValue.trim()) {
+                                        try {
+                                          await fetch(`/api/visit-groups/${vg.id}/needs`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ type: need.type, description: `${need.description || need.type}: ${needNoteValue.trim()}` }),
+                                          });
+                                          fetchGroupNeeds(vg.id);
+                                        } catch {}
+                                      }
+                                      setEditingNeedId(null); setNeedNoteValue('');
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                      if (e.key === 'Escape') { setNeedNoteValue(''); setEditingNeedId(null); }
+                                    }}
+                                  />
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>
