@@ -25,6 +25,7 @@ const t = {
     submit: "M'enregistrer",
     thanksTitle: 'Merci !',
     thanksBody: 'Un membre de notre \u00e9quipe sera avec vous sous peu.',
+    next: 'Suivant',
     staffTitle: 'Connexion employ\u00e9',
     staffEmail: 'Courriel',
     staffPassword: 'Mot de passe',
@@ -63,6 +64,7 @@ const t = {
     submit: 'Register',
     thanksTitle: 'Thank you!',
     thanksBody: 'A team member will be with you shortly.',
+    next: 'Next',
     staffTitle: 'Staff Login',
     staffEmail: 'Email',
     staffPassword: 'Password',
@@ -537,7 +539,13 @@ export default function KioskPage() {
             </svg>
           </div>
           <h1 className="text-5xl sm:text-6xl font-bold tracking-tight mb-4">{l.thanksTitle}</h1>
-          <p className="text-xl text-white/60 max-w-md">{l.thanksBody}</p>
+          <p className="text-xl text-white/60 max-w-md mb-10">{l.thanksBody}</p>
+          <button
+            onClick={resetAll}
+            className="bg-brand-600 hover:bg-brand-500 active:scale-[0.97] text-white text-2xl font-semibold px-16 py-5 rounded-2xl transition-all shadow-lg shadow-brand-600/30"
+          >
+            {l.next}
+          </button>
         </div>
       </Shell>
     )
