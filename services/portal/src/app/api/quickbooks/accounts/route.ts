@@ -34,8 +34,9 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({ accounts, connected: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET /api/quickbooks/accounts error:', error);
-    return NextResponse.json({ error: 'Failed to fetch accounts', accounts: [] }, { status: 500 });
+    const msg = error?.message || 'Failed to fetch accounts';
+    return NextResponse.json({ error: msg, accounts: [] }, { status: 500 });
   }
 }
