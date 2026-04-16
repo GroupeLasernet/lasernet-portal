@@ -667,10 +667,17 @@ export default function SettingsPage() {
           ════════════════════════════════════════════════════════════════════════ */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800">{t('settings', 'addStockTitle')}</h2>
-          <p className="text-sm text-gray-500 mt-1">{t('settings', 'addStockDesc')}</p>
+          <h2 className="text-lg font-bold text-gray-800">{t('settings', 'stockTitle')}</h2>
+          <p className="text-sm text-gray-500 mt-1">{t('settings', 'stockDesc')}</p>
         </div>
-        <AddStockForm t={t} />
+        <InventoryBrowser t={t} />
+        <div className="border-t border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h3 className="text-base font-bold text-gray-800">{t('settings', 'addStockTitle')}</h3>
+            <p className="text-sm text-gray-500 mt-1">{t('settings', 'addStockDesc')}</p>
+          </div>
+          <AddStockForm t={t} />
+        </div>
       </div>
     </div>
   );
@@ -781,6 +788,165 @@ function VisitSidebarSettings({ t }: { t: (s: string, k: string) => string }) {
       {saved && (
         <p className="text-xs text-green-600 font-medium">{t('settings', 'visitSidebarSaved')}</p>
       )}
+    </div>
+  );
+}
+
+// ── Inventory Browser — Browse existing QB items ──
+interface QBItem {
+  id: string;
+  name: string;
+  fullName: string;
+  type: string;
+  description: string | null;
+  unitPrice: number;
+  qtyOnHand: number | null;
+  sku: string | null;
+  category: string | null;
+  active: boolean;
+}
+
+function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
+  const [items, setItems] = useState<QBItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<QBItem | null>(null);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [statusRes, invRes] = await Promise.all([
+          fetch('/api/quickbooks/status'),
+          fetch('/api/quickbooks/inventory'),
+        ]);
+        const statusData = await statusRes.json();
+        const invData = await invRes.json();
+        setConnected(statusData.connected ?? false);
+        setItems(invData.items || []);
+      } catch {}
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-6 flex justify-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-500" />
+      </div>
+    );
+  }
+
+  if (!connected) {
+    return (
+      <div className="p-6">
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+          {t('liveVisits', 'notConnected')}
+        </div>
+      </div>
+    );
+  }
+
+  const filtered = search.trim()
+    ? items.filter(i =>
+        i.name.toLowerCase().includes(search.toLowerCase()) ||
+        (i.sku && i.sku.toLowerCase().includes(search.toLowerCase())) ||
+        (i.description && i.description.toLowerCase().includes(search.toLowerCase()))
+      )
+    : items;
+
+  const detailRow = (label: string, value: string | number | null | undefined, fallback?: string) => (
+    <div className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-b-0">
+      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider w-28 flex-shrink-0 pt-0.5">{label}</span>
+      <span className="text-sm text-gray-800 flex-1">{value !== null && value !== undefined && value !== '' ? String(value) : (fallback || '—')}</span>
+    </div>
+  );
+
+  return (
+    <div className="p-6">
+      <p className="text-sm font-semibold text-gray-700 mb-3">{t('settings', 'stockBrowse')}</p>
+
+      <div className="flex gap-4 min-h-[280px]">
+        {/* Left: item list */}
+        <div className="w-[280px] flex-shrink-0 flex flex-col border border-gray-200 rounded-xl overflow-hidden">
+          {/* Search */}
+          <div className="p-2 border-b border-gray-100">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('settings', 'stockSearch')}
+              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-brand-500"
+            />
+          </div>
+
+          {/* Item list */}
+          <div className="flex-1 overflow-y-auto max-h-[400px]">
+            {filtered.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-6">{t('settings', 'stockNoItems')}</p>
+            ) : (
+              filtered.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedItem(item)}
+                  className={`w-full text-left px-3 py-2.5 border-b border-gray-50 transition-colors ${
+                    selectedItem?.id === item.id
+                      ? 'bg-brand-50 border-l-2 border-l-brand-500'
+                      : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <p className={`text-sm font-medium truncate ${selectedItem?.id === item.id ? 'text-brand-700' : 'text-gray-800'}`}>
+                    {item.name}
+                  </p>
+                  <p className="text-xs text-gray-400 truncate mt-0.5">
+                    {item.type}{item.sku ? ` · ${item.sku}` : ''}{item.qtyOnHand !== null ? ` · ${item.qtyOnHand} en stock` : ''}
+                  </p>
+                </button>
+              ))
+            )}
+          </div>
+
+          <div className="px-3 py-2 border-t border-gray-100 bg-gray-50">
+            <p className="text-xs text-gray-400">{filtered.length} {filtered.length === 1 ? 'item' : 'items'}</p>
+          </div>
+        </div>
+
+        {/* Right: detail panel */}
+        <div className="flex-1 border border-gray-200 rounded-xl overflow-hidden">
+          {selectedItem ? (
+            <div className="p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <h4 className="text-lg font-bold text-gray-900 flex-1">{selectedItem.name}</h4>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                  selectedItem.type === 'Inventory' ? 'bg-blue-50 text-blue-700'
+                    : selectedItem.type === 'Service' ? 'bg-purple-50 text-purple-700'
+                    : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {selectedItem.type}
+                </span>
+              </div>
+
+              {detailRow(t('settings', 'stockFieldFullName'), selectedItem.fullName)}
+              {detailRow(t('settings', 'stockFieldType'), selectedItem.type)}
+              {detailRow(t('settings', 'stockFieldSku'), selectedItem.sku)}
+              {detailRow(t('settings', 'stockFieldPrice'), selectedItem.unitPrice !== 0 ? `$${selectedItem.unitPrice.toFixed(2)}` : null)}
+              {detailRow(t('settings', 'stockFieldQty'), selectedItem.qtyOnHand)}
+              {detailRow(t('settings', 'stockFieldCategory'), selectedItem.category)}
+              {detailRow(t('settings', 'stockFieldDescription'), selectedItem.description)}
+              {detailRow(t('settings', 'stockFieldActive'), selectedItem.active ? t('settings', 'stockYes') : t('settings', 'stockNo'))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-300">
+              <div className="text-center">
+                <svg className="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <p className="text-sm">{t('settings', 'stockSelectItem')}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
