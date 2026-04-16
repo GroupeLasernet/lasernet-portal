@@ -806,6 +806,32 @@ interface QBItem {
   active: boolean;
 }
 
+function QBConnectButton({ t }: { t: (s: string, k: string) => string }) {
+  const [connecting, setConnecting] = useState(false);
+
+  const handleConnect = async () => {
+    setConnecting(true);
+    try {
+      const res = await fetch('/api/quickbooks/connect');
+      const data = await res.json();
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
+      }
+    } catch {}
+    setConnecting(false);
+  };
+
+  return (
+    <button
+      onClick={handleConnect}
+      disabled={connecting}
+      className="mt-3 px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
+    >
+      {connecting ? 'Connexion...' : t('liveVisits', 'notConnected') === 'QuickBooks non connecté' ? 'Connecter QuickBooks' : 'Connect QuickBooks'}
+    </button>
+  );
+}
+
 function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
   const [items, setItems] = useState<QBItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -847,16 +873,19 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
           {t('liveVisits', 'notConnected')}
         </div>
+        <QBConnectButton t={t} />
       </div>
     );
   }
 
   if (error && items.length === 0) {
+    const isTokenError = error.toLowerCase().includes('token') || error.toLowerCase().includes('authorize');
     return (
       <div className="p-6">
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           {error}
         </div>
+        {isTokenError && <QBConnectButton t={t} />}
       </div>
     );
   }
