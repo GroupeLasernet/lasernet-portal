@@ -269,6 +269,38 @@ export async function queryQuickBooks(query: string, tokens: QBTokens): Promise<
   return { data, updatedTokens };
 }
 
+// Generic POST/create function — creates an entity in QuickBooks
+export async function createQBEntity(
+  entityType: string,
+  body: Record<string, any>,
+  tokens: QBTokens,
+): Promise<{ data: any; updatedTokens: QBTokens | null }> {
+  const { accessToken, updatedTokens } = await ensureValidToken(tokens);
+  const realmId = tokens.realmId;
+  const baseUrl = getBaseUrl();
+
+  const response = await fetch(
+    `${baseUrl}/v3/company/${realmId}/${entityType}`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    },
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`QuickBooks API error (POST ${entityType}): ${response.status} - ${error}`);
+  }
+
+  const data = await response.json();
+  return { data, updatedTokens };
+}
+
 // ============================================================
 // CUSTOMER / CLIENT FUNCTIONS
 // ============================================================

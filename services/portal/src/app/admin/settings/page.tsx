@@ -661,6 +661,17 @@ export default function SettingsPage() {
         </div>
         <VisitSidebarSettings t={t} />
       </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          ADD STOCK — Create inventory items in QuickBooks
+          ════════════════════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-800">{t('settings', 'addStockTitle')}</h2>
+          <p className="text-sm text-gray-500 mt-1">{t('settings', 'addStockDesc')}</p>
+        </div>
+        <AddStockForm t={t} />
+      </div>
     </div>
   );
 }
@@ -767,5 +778,318 @@ function VisitSidebarSettings({ t }: { t: (s: string, k: string) => string }) {
         <p className="text-xs text-green-600 font-medium">{t('settings', 'visitSidebarSaved')}</p>
       )}
     </div>
+  );
+}
+
+// ── Add Stock — Create QuickBooks inventory items ──
+interface QBAccount {
+  id: string;
+  name: string;
+  fullName: string;
+  type: string;
+  subType: string;
+  classification: string;
+}
+
+function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
+  const [itemType, setItemType] = useState<'Inventory' | 'NonInventory' | 'Service'>('Inventory');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [sku, setSku] = useState('');
+  const [unitPrice, setUnitPrice] = useState('');
+  const [purchaseCost, setPurchaseCost] = useState('');
+  const [qtyOnHand, setQtyOnHand] = useState('0');
+  const [incomeAccountId, setIncomeAccountId] = useState('');
+  const [expenseAccountId, setExpenseAccountId] = useState('');
+  const [assetAccountId, setAssetAccountId] = useState('');
+
+  const [accounts, setAccounts] = useState<QBAccount[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [qbConnected, setQbConnected] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Fetch QB accounts on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/quickbooks/accounts');
+        const data = await res.json();
+        setQbConnected(data.connected ?? false);
+        setAccounts(data.accounts || []);
+      } catch {}
+      setLoadingAccounts(false);
+    })();
+  }, []);
+
+  // Filter accounts by classification/type for dropdowns
+  const incomeAccounts = accounts.filter(a => a.classification === 'Revenue' || a.type === 'Income');
+  const expenseAccounts = accounts.filter(a =>
+    a.type === 'Cost of Goods Sold' || a.classification === 'Expense' || a.type === 'Expense'
+  );
+  const assetAccounts = accounts.filter(a =>
+    a.classification === 'Asset' || a.type === 'Other Current Asset'
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setResult(null);
+
+    try {
+      const res = await fetch('/api/quickbooks/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          type: itemType,
+          description: description.trim() || null,
+          sku: sku.trim() || null,
+          unitPrice: unitPrice ? parseFloat(unitPrice) : null,
+          purchaseCost: purchaseCost ? parseFloat(purchaseCost) : null,
+          qtyOnHand: qtyOnHand ? parseInt(qtyOnHand, 10) : 0,
+          incomeAccountId: incomeAccountId || null,
+          expenseAccountId: expenseAccountId || null,
+          assetAccountId: assetAccountId || null,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setResult({ success: true, message: `"${data.item?.name || name}" created in QuickBooks` });
+        // Reset form
+        setName(''); setDescription(''); setSku(''); setUnitPrice(''); setPurchaseCost(''); setQtyOnHand('0');
+      } else {
+        setResult({ success: false, message: data.error || 'Failed to create item' });
+      }
+    } catch (err: any) {
+      setResult({ success: false, message: err.message || 'Network error' });
+    }
+    setSubmitting(false);
+  };
+
+  if (loadingAccounts) {
+    return (
+      <div className="p-6 flex justify-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-500" />
+      </div>
+    );
+  }
+
+  if (!qbConnected) {
+    return (
+      <div className="p-6">
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+          {t('liveVisits', 'notConnected')}
+        </div>
+      </div>
+    );
+  }
+
+  const isInventory = itemType === 'Inventory';
+
+  return (
+    <form onSubmit={handleSubmit} className="p-6 space-y-5">
+
+      {/* Type selector */}
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t('settings', 'stockType')}</label>
+        <p className="text-xs text-gray-400 mb-2">{t('settings', 'stockTypeHint')}</p>
+        <div className="flex gap-2">
+          {(['Inventory', 'NonInventory', 'Service'] as const).map(tp => (
+            <button
+              key={tp}
+              type="button"
+              onClick={() => setItemType(tp)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                itemType === tp
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {tp === 'Inventory' ? t('settings', 'stockInventory')
+                : tp === 'NonInventory' ? t('settings', 'stockNonInventory')
+                : t('settings', 'stockService')}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Name (required) */}
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockName')} *</label>
+        <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockNameHint')}</p>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          placeholder="Ex: UR10e Cobot, Laser Head 50W..."
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+        />
+      </div>
+
+      {/* Description */}
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockDescription')}</label>
+        <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockDescHint')}</p>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={2}
+          placeholder="Ex: Universal Robots UR10e collaborative robot arm with teach pendant"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 resize-none"
+        />
+      </div>
+
+      {/* SKU + Prices row */}
+      <div className="grid grid-cols-3 gap-4">
+        {/* SKU */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockSku')}</label>
+          <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockSkuHint')}</p>
+          <input
+            type="text"
+            value={sku}
+            onChange={(e) => setSku(e.target.value)}
+            placeholder="UR10E-001"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+          />
+        </div>
+
+        {/* Selling price */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockPrice')}</label>
+          <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockPriceHint')}</p>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={unitPrice}
+            onChange={(e) => setUnitPrice(e.target.value)}
+            placeholder="0.00"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+          />
+        </div>
+
+        {/* Purchase cost */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockCost')}</label>
+          <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockCostHint')}</p>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={purchaseCost}
+            onChange={(e) => setPurchaseCost(e.target.value)}
+            placeholder="0.00"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+          />
+        </div>
+      </div>
+
+      {/* Qty on hand — Inventory only */}
+      {isInventory && (
+        <div className="max-w-[200px]">
+          <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockQty')}</label>
+          <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockQtyHint')}</p>
+          <input
+            type="number"
+            min="0"
+            value={qtyOnHand}
+            onChange={(e) => setQtyOnHand(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+          />
+        </div>
+      )}
+
+      {/* ── QB Accounts ── */}
+      <div className="border-t border-gray-100 pt-5">
+        <p className="text-sm font-bold text-gray-700 mb-1">{t('settings', 'stockAccounts')}</p>
+        <p className="text-xs text-gray-400 mb-4">{t('settings', 'stockAccountsHint')}</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Income account */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">
+              {t('settings', 'stockIncomeAccount')} {isInventory ? '*' : ''}
+            </label>
+            <p className="text-[11px] text-gray-400 mb-1">{t('settings', 'stockIncomeHint')}</p>
+            <select
+              value={incomeAccountId}
+              onChange={(e) => setIncomeAccountId(e.target.value)}
+              required={isInventory}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+            >
+              <option value="">{t('settings', 'stockSelectAccount')}</option>
+              {incomeAccounts.map(a => (
+                <option key={a.id} value={a.id}>{a.fullName}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Expense / COGS account */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">
+              {t('settings', 'stockExpenseAccount')} {isInventory ? '*' : ''}
+            </label>
+            <p className="text-[11px] text-gray-400 mb-1">{t('settings', 'stockExpenseHint')}</p>
+            <select
+              value={expenseAccountId}
+              onChange={(e) => setExpenseAccountId(e.target.value)}
+              required={isInventory}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+            >
+              <option value="">{t('settings', 'stockSelectAccount')}</option>
+              {expenseAccounts.map(a => (
+                <option key={a.id} value={a.id}>{a.fullName}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Asset account — Inventory only */}
+          {isInventory && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">
+                {t('settings', 'stockAssetAccount')} *
+              </label>
+              <p className="text-[11px] text-gray-400 mb-1">{t('settings', 'stockAssetHint')}</p>
+              <select
+                value={assetAccountId}
+                onChange={(e) => setAssetAccountId(e.target.value)}
+                required
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+              >
+                <option value="">{t('settings', 'stockSelectAccount')}</option>
+                {assetAccounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.fullName}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Result message */}
+      {result && (
+        <div className={`p-3 rounded-lg text-sm font-medium ${
+          result.success
+            ? 'bg-green-50 border border-green-200 text-green-700'
+            : 'bg-red-50 border border-red-200 text-red-700'
+        }`}>
+          {result.message}
+        </div>
+      )}
+
+      {/* Submit */}
+      <button
+        type="submit"
+        disabled={submitting || !name.trim()}
+        className="px-6 py-2.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
+      >
+        {submitting ? t('settings', 'stockCreating') : t('settings', 'stockCreate')}
+      </button>
+    </form>
   );
 }
