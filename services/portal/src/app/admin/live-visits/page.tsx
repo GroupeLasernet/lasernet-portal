@@ -557,7 +557,7 @@ export default function VisitsPage() {
         </div>
 
         {/* Live visit containers */}
-        <div className="p-6">
+        <div className="p-6" style={{ minHeight: '75vh' }}>
           {activeGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
