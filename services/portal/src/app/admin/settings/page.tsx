@@ -711,7 +711,7 @@ function VisitSidebarSettings({ t }: { t: (s: string, k: string) => string }) {
   const handleRemove = (cat: string) => saveCategories(categories.filter(c => c !== cat));
 
   // Unique QB categories/types for suggestions
-  const qbCategories = [...new Set(qbItems.map(i => i.type).filter(Boolean))];
+  const qbCategories = Array.from(new Set(qbItems.map(i => i.type).filter(Boolean)));
 
   return (
     <div className="p-6 space-y-4">
