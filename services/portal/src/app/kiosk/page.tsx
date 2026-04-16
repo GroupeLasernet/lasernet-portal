@@ -103,6 +103,31 @@ interface BusinessSuggestion {
 const PURPOSE_KEYS = ['purposeInquiry', 'purposeDemo', 'purposeMeeting', 'purposeService', 'purposeOther'] as const
 const PURPOSE_VALUES = ['inquiry', 'demo', 'meeting', 'service', 'other'] as const
 
+/* Shell must be outside KioskPage so React doesn't remount it on every re-render */
+function Shell({ lang, setLang, children }: { lang: Lang; setLang: (l: Lang) => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 bg-gray-950 text-white flex flex-col overflow-auto">
+      {/* language toggle */}
+      <div className="absolute top-6 right-6 z-10 flex gap-2">
+        {(['fr', 'en'] as const).map((code) => (
+          <button
+            key={code}
+            onClick={() => setLang(code)}
+            className={`px-4 py-2 rounded-full text-sm font-semibold uppercase tracking-wide transition-colors ${
+              lang === code
+                ? 'bg-brand-600 text-white'
+                : 'bg-white/10 text-white/60 hover:bg-white/20'
+            }`}
+          >
+            {code}
+          </button>
+        ))}
+      </div>
+      {children}
+    </div>
+  )
+}
+
 export default function KioskPage() {
   /* ---- global state ---- */
   const [lang, setLang] = useState<Lang>('fr')
@@ -134,6 +159,16 @@ export default function KioskPage() {
   const businessSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const businessSuggestionsRef = useRef<HTMLDivElement>(null)
   const emailDomainTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
+
+  /* Focus name field once when entering the form screen */
+  useEffect(() => {
+    if (screen === 'form') {
+      // Small delay to ensure the input is mounted
+      const timer = setTimeout(() => nameInputRef.current?.focus(), 100)
+      return () => clearTimeout(timer)
+    }
+  }, [screen])
 
   const searchLeads = useCallback(async (query: string) => {
     if (query.trim().length < 2) {
@@ -423,33 +458,12 @@ export default function KioskPage() {
      RENDER
      ================================================================ */
 
-  /* ---- shared wrapper ---- */
-  const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div className="fixed inset-0 bg-gray-950 text-white flex flex-col overflow-auto">
-      {/* language toggle */}
-      <div className="absolute top-6 right-6 z-10 flex gap-2">
-        {(['fr', 'en'] as const).map((code) => (
-          <button
-            key={code}
-            onClick={() => setLang(code)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold uppercase tracking-wide transition-colors ${
-              lang === code
-                ? 'bg-brand-600 text-white'
-                : 'bg-white/10 text-white/60 hover:bg-white/20'
-            }`}
-          >
-            {code}
-          </button>
-        ))}
-      </div>
-      {children}
-    </div>
-  )
+  /* Shell is now defined outside this component to prevent remounting on re-render */
 
   /* ---------- WELCOME ---------- */
   if (screen === 'welcome') {
     return (
-      <Shell>
+      <Shell lang={lang} setLang={setLang}>
         <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
           <h1 className="text-5xl sm:text-6xl font-bold tracking-tight mb-4">{l.welcome}</h1>
           <p className="text-xl text-white/60 mb-12">{l.subtitle}</p>
@@ -509,7 +523,7 @@ export default function KioskPage() {
   /* ---------- THANK YOU ---------- */
   if (screen === 'thanks') {
     return (
-      <Shell>
+      <Shell lang={lang} setLang={setLang}>
         <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
           <div className="w-24 h-24 rounded-full bg-brand-600/20 flex items-center justify-center mb-8">
             <svg
@@ -531,7 +545,7 @@ export default function KioskPage() {
 
   /* ---------- REGISTRATION FORM ---------- */
   return (
-    <Shell>
+    <Shell lang={lang} setLang={setLang}>
       <div className="flex-1 flex flex-col items-center py-10 px-6 overflow-auto">
         <div className="w-full max-w-lg">
           {/* back button */}
@@ -551,13 +565,13 @@ export default function KioskPage() {
             {/* Name -- with autocomplete search */}
             <div className="relative" ref={suggestionsRef}>
               <input
+                ref={nameInputRef}
                 type="text"
                 placeholder={l.name}
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true) }}
                 required
-                autoFocus
                 autoComplete="off"
                 className="w-full bg-white/10 border border-white/20 rounded-xl text-lg py-4 px-6 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-brand-600 transition-shadow"
               />
