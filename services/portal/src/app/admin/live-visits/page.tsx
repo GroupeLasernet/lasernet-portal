@@ -89,6 +89,19 @@ export default function VisitsPage() {
   // Mobile move dropdown
   const [mobileMovingVisitId, setMobileMovingVisitId] = useState<string | null>(null);
 
+  // Sidebar: collapsible sections & QB inventory
+  const [openSidebarSection, setOpenSidebarSection] = useState<string | null>(null);
+  const [qbInventory, setQbInventory] = useState<{ id: string; name: string; type: string; description: string | null; qtyOnHand: number | null }[]>([]);
+  const [qbConnected, setQbConnected] = useState(false);
+  const [loadingInventory, setLoadingInventory] = useState(false);
+  // Needs per group (loaded when expanded)
+  const [groupNeeds, setGroupNeeds] = useState<Record<string, { id: string; type: string; description: string | null; status: string }[]>>({});
+  // Need note editing
+  const [editingNeedId, setEditingNeedId] = useState<string | null>(null);
+  const [needNoteValue, setNeedNoteValue] = useState('');
+  // Dragged sidebar item
+  const draggedSidebarItemRef = useRef<{ name: string; type: string } | null>(null);
+
   // ── Fetch visit groups ──
   const fetchVisitGroups = useCallback(async () => {
     try {
@@ -133,10 +146,86 @@ export default function VisitsPage() {
     return () => clearInterval(dataInterval);
   }, [fetchVisitGroups]);
 
+  // ── Fetch QB inventory on mount ──
+  useEffect(() => {
+    (async () => {
+      setLoadingInventory(true);
+      try {
+        const res = await fetch('/api/quickbooks/inventory');
+        const data = await res.json();
+        setQbConnected(data.connected ?? false);
+        setQbInventory(data.items || []);
+      } catch { /* silently fail */ }
+      setLoadingInventory(false);
+    })();
+  }, []);
+
+  // ── Fetch needs when a group is expanded ──
+  const fetchGroupNeeds = useCallback(async (groupId: string) => {
+    try {
+      const res = await fetch(`/api/visit-groups/${groupId}/needs`);
+      const data = await res.json();
+      setGroupNeeds(prev => ({ ...prev, [groupId]: data.needs || [] }));
+    } catch { /* silently fail */ }
+  }, []);
+
+  useEffect(() => {
+    if (expandedGroupId) fetchGroupNeeds(expandedGroupId);
+  }, [expandedGroupId, fetchGroupNeeds]);
+
+  // ── End visit → moves to follow-up ──
+  const handleEndVisit = useCallback(async (groupId: string) => {
+    try {
+      const followUp = new Date();
+      followUp.setDate(followUp.getDate() + 7); // default: follow up in 7 days
+      await fetch(`/api/visit-groups/${groupId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed', expectedFollowUpAt: followUp.toISOString() }),
+      });
+      setExpandedGroupId(null);
+      await fetchVisitGroups();
+    } catch { /* silently fail */ }
+  }, [fetchVisitGroups]);
+
+  // ── Sidebar item drop onto a container → creates a VisitNeed ──
+  const handleSidebarDrop = useCallback(async (groupId: string, itemName: string, itemType: string) => {
+    try {
+      await fetch(`/api/visit-groups/${groupId}/needs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: itemType, description: itemName }),
+      });
+      await fetchGroupNeeds(groupId);
+    } catch { /* silently fail */ }
+  }, [fetchGroupNeeds]);
+
+  // ── Sidebar need categories (static + QB inventory groups) ──
+  const sidebarSections = useMemo(() => {
+    const sections: { key: string; label: string; items: { name: string; type: string }[] }[] = [
+      { key: 'manual', label: t('liveVisits', 'manuals'), items: [{ name: t('liveVisits', 'manuals'), type: 'manual' }] },
+      { key: 'quote', label: t('liveVisits', 'quotes'), items: [{ name: t('liveVisits', 'quotes'), type: 'quote' }] },
+      { key: 'info', label: 'Info', items: [{ name: 'Info', type: 'info' }] },
+    ];
+    // Group QB items by category or type
+    if (qbInventory.length > 0) {
+      const invItems = qbInventory.map(item => ({
+        name: item.name,
+        type: 'inventory',
+      }));
+      sections.unshift({
+        key: 'inventory',
+        label: t('liveVisits', 'inventory'),
+        items: invItems,
+      });
+    }
+    return sections;
+  }, [qbInventory, t]);
+
   // ── Split groups by status ──
   const activeGroups = useMemo(() => visitGroups.filter(vg => vg.status === 'active'), [visitGroups]);
   const followUpGroups = useMemo(() =>
-    visitGroups.filter(vg => vg.expectedFollowUpAt && vg.status !== 'completed'),
+    visitGroups.filter(vg => vg.status === 'completed' && vg.expectedFollowUpAt),
     [visitGroups],
   );
 
@@ -600,10 +689,12 @@ export default function VisitsPage() {
                 }
 
                 // ── Normal or Expanded view ──
+                const currentNeeds = groupNeeds[vg.id] || [];
+
                 return (
                   <div
                     key={vg.id}
-                    className={`flex-shrink-0 bg-gray-900 border rounded-2xl overflow-hidden flex flex-col transition-all duration-300 ${
+                    className={`flex-shrink-0 bg-gray-900 border rounded-2xl overflow-hidden transition-all duration-300 ${
                       isDragOver ? 'border-brand-500 bg-brand-500/5' : isExpanded ? 'border-brand-400/50' : 'border-white/10'
                     }`}
                     style={{ width: isExpanded ? 1050 : 350 }}
@@ -612,11 +703,22 @@ export default function VisitsPage() {
                     onMouseLeave={handleContainerMouseLeave}
                     onDragOver={(e) => handleDragOver(e, vg.id)}
                     onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, vg.id)}
+                    onDrop={(e) => {
+                      // Handle sidebar item drops
+                      const sidebarItem = draggedSidebarItemRef.current;
+                      if (sidebarItem) {
+                        e.preventDefault();
+                        setDragOverGroupId(null);
+                        handleSidebarDrop(vg.id, sidebarItem.name, sidebarItem.type);
+                        draggedSidebarItemRef.current = null;
+                        return;
+                      }
+                      handleDrop(e, vg.id);
+                    }}
                   >
                     {/* ── Container header ── */}
                     <div className="p-4 border-b border-white/10" onClick={(e) => e.stopPropagation()}>
-                      {/* Row 1: Business name + type badge */}
+                      {/* Row 1: Business name + type badge + end visit */}
                       <div className="flex items-center gap-2 min-w-0">
                         {isEditingName ? (
                           <input
@@ -642,6 +744,13 @@ export default function VisitsPage() {
                             {bizType === 'qb' ? 'QB' : 'Local'}
                           </span>
                         )}
+                        {/* End Visit button */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (confirm(t('liveVisits', 'endVisitConfirm'))) handleEndVisit(vg.id); }}
+                          className="flex-shrink-0 px-3 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 text-xs font-semibold transition-colors"
+                        >
+                          {t('liveVisits', 'endVisit')}
+                        </button>
                         {isExpanded && (
                           <button
                             onClick={(e) => { e.stopPropagation(); collapseGroup(); }}
@@ -751,79 +860,176 @@ export default function VisitsPage() {
                       )}
                     </div>
 
-                    {/* ── Visitor cards ── */}
-                    <div className="flex-1 p-4 space-y-2 min-h-[80px]" onClick={(e) => e.stopPropagation()}>
-                      {vg.visitors.length === 0 ? (
-                        <div className="flex items-center justify-center h-full text-white/20 text-sm py-6">-</div>
-                      ) : (
-                        vg.visitors.map(visitor => (
-                          <div
-                            key={visitor.id}
-                            draggable="true"
-                            onDragStart={(e) => handleDragStart(e, visitor.id, vg.id)}
-                            className="group flex items-center gap-3 p-2.5 rounded-xl bg-gray-800/50 border border-white/5 hover:border-white/15 cursor-grab active:cursor-grabbing transition-colors relative"
-                          >
-                            {/* Drag handle */}
-                            <div className="flex flex-col gap-[2px] opacity-30 group-hover:opacity-60 transition-opacity flex-shrink-0">
-                              {[0, 1, 2].map(r => (
-                                <div key={r} className="flex gap-[2px]">
-                                  <span className="w-1 h-1 bg-white/60 rounded-full" />
-                                  <span className="w-1 h-1 bg-white/60 rounded-full" />
-                                </div>
-                              ))}
-                            </div>
+                    {/* ── Body: sidebar (expanded only) + visitor cards ── */}
+                    <div className={`flex-1 flex ${isExpanded ? 'flex-row' : 'flex-col'}`} onClick={(e) => e.stopPropagation()}>
 
-                            {/* Avatar */}
-                            {visitor.photo ? (
-                              <img src={visitor.photo} alt={visitor.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-white/10" />
-                            ) : (
-                              <div className="w-9 h-9 rounded-full bg-brand-600/30 flex items-center justify-center flex-shrink-0 border border-white/10">
-                                <span className="text-sm font-bold text-brand-300">{visitor.name.charAt(0).toUpperCase()}</span>
-                              </div>
-                            )}
-
-                            {/* Info */}
-                            <div className="min-w-0 flex-1">
+                      {/* ── SIDEBAR (only visible when expanded) ── */}
+                      {isExpanded && (
+                        <div className="w-[220px] flex-shrink-0 border-r border-white/10 p-3 overflow-y-auto">
+                          <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-2">{t('liveVisits', 'documents')}</p>
+                          {sidebarSections.map(section => (
+                            <div key={section.key} className="mb-1">
+                              {/* Collapsible header */}
                               <button
-                                onClick={() => handleSetMainContact(vg.id, visitor.leadId)}
-                                className="flex items-center gap-1.5 text-left w-full"
-                                title={t('liveVisits', 'setMainContact')}
+                                onClick={() => setOpenSidebarSection(openSidebarSection === section.key ? null : section.key)}
+                                className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
                               >
-                                <span className="text-sm font-medium text-white truncate hover:text-brand-300 transition-colors">{visitor.name}</span>
-                                {visitor.isMainContact && (
-                                  <svg className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" />
-                                  </svg>
-                                )}
+                                <span className="text-xs font-medium text-white/70">{section.label}</span>
+                                <svg className={`w-3 h-3 text-white/40 transition-transform ${openSidebarSection === section.key ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
                               </button>
-                              {(visitor.email || visitor.company) && (
-                                <p className="text-xs text-white/40 truncate">{visitor.email || visitor.company}</p>
+
+                              {/* Collapsible items */}
+                              {openSidebarSection === section.key && (
+                                <div className="ml-1 mt-1 space-y-0.5 max-h-[200px] overflow-y-auto">
+                                  {section.items.map((item, idx) => (
+                                    <div
+                                      key={idx}
+                                      draggable="true"
+                                      onDragStart={(e) => {
+                                        e.stopPropagation();
+                                        draggedSidebarItemRef.current = { name: item.name, type: item.type };
+                                        e.dataTransfer.effectAllowed = 'copy';
+                                        e.dataTransfer.setData('text/plain', item.name);
+                                      }}
+                                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-800/50 border border-white/5 hover:border-white/15 cursor-grab active:cursor-grabbing text-xs text-white/60 hover:text-white/80 transition-colors"
+                                    >
+                                      <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                      <span className="truncate">{item.name}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               )}
                             </div>
+                          ))}
 
-                            {/* Mobile move */}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setMobileMovingVisitId(mobileMovingVisitId === visitor.id ? null : visitor.id); }}
-                              className="md:hidden flex-shrink-0 p-1 rounded text-white/30 hover:text-white/60 transition-colors"
-                            >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                              </svg>
-                            </button>
-
-                            {mobileMovingVisitId === visitor.id && (
-                              <div className="absolute top-full right-0 mt-1 z-20 bg-gray-800 border border-white/10 rounded-xl shadow-xl py-1 min-w-[180px]">
-                                <p className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">{t('liveVisits', 'moveTo')}</p>
-                                {activeGroups.filter(g => g.id !== vg.id).map(g => (
-                                  <button key={g.id} onClick={() => handleMobileMove(visitor.id, g.id)} className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors truncate">
-                                    {getBusinessName(g)}
-                                  </button>
+                          {/* Dropped needs on this group */}
+                          {currentNeeds.length > 0 && (
+                            <div className="mt-4 pt-3 border-t border-white/10">
+                              <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-2">{t('liveVisits', 'needs')}</p>
+                              <div className="space-y-1">
+                                {currentNeeds.map(need => (
+                                  <div key={need.id} className="px-2 py-1.5 rounded-lg bg-brand-500/10 border border-brand-500/20">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-xs font-medium text-brand-300 truncate flex-1">{need.description || need.type}</span>
+                                      <button
+                                        onClick={() => { setEditingNeedId(editingNeedId === need.id ? null : need.id); setNeedNoteValue(''); }}
+                                        className="flex-shrink-0 text-brand-400 hover:text-brand-300 transition-colors"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                    {editingNeedId === need.id && (
+                                      <input
+                                        type="text"
+                                        value={needNoteValue}
+                                        onChange={(e) => setNeedNoteValue(e.target.value)}
+                                        placeholder={t('liveVisits', 'addNote')}
+                                        className="mt-1 w-full bg-gray-900 border border-white/10 rounded px-2 py-1 text-[10px] text-white/70 placeholder-white/30 focus:outline-none focus:border-brand-500"
+                                        autoFocus
+                                        onKeyDown={async (e) => {
+                                          if (e.key === 'Enter' && needNoteValue.trim()) {
+                                            try {
+                                              await fetch(`/api/visit-groups/${vg.id}/needs`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ type: need.type, description: `${need.description || need.type}: ${needNoteValue.trim()}` }),
+                                              });
+                                              setEditingNeedId(null); setNeedNoteValue('');
+                                              fetchGroupNeeds(vg.id);
+                                            } catch {}
+                                          }
+                                          if (e.key === 'Escape') { setEditingNeedId(null); setNeedNoteValue(''); }
+                                        }}
+                                      />
+                                    )}
+                                  </div>
                                 ))}
                               </div>
-                            )}
-                          </div>
-                        ))
+                            </div>
+                          )}
+                        </div>
                       )}
+
+                      {/* ── Visitor cards column ── */}
+                      <div className="flex-1 p-4 space-y-2 min-h-[80px]">
+                        {vg.visitors.length === 0 ? (
+                          <div className="flex items-center justify-center h-full text-white/20 text-sm py-6">-</div>
+                        ) : (
+                          vg.visitors.map(visitor => (
+                            <div
+                              key={visitor.id}
+                              draggable="true"
+                              onDragStart={(e) => handleDragStart(e, visitor.id, vg.id)}
+                              className="group flex items-center gap-3 p-2.5 rounded-xl bg-gray-800/50 border border-white/5 hover:border-white/15 cursor-grab active:cursor-grabbing transition-colors relative"
+                            >
+                              {/* Drag handle */}
+                              <div className="flex flex-col gap-[2px] opacity-30 group-hover:opacity-60 transition-opacity flex-shrink-0">
+                                {[0, 1, 2].map(r => (
+                                  <div key={r} className="flex gap-[2px]">
+                                    <span className="w-1 h-1 bg-white/60 rounded-full" />
+                                    <span className="w-1 h-1 bg-white/60 rounded-full" />
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Avatar */}
+                              {visitor.photo ? (
+                                <img src={visitor.photo} alt={visitor.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-white/10" />
+                              ) : (
+                                <div className="w-9 h-9 rounded-full bg-brand-600/30 flex items-center justify-center flex-shrink-0 border border-white/10">
+                                  <span className="text-sm font-bold text-brand-300">{visitor.name.charAt(0).toUpperCase()}</span>
+                                </div>
+                              )}
+
+                              {/* Info */}
+                              <div className="min-w-0 flex-1">
+                                <button
+                                  onClick={() => handleSetMainContact(vg.id, visitor.leadId)}
+                                  className="flex items-center gap-1.5 text-left w-full"
+                                  title={t('liveVisits', 'setMainContact')}
+                                >
+                                  <span className="text-sm font-medium text-white truncate hover:text-brand-300 transition-colors">{visitor.name}</span>
+                                  {visitor.isMainContact && (
+                                    <svg className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" />
+                                    </svg>
+                                  )}
+                                </button>
+                                {(visitor.email || visitor.company) && (
+                                  <p className="text-xs text-white/40 truncate">{visitor.email || visitor.company}</p>
+                                )}
+                              </div>
+
+                              {/* Mobile move */}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setMobileMovingVisitId(mobileMovingVisitId === visitor.id ? null : visitor.id); }}
+                                className="md:hidden flex-shrink-0 p-1 rounded text-white/30 hover:text-white/60 transition-colors"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
+                              </button>
+
+                              {mobileMovingVisitId === visitor.id && (
+                                <div className="absolute top-full right-0 mt-1 z-20 bg-gray-800 border border-white/10 rounded-xl shadow-xl py-1 min-w-[180px]">
+                                  <p className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">{t('liveVisits', 'moveTo')}</p>
+                                  {activeGroups.filter(g => g.id !== vg.id).map(g => (
+                                    <button key={g.id} onClick={() => handleMobileMove(visitor.id, g.id)} className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors truncate">
+                                      {getBusinessName(g)}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
 
                     {/* ── Footer ── */}

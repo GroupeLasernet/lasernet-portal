@@ -504,6 +504,13 @@ const translations = {
     french: { fr: 'Français', en: 'French' },
     english: { fr: 'Anglais', en: 'English' },
     languageSaved: { fr: 'Langue enregistrée', en: 'Language saved' },
+    // Visit sidebar settings
+    visitSidebarTitle: { fr: 'Menu de visite', en: 'Visit Sidebar' },
+    visitSidebarDesc: { fr: 'Configurez quels articles d\'inventaire QuickBooks apparaissent dans le menu latéral des visites', en: 'Configure which QuickBooks inventory items appear in the visit sidebar menu' },
+    visitSidebarCategories: { fr: 'Catégories affichées', en: 'Displayed categories' },
+    visitSidebarAdd: { fr: 'Ajouter une catégorie', en: 'Add category' },
+    visitSidebarEmpty: { fr: 'Aucune catégorie configurée. Ajoutez-en pour les voir dans les visites.', en: 'No categories configured. Add some to see them in visits.' },
+    visitSidebarSaved: { fr: 'Configuration enregistrée', en: 'Configuration saved' },
   },
 
   // ============================================================
@@ -835,6 +842,18 @@ const translations = {
     status_in_progress: { fr: 'En cours', en: 'In Progress' },
     status_sent: { fr: 'Envoyé', en: 'Sent' },
     status_completed: { fr: 'Complété', en: 'Completed' },
+    // End visit / sidebar
+    endVisit: { fr: 'Terminer la visite', en: 'End Visit' },
+    endVisitConfirm: { fr: 'Confirmer la fin de la visite ?', en: 'Confirm end visit?' },
+    inventory: { fr: 'Inventaire', en: 'Inventory' },
+    quotes: { fr: 'Soumissions', en: 'Quotes' },
+    manuals: { fr: 'Manuels', en: 'Manuals' },
+    documents: { fr: 'Documents', en: 'Documents' },
+    addNote: { fr: 'Ajouter une note...', en: 'Add a note...' },
+    noItems: { fr: 'Aucun article', en: 'No items' },
+    loadingItems: { fr: 'Chargement...', en: 'Loading...' },
+    notConnected: { fr: 'QuickBooks non connecté', en: 'QuickBooks not connected' },
+    collapse: { fr: 'Réduire', en: 'Collapse' },
   },
 } as const;
 

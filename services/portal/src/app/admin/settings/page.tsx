@@ -650,6 +650,122 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          VISIT SIDEBAR — Configure which QB inventory categories show in visits
+          ════════════════════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-800">{t('settings', 'visitSidebarTitle')}</h2>
+          <p className="text-sm text-gray-500 mt-1">{t('settings', 'visitSidebarDesc')}</p>
+        </div>
+        <VisitSidebarSettings t={t} />
+      </div>
+    </div>
+  );
+}
+
+// ── Visit Sidebar Settings sub-component ──
+function VisitSidebarSettings({ t }: { t: (s: string, k: string) => string }) {
+  const [categories, setCategories] = useState<string[]>([]);
+  const [newCat, setNewCat] = useState('');
+  const [qbItems, setQbItems] = useState<{ id: string; name: string; type: string }[]>([]);
+  const [qbConnected, setQbConnected] = useState(false);
+  const [loadingQb, setLoadingQb] = useState(true);
+  const [saved, setSaved] = useState(false);
+
+  // Load saved categories from localStorage (will move to DB later)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('visitSidebarCategories');
+      if (stored) setCategories(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  // Fetch QB inventory items
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/quickbooks/inventory');
+        const data = await res.json();
+        setQbConnected(data.connected ?? false);
+        setQbItems(data.items || []);
+      } catch {}
+      setLoadingQb(false);
+    })();
+  }, []);
+
+  const saveCategories = (cats: string[]) => {
+    setCategories(cats);
+    try { localStorage.setItem('visitSidebarCategories', JSON.stringify(cats)); } catch {}
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleAdd = () => {
+    if (!newCat.trim() || categories.includes(newCat.trim())) return;
+    saveCategories([...categories, newCat.trim()]);
+    setNewCat('');
+  };
+
+  const handleRemove = (cat: string) => saveCategories(categories.filter(c => c !== cat));
+
+  // Unique QB categories/types for suggestions
+  const qbCategories = [...new Set(qbItems.map(i => i.type).filter(Boolean))];
+
+  return (
+    <div className="p-6 space-y-4">
+      {!qbConnected && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+          {t('liveVisits', 'notConnected')} — {t('settings', 'visitSidebarDesc')}
+        </div>
+      )}
+
+      {/* Current categories */}
+      {categories.length === 0 ? (
+        <p className="text-sm text-gray-400">{t('settings', 'visitSidebarEmpty')}</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {categories.map(cat => (
+            <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-50 text-brand-700 text-sm font-medium">
+              {cat}
+              <button onClick={() => handleRemove(cat)} className="text-brand-400 hover:text-red-500 transition-colors">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Add new */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={newCat}
+          onChange={(e) => setNewCat(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+          placeholder={t('settings', 'visitSidebarAdd')}
+          list="qb-category-suggestions"
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+        />
+        <datalist id="qb-category-suggestions">
+          {qbCategories.map(c => <option key={c} value={c} />)}
+          {qbItems.slice(0, 50).map(i => <option key={i.id} value={i.name} />)}
+        </datalist>
+        <button
+          onClick={handleAdd}
+          disabled={!newCat.trim()}
+          className="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-30 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          +
+        </button>
+      </div>
+
+      {saved && (
+        <p className="text-xs text-green-600 font-medium">{t('settings', 'visitSidebarSaved')}</p>
+      )}
     </div>
   );
 }
