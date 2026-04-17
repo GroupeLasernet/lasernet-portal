@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { name, email, phone, company, photo, purpose, companyId, companyType, visitGroupId } = body;
+  const { name, email, phone, company, photo, purpose, companyId, companyType, visitGroupId, receivedById } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -33,6 +33,37 @@ export async function POST(request: NextRequest) {
       businessLink.managedClientId = companyId;
     } else if (companyId && companyType === 'local') {
       businessLink.localBusinessId = companyId;
+    }
+
+    // Auto-create LocalBusiness when company name is provided but no business link exists
+    if (!businessLink.managedClientId && !businessLink.localBusinessId && company?.trim()) {
+      const companyTrimmed = company.trim();
+      // Check ManagedClient by companyName or displayName
+      const existingMC = await prisma.managedClient.findFirst({
+        where: {
+          OR: [
+            { companyName: { equals: companyTrimmed, mode: 'insensitive' } },
+            { displayName: { equals: companyTrimmed, mode: 'insensitive' } },
+          ],
+        },
+      });
+      if (existingMC) {
+        businessLink.managedClientId = existingMC.id;
+      } else {
+        // Check LocalBusiness by name
+        const existingLB = await prisma.localBusiness.findFirst({
+          where: { name: { equals: companyTrimmed, mode: 'insensitive' } },
+        });
+        if (existingLB) {
+          businessLink.localBusinessId = existingLB.id;
+        } else {
+          // No match — auto-create a LocalBusiness
+          const newLB = await prisma.localBusiness.create({
+            data: { name: companyTrimmed },
+          });
+          businessLink.localBusinessId = newLB.id;
+        }
+      }
     }
 
     // Find existing lead by email, or create a new one
@@ -181,6 +212,7 @@ export async function POST(request: NextRequest) {
         visitorPhoto: photo || null,
         purpose: purpose || 'inquiry',
         visitGroupId: resolvedGroupId,
+        receivedById: receivedById || null,
       },
     });
 
