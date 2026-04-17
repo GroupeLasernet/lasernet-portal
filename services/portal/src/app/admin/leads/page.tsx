@@ -72,6 +72,40 @@ interface LeadMessage {
   sender: { id: string; name: string } | null;
 }
 
+interface ProjectQuoteItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  unit: string | null;
+  notes: string | null;
+  sortOrder: number;
+}
+
+interface ProjectQuote {
+  id: string;
+  quoteNumber: string | null;
+  status: string;
+  notes: string | null;
+  parentQuoteId: string | null;
+  sentAt: string | null;
+  acceptedAt: string | null;
+  rejectedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  items: ProjectQuoteItem[];
+}
+
+interface LeadProjectData {
+  id: string;
+  leadId: string;
+  name: string;
+  status: string;
+  notes: string | null;
+  createdAt: string;
+  quotes: ProjectQuote[];
+}
+
 interface LeadActivity {
   id: string;
   leadId: string;
@@ -181,12 +215,24 @@ export default function AdminLeadsPage() {
   const [saving, setSaving] = useState(false);
 
   // ── Detail tabs ──
-  const [activeTab, setActiveTab] = useState<'activity' | 'calls' | 'visits' | 'messages'>('activity');
+  const [activeTab, setActiveTab] = useState<'projects' | 'activity' | 'calls' | 'visits' | 'messages'>('projects');
   const [calls, setCalls] = useState<LeadCall[]>([]);
   const [visits, setVisits] = useState<LeadVisit[]>([]);
   const [messages, setMessages] = useState<LeadMessage[]>([]);
   const [activities, setActivities] = useState<LeadActivity[]>([]);
   const [tabLoading, setTabLoading] = useState(false);
+
+  // ── Projects & quotes state ──
+  const [projects, setProjects] = useState<LeadProjectData[]>([]);
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  const [openQuoteId, setOpenQuoteId] = useState<string | null>(null);
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [showNewQuote, setShowNewQuote] = useState<string | null>(null); // projectId
+  const [newQuoteItems, setNewQuoteItems] = useState<{ description: string; quantity: number; unitPrice: number; unit: string }[]>([{ description: '', quantity: 1, unitPrice: 0, unit: '' }]);
+  const [duplicateModal, setDuplicateModal] = useState<{ quote: ProjectQuote; projectId: string } | null>(null);
+  const [duplicateSelected, setDuplicateSelected] = useState<Set<string>>(new Set());
+  const [projectSaving, setProjectSaving] = useState(false);
 
   // ── Log call form ──
   const [showCallForm, setShowCallForm] = useState(false);
@@ -274,8 +320,8 @@ export default function AdminLeadsPage() {
         notes: selectedLead.notes || '',
         productsOfInterest: parseProducts(selectedLead.productsOfInterest),
       });
-      setActiveTab('activity');
-      loadTabData('activity', selectedLead.id);
+      setActiveTab('projects');
+      loadTabData('projects', selectedLead.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
@@ -284,14 +330,88 @@ export default function AdminLeadsPage() {
   const loadTabData = async (tab: string, leadId: string) => {
     setTabLoading(true);
     try {
-      const res = await fetch(`/api/leads/${leadId}/${tab}`);
-      const data = await res.json();
-      if (tab === 'calls') setCalls(data.calls ?? []);
-      if (tab === 'visits') setVisits(data.visits ?? []);
-      if (tab === 'messages') setMessages(data.messages ?? []);
-      if (tab === 'activity') setActivities(data.activities ?? []);
+      if (tab === 'projects') {
+        const res = await fetch(`/api/leads/${leadId}/projects`);
+        const data = await res.json();
+        setProjects(data.projects ?? []);
+      } else {
+        const res = await fetch(`/api/leads/${leadId}/${tab}`);
+        const data = await res.json();
+        if (tab === 'calls') setCalls(data.calls ?? []);
+        if (tab === 'visits') setVisits(data.visits ?? []);
+        if (tab === 'messages') setMessages(data.messages ?? []);
+        if (tab === 'activity') setActivities(data.activities ?? []);
+      }
     } catch { /* silently fail */ }
     setTabLoading(false);
+  };
+
+  // ── Project & Quote actions ──
+  const handleCreateProject = async () => {
+    if (!selectedId || !newProjectName.trim()) return;
+    setProjectSaving(true);
+    try {
+      const res = await fetch(`/api/leads/${selectedId}/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newProjectName.trim() }),
+      });
+      if (res.ok) {
+        setNewProjectName('');
+        setShowNewProject(false);
+        loadTabData('projects', selectedId);
+      }
+    } catch { /* */ }
+    setProjectSaving(false);
+  };
+
+  const handleCreateQuote = async (projectId: string) => {
+    setProjectSaving(true);
+    try {
+      const validItems = newQuoteItems.filter(i => i.description.trim());
+      const res = await fetch(`/api/projects/${projectId}/quotes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: validItems }),
+      });
+      if (res.ok && selectedId) {
+        setShowNewQuote(null);
+        setNewQuoteItems([{ description: '', quantity: 1, unitPrice: 0, unit: '' }]);
+        loadTabData('projects', selectedId);
+      }
+    } catch { /* */ }
+    setProjectSaving(false);
+  };
+
+  const handleDeleteQuoteItem = async (projectId: string, quoteId: string, itemId: string) => {
+    try {
+      await fetch(`/api/projects/${projectId}/quotes/${quoteId}/items/${itemId}`, { method: 'DELETE' });
+      if (selectedId) loadTabData('projects', selectedId);
+    } catch { /* */ }
+  };
+
+  const handleDuplicateQuote = async () => {
+    if (!duplicateModal || !selectedId) return;
+    setProjectSaving(true);
+    try {
+      const itemIds = Array.from(duplicateSelected);
+      await fetch(`/api/projects/${duplicateModal.projectId}/quotes/${duplicateModal.quote.id}/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemIds: itemIds.length > 0 ? itemIds : undefined }),
+      });
+      setDuplicateModal(null);
+      setDuplicateSelected(new Set());
+      loadTabData('projects', selectedId);
+    } catch { /* */ }
+    setProjectSaving(false);
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      await fetch(`/api/projects/${projectId}`, { method: 'DELETE' });
+      if (selectedId) loadTabData('projects', selectedId);
+    } catch { /* */ }
   };
 
   useEffect(() => {
@@ -456,14 +576,14 @@ export default function AdminLeadsPage() {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-900 px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Client Name</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Reason of Call</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Inventory Type Suggested</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Phone</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Business Name</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Email</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Objective</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Avg Budget</th>
+              <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-900 px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'clientName')}</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'reasonOfCall')}</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'inventoryType')}</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'phone')}</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'businessName')}</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'email')}</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'objective')}</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'avgBudget')}</th>
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-gray-700">
@@ -553,14 +673,14 @@ export default function AdminLeadsPage() {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
         <div className="p-4 border-b dark:border-gray-700">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Follow-up Calendar</h3>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Next 60 days - showing leads with scheduled follow-ups</p>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('leads', 'followUpCalendar')}</h3>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('leads', 'calendarNext60')}</p>
         </div>
         <div className="overflow-y-auto max-h-[calc(100vh-340px)]">
           <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700">
             {/* Day-of-week headers */}
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-              <div key={d} className="bg-gray-50 dark:bg-gray-900 px-2 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 text-center">{d}</div>
+            {(['daySun', 'dayMon', 'dayTue', 'dayWed', 'dayThu', 'dayFri', 'daySat'] as const).map(k => (
+              <div key={k} className="bg-gray-50 dark:bg-gray-900 px-2 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 text-center">{t('leads', k)}</div>
             ))}
             {/* Leading empty cells to align first day */}
             {Array.from({ length: calendarDays[0]?.getDay() ?? 0 }).map((_, i) => (
@@ -642,7 +762,7 @@ export default function AdminLeadsPage() {
           <div className="p-5 space-y-5">
             {/* Editable fields */}
             <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Contact Info</h3>
+              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'contactInfo')}</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'name')}</label>
@@ -661,12 +781,12 @@ export default function AdminLeadsPage() {
                   <input type="tel" value={detailForm.phone} onChange={e => setDetailForm({ ...detailForm, phone: e.target.value })} className={INPUT_CLS} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Phone 2</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'phone2')}</label>
                   <input type="tel" value={detailForm.phone2} onChange={e => setDetailForm({ ...detailForm, phone2: e.target.value })} className={INPUT_CLS} />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Other Contacts</label>
-                  <input type="text" value={detailForm.otherContacts} onChange={e => setDetailForm({ ...detailForm, otherContacts: e.target.value })} className={INPUT_CLS} placeholder="Alternate emails, contacts..." />
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'otherContacts')}</label>
+                  <input type="text" value={detailForm.otherContacts} onChange={e => setDetailForm({ ...detailForm, otherContacts: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'otherContactsPlaceholder')} />
                 </div>
               </div>
             </div>
@@ -675,18 +795,18 @@ export default function AdminLeadsPage() {
 
             {/* Lead details */}
             <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Lead Details</h3>
+              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'leadDetails')}</h3>
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Callback Reason</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callbackReason')}</label>
                 <input type="text" value={detailForm.callbackReason} onChange={e => setDetailForm({ ...detailForm, callbackReason: e.target.value })} className={INPUT_CLS} />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Objective</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'objective')}</label>
                 <textarea value={detailForm.objective} onChange={e => setDetailForm({ ...detailForm, objective: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Budget</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'budget')}</label>
                   <input type="number" value={detailForm.budget} onChange={e => setDetailForm({ ...detailForm, budget: e.target.value })} placeholder="0.00" className={INPUT_CLS} />
                 </div>
                 <div>
@@ -731,9 +851,9 @@ export default function AdminLeadsPage() {
 
             {/* Products of Interest */}
             <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Products of Interest</h3>
+              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'productsOfInterest')}</h3>
               {qbItems.length === 0 ? (
-                <p className="text-xs text-gray-400 dark:text-gray-500">No inventory items loaded from QuickBooks.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">{t('leads', 'noQbInventory')}</p>
               ) : (
                 <div className="max-h-[160px] overflow-y-auto border dark:border-gray-700 rounded-lg p-2 space-y-1">
                   {qbItems.map(item => (
@@ -769,12 +889,12 @@ export default function AdminLeadsPage() {
 
             {/* Quotes placeholder */}
             <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Quotes</h3>
+              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'quotes')}</h3>
               <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
                 <svg className="w-8 h-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <p className="text-sm font-medium">Quotes tracking coming soon</p>
+                <p className="text-sm font-medium">{t('leads', 'quotesComingSoon')}</p>
               </div>
             </div>
 
@@ -791,10 +911,10 @@ export default function AdminLeadsPage() {
 
             <hr className="border-gray-100 dark:border-gray-700" />
 
-            {/* Tabbed section: Activity, Calls, Visits, Messages */}
+            {/* Tabbed section: Projects, Activity, Calls, Visits, Messages */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
               <div className="flex border-b dark:border-gray-700">
-                {(['activity', 'calls', 'visits', 'messages'] as const).map(tab => (
+                {(['projects', 'activity', 'calls', 'visits', 'messages'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -816,6 +936,216 @@ export default function AdminLeadsPage() {
                   </div>
                 ) : (
                   <>
+                    {/* ── Projects Tab ── */}
+                    {activeTab === 'projects' && (
+                      <div className="space-y-3">
+                        {/* New project button */}
+                        <div className="flex justify-end">
+                          <button onClick={() => setShowNewProject(true)} className="text-sm font-medium text-brand-600 hover:text-brand-700 transition">
+                            + {t('leads', 'newProject')}
+                          </button>
+                        </div>
+
+                        {/* New project form */}
+                        {showNewProject && (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-2">
+                            <input
+                              className={INPUT_CLS}
+                              placeholder={t('leads', 'projectNamePlaceholder')}
+                              value={newProjectName}
+                              onChange={e => setNewProjectName(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && handleCreateProject()}
+                            />
+                            <div className="flex gap-2">
+                              <button onClick={handleCreateProject} disabled={projectSaving || !newProjectName.trim()} className="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50">
+                                {t('leads', 'create')}
+                              </button>
+                              <button onClick={() => { setShowNewProject(false); setNewProjectName(''); }} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                                {t('leads', 'cancel')}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Project list */}
+                        {projects.length === 0 && !showNewProject ? (
+                          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noProjects')}</p>
+                        ) : (
+                          projects.map(proj => (
+                            <div key={proj.id} className="border dark:border-gray-700 rounded-lg overflow-hidden">
+                              {/* Project header */}
+                              <button
+                                onClick={() => { setExpandedProjectId(expandedProjectId === proj.id ? null : proj.id); setOpenQuoteId(null); }}
+                                className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs">{expandedProjectId === proj.id ? '▼' : '▶'}</span>
+                                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{proj.name}</span>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                    proj.status === 'won' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                                    proj.status === 'lost' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                                    proj.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                    'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                                  }`}>
+                                    {t('leads', `projectStatus_${proj.status}`)}
+                                  </span>
+                                  <span className="text-xs text-gray-400">{proj.quotes.length} {t('leads', proj.quotes.length === 1 ? 'quote' : 'quotes')}</span>
+                                </div>
+                                <button onClick={e => { e.stopPropagation(); handleDeleteProject(proj.id); }} className="text-xs text-red-400 hover:text-red-600" title={t('leads', 'delete')}>✕</button>
+                              </button>
+
+                              {/* Expanded: quotes inside project */}
+                              {expandedProjectId === proj.id && (
+                                <div className="px-4 pb-3 space-y-2 border-t dark:border-gray-700">
+                                  <div className="flex justify-end pt-2">
+                                    <button onClick={() => { setShowNewQuote(proj.id); setNewQuoteItems([{ description: '', quantity: 1, unitPrice: 0, unit: '' }]); }} className="text-xs font-medium text-brand-600 hover:text-brand-700">
+                                      + {t('leads', 'newQuote')}
+                                    </button>
+                                  </div>
+
+                                  {/* New quote form */}
+                                  {showNewQuote === proj.id && (
+                                    <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-2">
+                                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400">{t('leads', 'quoteItems')}</p>
+                                      {newQuoteItems.map((item, idx) => (
+                                        <div key={idx} className="flex gap-2 items-center">
+                                          <input className={`${INPUT_CLS} flex-1`} placeholder={t('leads', 'itemDescription')} value={item.description} onChange={e => { const a = [...newQuoteItems]; a[idx] = { ...a[idx], description: e.target.value }; setNewQuoteItems(a); }} />
+                                          <input className={`${INPUT_CLS} w-16`} type="number" placeholder={t('leads', 'qty')} value={item.quantity} onChange={e => { const a = [...newQuoteItems]; a[idx] = { ...a[idx], quantity: Number(e.target.value) || 1 }; setNewQuoteItems(a); }} />
+                                          <input className={`${INPUT_CLS} w-24`} type="number" step="0.01" placeholder={t('leads', 'price')} value={item.unitPrice || ''} onChange={e => { const a = [...newQuoteItems]; a[idx] = { ...a[idx], unitPrice: Number(e.target.value) || 0 }; setNewQuoteItems(a); }} />
+                                          {newQuoteItems.length > 1 && <button onClick={() => setNewQuoteItems(newQuoteItems.filter((_, j) => j !== idx))} className="text-red-400 hover:text-red-600 text-xs">✕</button>}
+                                        </div>
+                                      ))}
+                                      <button onClick={() => setNewQuoteItems([...newQuoteItems, { description: '', quantity: 1, unitPrice: 0, unit: '' }])} className="text-xs text-brand-600 hover:text-brand-700">+ {t('leads', 'addItem')}</button>
+                                      <div className="flex gap-2 pt-1">
+                                        <button onClick={() => handleCreateQuote(proj.id)} disabled={projectSaving} className="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50">{t('leads', 'create')}</button>
+                                        <button onClick={() => setShowNewQuote(null)} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">{t('leads', 'cancel')}</button>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Quote list */}
+                                  {proj.quotes.length === 0 ? (
+                                    <p className="text-xs text-gray-400 text-center py-4">{t('leads', 'noQuotes')}</p>
+                                  ) : (
+                                    proj.quotes.map(q => (
+                                      <div key={q.id} className="border dark:border-gray-600 rounded-lg overflow-hidden">
+                                        {/* Quote header */}
+                                        <button
+                                          onClick={() => setOpenQuoteId(openQuoteId === q.id ? null : q.id)}
+                                          className="w-full px-3 py-2 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/30 transition"
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs">{openQuoteId === q.id ? '▼' : '▶'}</span>
+                                            <span className="text-sm text-gray-800 dark:text-gray-200">{q.quoteNumber || t('leads', 'untitledQuote')}</span>
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                              q.status === 'accepted' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                                              q.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                                              q.status === 'sent' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
+                                              'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                                            }`}>
+                                              {t('leads', `quoteStatus_${q.status}`)}
+                                            </span>
+                                            <span className="text-xs text-gray-400">{q.items.length} {t('leads', q.items.length === 1 ? 'item' : 'items')}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                              ${q.items.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
+                                          </div>
+                                        </button>
+
+                                        {/* Expanded: quote items */}
+                                        {openQuoteId === q.id && (
+                                          <div className="px-3 pb-3 border-t dark:border-gray-600 space-y-2 pt-2">
+                                            {/* Actions */}
+                                            <div className="flex gap-2 justify-end">
+                                              <button
+                                                onClick={() => { setDuplicateModal({ quote: q, projectId: proj.id }); setDuplicateSelected(new Set(q.items.map(i => i.id))); }}
+                                                className="text-xs text-brand-600 hover:text-brand-700"
+                                              >
+                                                {t('leads', 'duplicateQuote')}
+                                              </button>
+                                            </div>
+
+                                            {/* Items table */}
+                                            <table className="w-full text-xs">
+                                              <thead>
+                                                <tr className="text-gray-500 dark:text-gray-400 border-b dark:border-gray-600">
+                                                  <th className="text-left py-1 font-medium">{t('leads', 'itemDescription')}</th>
+                                                  <th className="text-right py-1 font-medium w-14">{t('leads', 'qty')}</th>
+                                                  <th className="text-right py-1 font-medium w-20">{t('leads', 'price')}</th>
+                                                  <th className="text-right py-1 font-medium w-24">{t('leads', 'total')}</th>
+                                                  <th className="w-8"></th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {q.items.map(item => (
+                                                  <tr key={item.id} className="border-b dark:border-gray-700/50">
+                                                    <td className="py-1.5 text-gray-800 dark:text-gray-200">{item.description}</td>
+                                                    <td className="py-1.5 text-right text-gray-600 dark:text-gray-400">{item.quantity}</td>
+                                                    <td className="py-1.5 text-right text-gray-600 dark:text-gray-400">${item.unitPrice.toFixed(2)}</td>
+                                                    <td className="py-1.5 text-right text-gray-700 dark:text-gray-300">${(item.quantity * item.unitPrice).toFixed(2)}</td>
+                                                    <td className="py-1.5 text-right">
+                                                      <button onClick={() => handleDeleteQuoteItem(proj.id, q.id, item.id)} className="text-red-400 hover:text-red-600 transition" title={t('leads', 'removeItem')}>✕</button>
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                              <tfoot>
+                                                <tr className="font-medium">
+                                                  <td colSpan={3} className="py-1.5 text-right text-gray-600 dark:text-gray-400">{t('leads', 'total')}</td>
+                                                  <td className="py-1.5 text-right text-gray-900 dark:text-gray-100">${q.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                  <td></td>
+                                                </tr>
+                                              </tfoot>
+                                            </table>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        )}
+
+                        {/* Duplicate quote modal */}
+                        {duplicateModal && (
+                          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl space-y-4">
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('leads', 'duplicateQuote')}</h3>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">{t('leads', 'selectItemsToDuplicate')}</p>
+                              <div className="space-y-2 max-h-60 overflow-y-auto">
+                                {duplicateModal.quote.items.map(item => (
+                                  <label key={item.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={duplicateSelected.has(item.id)}
+                                      onChange={() => {
+                                        const next = new Set(duplicateSelected);
+                                        if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                                        setDuplicateSelected(next);
+                                      }}
+                                      className="rounded"
+                                    />
+                                    <span className="text-gray-800 dark:text-gray-200 flex-1">{item.description}</span>
+                                    <span className="text-gray-500 dark:text-gray-400">${(item.quantity * item.unitPrice).toFixed(2)}</span>
+                                  </label>
+                                ))}
+                              </div>
+                              <div className="flex gap-2 justify-end">
+                                <button onClick={() => { setDuplicateModal(null); setDuplicateSelected(new Set()); }} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">{t('leads', 'cancel')}</button>
+                                <button onClick={handleDuplicateQuote} disabled={projectSaving || duplicateSelected.size === 0} className="px-4 py-2 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50">
+                                  {t('leads', 'duplicate')} ({duplicateSelected.size} {t('leads', duplicateSelected.size === 1 ? 'item' : 'items')})
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* ── Activity Tab ── */}
                     {activeTab === 'activity' && (
                       <div className="space-y-3">
@@ -1163,7 +1493,7 @@ export default function AdminLeadsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Phone 2</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'phone2')}</label>
                   <input type="tel" value={newLeadForm.phone2} onChange={e => setNewLeadForm({ ...newLeadForm, phone2: e.target.value })} className={INPUT_CLS} />
                 </div>
                 <div>
@@ -1172,16 +1502,16 @@ export default function AdminLeadsPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Callback Reason</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callbackReason')}</label>
                 <input type="text" value={newLeadForm.callbackReason} onChange={e => setNewLeadForm({ ...newLeadForm, callbackReason: e.target.value })} className={INPUT_CLS} />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Objective</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'objective')}</label>
                 <textarea value={newLeadForm.objective} onChange={e => setNewLeadForm({ ...newLeadForm, objective: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Budget</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'budget')}</label>
                   <input type="number" value={newLeadForm.budget} onChange={e => setNewLeadForm({ ...newLeadForm, budget: e.target.value })} placeholder="0.00" className={INPUT_CLS} />
                 </div>
                 <div>
