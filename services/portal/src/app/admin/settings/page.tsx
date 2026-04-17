@@ -317,36 +317,36 @@ export default function SettingsPage() {
       <PageHeader title={t('settings', 'title')} />
 
       {/* Language Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800">{t('settings', 'languageSection')}</h2>
-          <p className="text-sm text-gray-500 mt-1">{t('settings', 'languageDesc')}</p>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{t('settings', 'languageSection')}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'languageDesc')}</p>
         </div>
         <div className="p-4 flex items-center gap-3">
           <button
             onClick={() => handleLanguageChange('fr')}
-            className={`px-4 py-2 text-sm rounded-lg transition-colors ${lang === 'fr' ? 'bg-brand-600 text-white font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            className={`px-4 py-2 text-sm rounded-lg transition-colors ${lang === 'fr' ? 'bg-brand-600 text-white font-medium' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
           >
             Français
           </button>
           <button
             onClick={() => handleLanguageChange('en')}
-            className={`px-4 py-2 text-sm rounded-lg transition-colors ${lang === 'en' ? 'bg-brand-600 text-white font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            className={`px-4 py-2 text-sm rounded-lg transition-colors ${lang === 'en' ? 'bg-brand-600 text-white font-medium' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
           >
             English
           </button>
           {langSaved && (
-            <span className="text-sm text-green-600 ml-2">{t('settings', 'languageSaved')}</span>
+            <span className="text-sm text-green-600 dark:text-green-400 ml-2">{t('settings', 'languageSaved')}</span>
           )}
         </div>
       </div>
 
       {/* Team / Admins Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800">Team</h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Team</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Invite people to join the admin team. They&apos;ll get a link to set their password.
             </p>
           </div>
@@ -359,24 +359,24 @@ export default function SettingsPage() {
         </div>
 
         {showInvite && (
-          <div className="p-4 bg-blue-50 border-b border-blue-100">
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border-b border-blue-100 dark:border-blue-800">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <input
                 type="text"
                 placeholder="Full name"
                 value={inviteName}
                 onChange={(e) => setInviteName(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <input
                 type="email"
                 placeholder="Email address"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            {inviteError && <p className="text-sm text-red-600 mt-2">{inviteError}</p>}
+            {inviteError && <p className="text-sm text-red-600 dark:text-red-400 mt-2">{inviteError}</p>}
             <div className="flex gap-2 mt-3">
               <button
                 onClick={handleInvite}
@@ -393,10 +393,10 @@ export default function SettingsPage() {
           <div
             className={`p-3 text-sm border-b ${
               teamFeedback.kind === 'ok'
-                ? 'bg-green-50 border-green-100 text-green-800'
+                ? 'bg-green-50 dark:bg-green-900/30 border-green-100 dark:border-green-800 text-green-800 dark:text-green-300'
                 : teamFeedback.kind === 'warn'
-                ? 'bg-amber-50 border-amber-100 text-amber-800'
-                : 'bg-red-50 border-red-100 text-red-800'
+                ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800 text-amber-800 dark:text-amber-300'
+                : 'bg-red-50 dark:bg-red-900/30 border-red-100 dark:border-red-800 text-red-800 dark:text-red-300'
             }`}
           >
             {teamFeedback.msg}
@@ -404,15 +404,15 @@ export default function SettingsPage() {
         )}
 
         {lastInviteUrl && (
-          <div className="p-4 bg-amber-50 border-b border-amber-100">
-            <p className="text-sm text-amber-800 mb-2">
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/30 border-b border-amber-100 dark:border-amber-800">
+            <p className="text-sm text-amber-800 dark:text-amber-300 mb-2">
               Fallback link (valid 48h). Share this with the user manually:
             </p>
             <div className="flex items-center gap-2">
               <input
                 readOnly
                 value={lastInviteUrl}
-                className="flex-1 px-3 py-2 border border-amber-300 rounded-lg text-xs bg-white font-mono"
+                className="flex-1 px-3 py-2 border border-amber-300 dark:border-amber-600 rounded-lg text-xs bg-white dark:bg-gray-800 dark:text-gray-100 font-mono"
                 onFocus={(e) => e.currentTarget.select()}
               />
               <button
@@ -425,35 +425,35 @@ export default function SettingsPage() {
           </div>
         )}
 
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {teamLoading ? (
-            <div className="p-8 text-center text-gray-400">{t('common', 'loading')}</div>
+            <div className="p-8 text-center text-gray-400 dark:text-gray-500">{t('common', 'loading')}</div>
           ) : team.length === 0 ? (
-            <div className="p-8 text-center text-gray-400">No admins yet.</div>
+            <div className="p-8 text-center text-gray-400 dark:text-gray-500">No admins yet.</div>
           ) : (
             team.map((admin) => {
               const isSelf = admin.id === currentUserId;
               const statusColor =
                 admin.status === 'active'
-                  ? 'bg-green-100 text-green-700'
+                  ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
                   : admin.status === 'invited'
-                  ? 'bg-yellow-100 text-yellow-700'
-                  : 'bg-gray-200 text-gray-600';
+                  ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
               return (
                 <div key={admin.id} className="p-4 flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-800">{admin.name}</span>
+                      <span className="font-semibold text-gray-800 dark:text-gray-100">{admin.name}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs ${statusColor}`}>
                         {admin.status}
                       </span>
                       {isSelf && (
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
                           you
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-gray-500">{admin.email}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{admin.email}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     {admin.status === 'invited' && (
@@ -477,7 +477,7 @@ export default function SettingsPage() {
                     {admin.status !== 'invited' && !isSelf && (
                       <button
                         onClick={() => handleToggleStatus(admin)}
-                        className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded"
+                        className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                       >
                         {admin.status === 'active' ? 'Deactivate' : 'Reactivate'}
                       </button>
@@ -485,7 +485,7 @@ export default function SettingsPage() {
                     {!isSelf && (
                       <button
                         onClick={() => handleRemoveAdmin(admin)}
-                        className="px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 hover:text-red-600 rounded"
+                        className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-600 rounded"
                         title="Remove from admin team"
                       >
                         Remove
@@ -500,11 +500,11 @@ export default function SettingsPage() {
       </div>
 
       {/* Training Templates Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800">{t('settings', 'trainingTemplates')}</h2>
-            <p className="text-sm text-gray-500 mt-1">{t('settings', 'trainingTemplatesDesc')}</p>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{t('settings', 'trainingTemplates')}</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'trainingTemplatesDesc')}</p>
           </div>
           <button
             onClick={() => { setShowCreate(true); setEditingTemplate(null); setFormName(''); setFormDesc(''); }}
@@ -516,8 +516,8 @@ export default function SettingsPage() {
 
         {/* Create / Edit Form */}
         {(showCreate || editingTemplate) && (
-          <div className="p-4 bg-blue-50 border-b border-blue-100">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border-b border-blue-100 dark:border-blue-800">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
               {editingTemplate ? t('settings', 'editTemplate') : t('settings', 'newTemplateForm')}
             </h3>
             <div className="space-y-3">
@@ -526,32 +526,32 @@ export default function SettingsPage() {
                 placeholder={t('settings', 'templateName')}
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <textarea
                 placeholder={t('settings', 'descriptionOptional')}
                 value={formDesc}
                 onChange={(e) => setFormDesc(e.target.value)}
                 rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
 
               {/* Files — only in edit mode */}
               {editingTemplate && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">{t('settings', 'attachedFiles')}</label>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">{t('settings', 'attachedFiles')}</label>
                   {editingTemplate.files.length > 0 && (
                     <div className="space-y-1 mb-2">
                       {editingTemplate.files.map((file) => (
-                        <div key={file.id} className="flex items-center justify-between bg-white rounded px-3 py-1.5 text-sm border border-gray-200">
+                        <div key={file.id} className="flex items-center justify-between bg-white dark:bg-gray-800 rounded px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700">
                           <div className="flex items-center gap-2">
                             <span>{getFileIcon(file.fileType)}</span>
-                            <span className="text-gray-700">{file.name}</span>
-                            <span className="text-gray-400 text-xs">{formatFileSize(file.fileSize)}</span>
+                            <span className="text-gray-700 dark:text-gray-300">{file.name}</span>
+                            <span className="text-gray-400 dark:text-gray-500 text-xs">{formatFileSize(file.fileSize)}</span>
                           </div>
                           <button
                             onClick={() => handleDeleteFile(file.id)}
-                            className="text-gray-400 hover:text-red-500 text-xs"
+                            className="text-gray-400 dark:text-gray-500 hover:text-red-500 text-xs"
                           >
                             {t('common', 'remove')}
                           </button>
@@ -587,7 +587,7 @@ export default function SettingsPage() {
                 </button>
                 <button
                   onClick={() => { setShowCreate(false); setEditingTemplate(null); }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300"
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
                 >
                   {t('common', 'cancel')}
                 </button>
@@ -597,11 +597,11 @@ export default function SettingsPage() {
         )}
 
         {/* Template List */}
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {loading ? (
-            <div className="p-8 text-center text-gray-400">{t('common', 'loading')}</div>
+            <div className="p-8 text-center text-gray-400 dark:text-gray-500">{t('common', 'loading')}</div>
           ) : templates.length === 0 ? (
-            <div className="p-8 text-center text-gray-400">
+            <div className="p-8 text-center text-gray-400 dark:text-gray-500">
               {t('settings', 'noTemplates')}
             </div>
           ) : (
@@ -609,11 +609,11 @@ export default function SettingsPage() {
               <div key={template.id} className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-800">{template.name}</h3>
+                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">{template.name}</h3>
                     {template.description && (
-                      <p className="text-sm text-gray-500 mt-1">{template.description}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{template.description}</p>
                     )}
-                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
+                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-400 dark:text-gray-500">
                       <span>{template.files.length} {t('settings', 'files')}</span>
                       <span>{template.events.length} {t('settings', 'events')}</span>
                     </div>
@@ -626,7 +626,7 @@ export default function SettingsPage() {
                         setFormDesc(template.description || '');
                         setShowCreate(false);
                       }}
-                      className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
+                      className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 rounded"
                       title={t('common', 'edit')}
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -635,7 +635,7 @@ export default function SettingsPage() {
                     </button>
                     <button
                       onClick={() => handleDelete(template.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 rounded"
+                      className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 rounded"
                       title={t('common', 'delete')}
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -654,10 +654,10 @@ export default function SettingsPage() {
       {/* ════════════════════════════════════════════════════════════════════════
           VISIT SIDEBAR — Configure which QB inventory categories show in visits
           ════════════════════════════════════════════════════════════════════════ */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800">{t('settings', 'visitSidebarTitle')}</h2>
-          <p className="text-sm text-gray-500 mt-1">{t('settings', 'visitSidebarDesc')}</p>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('settings', 'visitSidebarTitle')}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'visitSidebarDesc')}</p>
         </div>
         <VisitSidebarSettings t={t} />
       </div>
@@ -665,16 +665,16 @@ export default function SettingsPage() {
       {/* ════════════════════════════════════════════════════════════════════════
           ADD STOCK — Create inventory items in QuickBooks
           ════════════════════════════════════════════════════════════════════════ */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800">{t('settings', 'stockTitle')}</h2>
-          <p className="text-sm text-gray-500 mt-1">{t('settings', 'stockDesc')}</p>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('settings', 'stockTitle')}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'stockDesc')}</p>
         </div>
         <InventoryBrowser t={t} />
-        <div className="border-t border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h3 className="text-base font-bold text-gray-800">{t('settings', 'addStockTitle')}</h3>
-            <p className="text-sm text-gray-500 mt-1">{t('settings', 'addStockDesc')}</p>
+        <div className="border-t border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('settings', 'addStockTitle')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'addStockDesc')}</p>
           </div>
           <AddStockForm t={t} />
         </div>
@@ -738,20 +738,20 @@ function VisitSidebarSettings({ t }: { t: (s: string, k: string) => string }) {
   return (
     <div className="p-6 space-y-4">
       {!qbConnected && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+        <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg text-sm text-amber-700 dark:text-amber-300">
           {t('liveVisits', 'notConnected')} — {t('settings', 'visitSidebarDesc')}
         </div>
       )}
 
       {/* Current categories */}
       {categories.length === 0 ? (
-        <p className="text-sm text-gray-400">{t('settings', 'visitSidebarEmpty')}</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500">{t('settings', 'visitSidebarEmpty')}</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {categories.map(cat => (
-            <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-50 text-brand-700 text-sm font-medium">
+            <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 text-sm font-medium">
               {cat}
-              <button onClick={() => handleRemove(cat)} className="text-brand-400 hover:text-red-500 transition-colors">
+              <button onClick={() => handleRemove(cat)} className="text-brand-400 dark:text-brand-500 hover:text-red-500 transition-colors">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -770,7 +770,7 @@ function VisitSidebarSettings({ t }: { t: (s: string, k: string) => string }) {
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
           placeholder={t('settings', 'visitSidebarAdd')}
           list="qb-category-suggestions"
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+          className="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-brand-500"
         />
         <datalist id="qb-category-suggestions">
           {qbCategories.map(c => <option key={c} value={c} />)}
@@ -786,7 +786,7 @@ function VisitSidebarSettings({ t }: { t: (s: string, k: string) => string }) {
       </div>
 
       {saved && (
-        <p className="text-xs text-green-600 font-medium">{t('settings', 'visitSidebarSaved')}</p>
+        <p className="text-xs text-green-600 dark:text-green-400 font-medium">{t('settings', 'visitSidebarSaved')}</p>
       )}
     </div>
   );
@@ -870,7 +870,7 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
   if (!connected) {
     return (
       <div className="p-6">
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+        <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg text-sm text-amber-700 dark:text-amber-300">
           {t('liveVisits', 'notConnected')}
         </div>
         <QBConnectButton t={t} />
@@ -882,7 +882,7 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
     const isTokenError = error.toLowerCase().includes('token') || error.toLowerCase().includes('authorize');
     return (
       <div className="p-6">
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-sm text-red-700 dark:text-red-300">
           {error}
         </div>
         {isTokenError && <QBConnectButton t={t} />}
@@ -899,49 +899,49 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
     : items;
 
   const detailRow = (label: string, value: string | number | null | undefined, fallback?: string) => (
-    <div className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-b-0">
-      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider w-28 flex-shrink-0 pt-0.5">{label}</span>
-      <span className="text-sm text-gray-800 flex-1">{value !== null && value !== undefined && value !== '' ? String(value) : (fallback || '—')}</span>
+    <div className="flex items-start gap-3 py-2.5 border-b border-gray-50 dark:border-gray-700 last:border-b-0">
+      <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider w-28 flex-shrink-0 pt-0.5">{label}</span>
+      <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{value !== null && value !== undefined && value !== '' ? String(value) : (fallback || '—')}</span>
     </div>
   );
 
   return (
     <div className="p-6">
-      <p className="text-sm font-semibold text-gray-700 mb-3">{t('settings', 'stockBrowse')}</p>
+      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{t('settings', 'stockBrowse')}</p>
 
       <div className="flex gap-4 min-h-[280px]">
         {/* Left: item list */}
-        <div className="w-[280px] flex-shrink-0 flex flex-col border border-gray-200 rounded-xl overflow-hidden">
+        <div className="w-[280px] flex-shrink-0 flex flex-col border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
           {/* Search */}
-          <div className="p-2 border-b border-gray-100">
+          <div className="p-2 border-b border-gray-100 dark:border-gray-700">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('settings', 'stockSearch')}
-              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-brand-500"
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-brand-500"
             />
           </div>
 
           {/* Item list */}
           <div className="flex-1 overflow-y-auto max-h-[400px]">
             {filtered.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">{t('settings', 'stockNoItems')}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-6">{t('settings', 'stockNoItems')}</p>
             ) : (
               filtered.map(item => (
                 <button
                   key={item.id}
                   onClick={() => setSelectedItem(item)}
-                  className={`w-full text-left px-3 py-2.5 border-b border-gray-50 transition-colors ${
+                  className={`w-full text-left px-3 py-2.5 border-b border-gray-50 dark:border-gray-700 transition-colors ${
                     selectedItem?.id === item.id
-                      ? 'bg-brand-50 border-l-2 border-l-brand-500'
-                      : 'hover:bg-gray-50'
+                      ? 'bg-brand-50 dark:bg-brand-900/30 border-l-2 border-l-brand-500'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
-                  <p className={`text-sm font-medium truncate ${selectedItem?.id === item.id ? 'text-brand-700' : 'text-gray-800'}`}>
+                  <p className={`text-sm font-medium truncate ${selectedItem?.id === item.id ? 'text-brand-700 dark:text-brand-300' : 'text-gray-800 dark:text-gray-100'}`}>
                     {item.name}
                   </p>
-                  <p className="text-xs text-gray-400 truncate mt-0.5">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
                     {item.type}{item.sku ? ` · ${item.sku}` : ''}{item.qtyOnHand !== null ? ` · ${item.qtyOnHand} en stock` : ''}
                   </p>
                 </button>
@@ -949,21 +949,21 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
             )}
           </div>
 
-          <div className="px-3 py-2 border-t border-gray-100 bg-gray-50">
-            <p className="text-xs text-gray-400">{filtered.length} {filtered.length === 1 ? 'item' : 'items'}</p>
+          <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <p className="text-xs text-gray-400 dark:text-gray-500">{filtered.length} {filtered.length === 1 ? 'item' : 'items'}</p>
           </div>
         </div>
 
         {/* Right: detail panel */}
-        <div className="flex-1 border border-gray-200 rounded-xl overflow-hidden">
+        <div className="flex-1 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
           {selectedItem ? (
             <div className="p-5">
               <div className="flex items-center gap-3 mb-4">
-                <h4 className="text-lg font-bold text-gray-900 flex-1">{selectedItem.name}</h4>
+                <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex-1">{selectedItem.name}</h4>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                  selectedItem.type === 'Inventory' ? 'bg-blue-50 text-blue-700'
-                    : selectedItem.type === 'Service' ? 'bg-purple-50 text-purple-700'
-                    : 'bg-gray-100 text-gray-600'
+                  selectedItem.type === 'Inventory' ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                    : selectedItem.type === 'Service' ? 'bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                 }`}>
                   {selectedItem.type}
                 </span>
@@ -979,9 +979,9 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
               {detailRow(t('settings', 'stockFieldActive'), selectedItem.active ? t('settings', 'stockYes') : t('settings', 'stockNo'))}
             </div>
           ) : (
-            <div className="flex items-center justify-center h-full text-gray-300">
+            <div className="flex items-center justify-center h-full text-gray-300 dark:text-gray-600">
               <div className="text-center">
-                <svg className="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-12 h-12 mx-auto mb-3 text-gray-200 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
                 <p className="text-sm">{t('settings', 'stockSelectItem')}</p>
@@ -1097,7 +1097,7 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
   if (!qbConnected) {
     return (
       <div className="p-6">
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+        <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg text-sm text-amber-700 dark:text-amber-300">
           {t('liveVisits', 'notConnected')}
         </div>
       </div>
@@ -1111,8 +1111,8 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
 
       {/* Type selector */}
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t('settings', 'stockType')}</label>
-        <p className="text-xs text-gray-400 mb-2">{t('settings', 'stockTypeHint')}</p>
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">{t('settings', 'stockType')}</label>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t('settings', 'stockTypeHint')}</p>
         <div className="flex gap-2">
           {(['Inventory', 'NonInventory', 'Service'] as const).map(tp => (
             <button
@@ -1122,7 +1122,7 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 itemType === tp
                   ? 'bg-brand-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {tp === 'Inventory' ? t('settings', 'stockInventory')
@@ -1135,28 +1135,28 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
 
       {/* Name (required) */}
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockName')} *</label>
-        <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockNameHint')}</p>
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockName')} *</label>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('settings', 'stockNameHint')}</p>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
           placeholder="Ex: UR10e Cobot, Laser Head 50W..."
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+          className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-brand-500"
         />
       </div>
 
       {/* Description */}
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockDescription')}</label>
-        <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockDescHint')}</p>
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockDescription')}</label>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('settings', 'stockDescHint')}</p>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
           placeholder="Ex: Universal Robots UR10e collaborative robot arm with teach pendant"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 resize-none"
+          className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-brand-500 resize-none"
         />
       </div>
 
@@ -1164,21 +1164,21 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
       <div className="grid grid-cols-3 gap-4">
         {/* SKU */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockSku')}</label>
-          <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockSkuHint')}</p>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockSku')}</label>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('settings', 'stockSkuHint')}</p>
           <input
             type="text"
             value={sku}
             onChange={(e) => setSku(e.target.value)}
             placeholder="UR10E-001"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+            className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-brand-500"
           />
         </div>
 
         {/* Selling price */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockPrice')}</label>
-          <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockPriceHint')}</p>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockPrice')}</label>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('settings', 'stockPriceHint')}</p>
           <input
             type="number"
             step="0.01"
@@ -1186,14 +1186,14 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
             value={unitPrice}
             onChange={(e) => setUnitPrice(e.target.value)}
             placeholder="0.00"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+            className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-brand-500"
           />
         </div>
 
         {/* Purchase cost */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockCost')}</label>
-          <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockCostHint')}</p>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockCost')}</label>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('settings', 'stockCostHint')}</p>
           <input
             type="number"
             step="0.01"
@@ -1201,7 +1201,7 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
             value={purchaseCost}
             onChange={(e) => setPurchaseCost(e.target.value)}
             placeholder="0.00"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+            className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-brand-500"
           />
         </div>
       </div>
@@ -1209,35 +1209,35 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
       {/* Qty on hand — Inventory only */}
       {isInventory && (
         <div className="max-w-[200px]">
-          <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockQty')}</label>
-          <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockQtyHint')}</p>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockQty')}</label>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('settings', 'stockQtyHint')}</p>
           <input
             type="number"
             min="0"
             value={qtyOnHand}
             onChange={(e) => setQtyOnHand(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+            className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-brand-500"
           />
         </div>
       )}
 
       {/* ── QB Accounts ── */}
-      <div className="border-t border-gray-100 pt-5">
-        <p className="text-sm font-bold text-gray-700 mb-1">{t('settings', 'stockAccounts')}</p>
-        <p className="text-xs text-gray-400 mb-4">{t('settings', 'stockAccountsHint')}</p>
+      <div className="border-t border-gray-100 dark:border-gray-700 pt-5">
+        <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockAccounts')}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">{t('settings', 'stockAccountsHint')}</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Income account */}
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
+            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
               {t('settings', 'stockIncomeAccount')} {isInventory ? '*' : ''}
             </label>
-            <p className="text-[11px] text-gray-400 mb-1">{t('settings', 'stockIncomeHint')}</p>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-1">{t('settings', 'stockIncomeHint')}</p>
             <select
               value={incomeAccountId}
               onChange={(e) => setIncomeAccountId(e.target.value)}
               required={isInventory}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-brand-500"
             >
               <option value="">{t('settings', 'stockSelectAccount')}</option>
               {incomeAccounts.map(a => (
@@ -1248,15 +1248,15 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
 
           {/* Expense / COGS account */}
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
+            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
               {t('settings', 'stockExpenseAccount')} {isInventory ? '*' : ''}
             </label>
-            <p className="text-[11px] text-gray-400 mb-1">{t('settings', 'stockExpenseHint')}</p>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-1">{t('settings', 'stockExpenseHint')}</p>
             <select
               value={expenseAccountId}
               onChange={(e) => setExpenseAccountId(e.target.value)}
               required={isInventory}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-brand-500"
             >
               <option value="">{t('settings', 'stockSelectAccount')}</option>
               {expenseAccounts.map(a => (
@@ -1268,15 +1268,15 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
           {/* Asset account — Inventory only */}
           {isInventory && (
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
                 {t('settings', 'stockAssetAccount')} *
               </label>
-              <p className="text-[11px] text-gray-400 mb-1">{t('settings', 'stockAssetHint')}</p>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-1">{t('settings', 'stockAssetHint')}</p>
               <select
                 value={assetAccountId}
                 onChange={(e) => setAssetAccountId(e.target.value)}
                 required
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:border-brand-500"
               >
                 <option value="">{t('settings', 'stockSelectAccount')}</option>
                 {assetAccounts.map(a => (
@@ -1292,8 +1292,8 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
       {result && (
         <div className={`p-3 rounded-lg text-sm font-medium ${
           result.success
-            ? 'bg-green-50 border border-green-200 text-green-700'
-            : 'bg-red-50 border border-red-200 text-red-700'
+            ? 'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-700 dark:text-green-300'
+            : 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300'
         }`}>
           {result.message}
         </div>

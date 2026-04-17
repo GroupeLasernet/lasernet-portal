@@ -234,10 +234,10 @@ export default function TrainingPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'scheduled': return 'bg-blue-100 text-blue-700';
-      case 'completed': return 'bg-green-100 text-green-700';
-      case 'cancelled': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'scheduled': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+      case 'completed': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+      case 'cancelled': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+      default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
     }
   };
 
@@ -267,31 +267,31 @@ export default function TrainingPage() {
         {/* Left: Event List */}
         <div className="lg:col-span-1 space-y-4">
           {/* Upcoming */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="p-3 border-b border-gray-200">
-              <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{t('trainingPage', 'upcoming')}</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">{t('trainingPage', 'upcoming')}</h2>
             </div>
             {loading ? (
-              <div className="p-4 text-sm text-gray-400">{t('common', 'loading')}</div>
+              <div className="p-4 text-sm text-gray-400 dark:text-gray-500">{t('common', 'loading')}</div>
             ) : upcomingEvents.length === 0 ? (
-              <div className="p-4 text-sm text-gray-400">{t('trainingPage', 'noUpcoming')}</div>
+              <div className="p-4 text-sm text-gray-400 dark:text-gray-500">{t('trainingPage', 'noUpcoming')}</div>
             ) : (
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-gray-50 dark:divide-gray-700">
                 {upcomingEvents.map((event) => (
                   <button
                     key={event.id}
                     onClick={() => { setSelectedEvent(event); setShowCreate(false); }}
-                    className={`w-full text-left p-3 hover:bg-gray-50 transition-colors ${
+                    className={`w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
                       selectedEvent?.id === event.id ? 'bg-blue-50 border-l-2 border-blue-600' : ''
                     }`}
                   >
-                    <div className="font-medium text-sm text-gray-800">{event.title}</div>
-                    <div className="text-xs text-gray-500 mt-1">{formatDate(event.date)}</div>
+                    <div className="font-medium text-sm text-gray-800 dark:text-gray-200">{event.title}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDate(event.date)}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(event.status)}`}>
                         {event.status}
                       </span>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
                         {event.attendees.length} {event.attendees.length !== 1 ? t('trainingPage', 'attendeesLabel') : t('trainingPage', 'attendeesLabel')}
                       </span>
                     </div>
@@ -303,21 +303,21 @@ export default function TrainingPage() {
 
           {/* Past / Completed */}
           {pastEvents.length > 0 && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="p-3 border-b border-gray-200">
-                <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{t('trainingPage', 'pastCompleted')}</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+              <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">{t('trainingPage', 'pastCompleted')}</h2>
               </div>
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-gray-50 dark:divide-gray-700">
                 {pastEvents.map((event) => (
                   <button
                     key={event.id}
                     onClick={() => { setSelectedEvent(event); setShowCreate(false); }}
-                    className={`w-full text-left p-3 hover:bg-gray-50 transition-colors ${
+                    className={`w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
                       selectedEvent?.id === event.id ? 'bg-blue-50 border-l-2 border-blue-600' : ''
                     }`}
                   >
-                    <div className="font-medium text-sm text-gray-700">{event.title}</div>
-                    <div className="text-xs text-gray-400 mt-1">{formatDate(event.date)}</div>
+                    <div className="font-medium text-sm text-gray-700 dark:text-gray-300">{event.title}</div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{formatDate(event.date)}</div>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(event.status)}`}>
                       {event.status}
                     </span>
@@ -332,45 +332,45 @@ export default function TrainingPage() {
         <div className="lg:col-span-2">
           {showCreate ? (
             /* Create Event Form */
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">{t('trainingPage', 'newTrainingEvent')}</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{t('trainingPage', 'newTrainingEvent')}</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('trainingPage', 'titleLabel')}</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('trainingPage', 'titleLabel')}</label>
                   <input
                     type="text"
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     placeholder={t('trainingPage', 'cobotSafetyExample')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('trainingPage', 'descriptionLabel')}</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('trainingPage', 'descriptionLabel')}</label>
                   <textarea
                     value={formDesc}
                     onChange={(e) => setFormDesc(e.target.value)}
                     rows={3}
                     placeholder={t('trainingPage', 'trainingDetails')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('trainingPage', 'dateLabel')}</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('trainingPage', 'dateLabel')}</label>
                     <input
                       type="datetime-local"
                       value={formDate}
                       onChange={(e) => setFormDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:text-gray-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('trainingPage', 'templateOptional')}</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('trainingPage', 'templateOptional')}</label>
                     <select
                       value={formTemplateId}
                       onChange={(e) => setFormTemplateId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:text-gray-100"
                     >
                       <option value="">{t('trainingPage', 'noTemplateOption')}</option>
                       {templates.map((template) => (
@@ -382,26 +382,26 @@ export default function TrainingPage() {
 
                 {/* Attendee picker */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('trainingPage', 'attendeesLabel')}</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('trainingPage', 'attendeesLabel')}</label>
                   <div className="relative">
                     <input
                       type="text"
                       value={contactSearch}
                       onChange={(e) => setContactSearch(e.target.value)}
                       placeholder={t('trainingPage', 'searchContacts')}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:text-gray-100"
                     />
                     {filteredContacts.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                         {filteredContacts.slice(0, 10).map((c) => (
                           <button
                             key={c.id}
                             onClick={() => addAttendee(c)}
-                            className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-50"
+                            className="w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-gray-700 text-sm border-b border-gray-50 dark:border-gray-700"
                           >
-                            <span className="font-medium text-gray-800">{c.name}</span>
-                            <span className="text-gray-400 ml-2">{c.email}</span>
-                            <span className="text-gray-400 ml-2">({c.clientName})</span>
+                            <span className="font-medium text-gray-800 dark:text-gray-200">{c.name}</span>
+                            <span className="text-gray-400 dark:text-gray-500 ml-2">{c.email}</span>
+                            <span className="text-gray-400 dark:text-gray-500 ml-2">({c.clientName})</span>
                           </button>
                         ))}
                       </div>
@@ -427,7 +427,7 @@ export default function TrainingPage() {
                   <button onClick={handleCreate} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
                     {t('trainingPage', 'createEvent')}
                   </button>
-                  <button onClick={resetForm} className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300">
+                  <button onClick={resetForm} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
                     {t('common', 'cancel')}
                   </button>
                 </div>
@@ -435,16 +435,16 @@ export default function TrainingPage() {
             </div>
           ) : selectedEvent ? (
             /* Event Detail View */
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-800">{selectedEvent.title}</h2>
+                    <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{selectedEvent.title}</h2>
                     {selectedEvent.description && (
-                      <p className="text-sm text-gray-500 mt-1">{selectedEvent.description}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{selectedEvent.description}</p>
                     )}
                     <div className="flex items-center gap-3 mt-3">
-                      <span className="text-sm text-gray-600">{formatDate(selectedEvent.date)}</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{formatDate(selectedEvent.date)}</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(selectedEvent.status)}`}>
                         {t('trainingPage', selectedEvent.status as 'scheduled' | 'completed' | 'cancelled')}
                       </span>
@@ -467,14 +467,14 @@ export default function TrainingPage() {
                     {selectedEvent.status === 'scheduled' && (
                       <button
                         onClick={() => handleUpdateStatus(selectedEvent.id, 'cancelled')}
-                        className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300"
+                        className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
                       >
                         {t('common', 'cancel')}
                       </button>
                     )}
                     <button
                       onClick={() => handleDelete(selectedEvent.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-600"
+                      className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600"
                     >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -485,27 +485,27 @@ export default function TrainingPage() {
               </div>
 
               {/* Attendees */}
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3">
                   {t('trainingPage', 'attendeesLabel')} ({selectedEvent.attendees.length})
                 </h3>
                 {selectedEvent.attendees.length === 0 ? (
-                  <p className="text-sm text-gray-400">{t('trainingPage', 'noAttendees')}</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">{t('trainingPage', 'noAttendees')}</p>
                 ) : (
                   <div className="space-y-2">
                     {selectedEvent.attendees.map((att) => (
-                      <div key={att.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <div key={att.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
                         <div>
-                          <span className="text-sm font-medium text-gray-800">{att.name}</span>
-                          <span className="text-sm text-gray-400 ml-2">{att.email}</span>
+                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{att.name}</span>
+                          <span className="text-sm text-gray-400 dark:text-gray-500 ml-2">{att.email}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           {att.confirmed ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">{t('trainingPage', 'confirmed')}</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">{t('trainingPage', 'confirmed')}</span>
                           ) : att.inviteSent ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">{t('trainingPage', 'invited')}</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">{t('trainingPage', 'invited')}</span>
                           ) : (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{t('trainingPage', 'pending')}</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">{t('trainingPage', 'pending')}</span>
                           )}
                         </div>
                       </div>
@@ -516,15 +516,15 @@ export default function TrainingPage() {
 
               {/* Files */}
               <div className="p-6">
-                <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">
+                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3">
                   {t('common', 'download')} ({selectedEvent.files.length})
                 </h3>
                 {selectedEvent.files.length > 0 && (
                   <div className="space-y-1 mb-3">
                     {selectedEvent.files.map((file) => (
-                      <div key={file.id} className="flex items-center gap-2 bg-gray-50 rounded px-3 py-1.5 text-sm">
-                        <span className="text-gray-700">{file.name}</span>
-                        <span className="text-xs text-gray-400">{file.fileType}</span>
+                      <div key={file.id} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 rounded px-3 py-1.5 text-sm">
+                        <span className="text-gray-700 dark:text-gray-300">{file.name}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{file.fileType}</span>
                       </div>
                     ))}
                   </div>
@@ -549,11 +549,11 @@ export default function TrainingPage() {
             </div>
           ) : (
             /* Empty state */
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-              <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+              <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
-              <p className="text-gray-400 text-lg">{t('trainingPage', 'selectOrCreate')}</p>
+              <p className="text-gray-400 dark:text-gray-500 text-lg">{t('trainingPage', 'selectOrCreate')}</p>
             </div>
           )}
         </div>

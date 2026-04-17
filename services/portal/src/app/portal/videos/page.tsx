@@ -32,7 +32,7 @@ export default function ClientVideosPage() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               filter === cat
                 ? 'bg-brand-600 text-white'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
             {cat}
@@ -59,8 +59,8 @@ export default function ClientVideosPage() {
               </div>
               <div className="p-4">
                 <h3 className="font-semibold text-sm mb-1">{video.title}</h3>
-                <p className="text-xs text-gray-500 line-clamp-2">{video.description}</p>
-                <p className="text-xs text-gray-400 mt-2">{video.uploadedAt}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{video.description}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{video.uploadedAt}</p>
               </div>
             </div>
           ))}
@@ -70,7 +70,7 @@ export default function ClientVideosPage() {
           <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
-          <p className="text-gray-500">No videos available yet.</p>
+          <p className="text-gray-500 dark:text-gray-400">No videos available yet.</p>
         </div>
       )}
 

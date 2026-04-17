@@ -67,23 +67,23 @@ type StatusFilter = 'all' | 'active' | 'in_repair' | 'refunded' | 'decommissione
 // visually distinguishable so Hugo isn't staring at a sea of blue "R" tiles.
 function getAvatar(machine: Machine): { label: string; bg: string; fg: string } {
   if (machine.category === 'robot') {
-    return { label: 'R', bg: 'bg-blue-100', fg: 'text-blue-600' };
+    return { label: 'R', bg: 'bg-blue-100 dark:bg-blue-900/30', fg: 'text-blue-600 dark:text-blue-400' };
   }
   if (machine.subcategory === 'laser') {
     // Cleaning vs. Welding laser — both lasers, but colour them differently
     // so a station with both reads at a glance.
     if ((machine.model || '').toLowerCase().includes('weld')) {
-      return { label: 'LW', bg: 'bg-purple-100', fg: 'text-purple-600' };
+      return { label: 'LW', bg: 'bg-purple-100 dark:bg-purple-900/30', fg: 'text-purple-600 dark:text-purple-400' };
     }
-    return { label: 'L', bg: 'bg-orange-100', fg: 'text-orange-600' };
+    return { label: 'L', bg: 'bg-orange-100 dark:bg-orange-900/30', fg: 'text-orange-600 dark:text-orange-400' };
   }
   if (machine.subcategory === 'traditional_welding') {
-    return { label: 'W', bg: 'bg-purple-100', fg: 'text-purple-600' };
+    return { label: 'W', bg: 'bg-purple-100 dark:bg-purple-900/30', fg: 'text-purple-600 dark:text-purple-400' };
   }
   if (machine.subcategory === 'sanding') {
-    return { label: 'S', bg: 'bg-emerald-100', fg: 'text-emerald-600' };
+    return { label: 'S', bg: 'bg-emerald-100 dark:bg-emerald-900/30', fg: 'text-emerald-600 dark:text-emerald-400' };
   }
-  return { label: '?', bg: 'bg-gray-100', fg: 'text-gray-600' };
+  return { label: '?', bg: 'bg-gray-100 dark:bg-gray-700', fg: 'text-gray-600 dark:text-gray-400' };
 }
 
 // Render-friendly subcategory label — keeps FR/EN via the `t()` helper when
@@ -137,10 +137,10 @@ function getSoftwareUrl(machine: Machine): {
 
 function getStatusConfig(t: (section: string, key: string) => string) {
   return {
-    active: { label: t('machines', 'activeStatus'), color: 'bg-green-100 text-green-800', badge: 'bg-green-500' },
-    in_repair: { label: t('machines', 'inRepair'), color: 'bg-yellow-100 text-yellow-800', badge: 'bg-yellow-500' },
-    refunded: { label: t('machines', 'refunded'), color: 'bg-red-100 text-red-800', badge: 'bg-red-500' },
-    decommissioned: { label: t('machines', 'decommissioned'), color: 'bg-gray-100 text-gray-800', badge: 'bg-gray-500' },
+    active: { label: t('machines', 'activeStatus'), color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', badge: 'bg-green-500' },
+    in_repair: { label: t('machines', 'inRepair'), color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400', badge: 'bg-yellow-500' },
+    refunded: { label: t('machines', 'refunded'), color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400', badge: 'bg-red-500' },
+    decommissioned: { label: t('machines', 'decommissioned'), color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300', badge: 'bg-gray-500' },
   };
 }
 
@@ -277,49 +277,49 @@ export default function MachinesPage() {
         <div className="space-y-4">
             {/* Filter Buttons */}
             <div className="flex gap-2 flex-wrap">
-              <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+              <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
                 <button
                   onClick={() => setTypeFilter('all')}
-                  className={`px-3 py-1 rounded font-medium transition ${typeFilter === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-3 py-1 rounded font-medium transition ${typeFilter === 'all' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                 >
                   {t('machines', 'allFilter')}
                 </button>
                 <button
                   onClick={() => setTypeFilter('robot')}
-                  className={`px-3 py-1 rounded font-medium transition ${typeFilter === 'robot' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-3 py-1 rounded font-medium transition ${typeFilter === 'robot' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                 >
                   {t('machines', 'robots')}
                 </button>
                 <button
                   onClick={() => setTypeFilter('laser')}
-                  className={`px-3 py-1 rounded font-medium transition ${typeFilter === 'laser' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-3 py-1 rounded font-medium transition ${typeFilter === 'laser' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                 >
                   {t('machines', 'lasers')}
                 </button>
               </div>
 
-              <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+              <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
                 <button
                   onClick={() => setStatusFilter('all')}
-                  className={`px-3 py-1 rounded font-medium transition text-sm ${statusFilter === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-3 py-1 rounded font-medium transition text-sm ${statusFilter === 'all' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                 >
                   {t('machines', 'allStatus')}
                 </button>
                 <button
                   onClick={() => setStatusFilter('active')}
-                  className={`px-3 py-1 rounded font-medium transition text-sm ${statusFilter === 'active' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-3 py-1 rounded font-medium transition text-sm ${statusFilter === 'active' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                 >
                   {t('machines', 'activeStatus')}
                 </button>
                 <button
                   onClick={() => setStatusFilter('in_repair')}
-                  className={`px-3 py-1 rounded font-medium transition text-sm ${statusFilter === 'in_repair' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-3 py-1 rounded font-medium transition text-sm ${statusFilter === 'in_repair' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                 >
                   {t('machines', 'inRepair')}
                 </button>
                 <button
                   onClick={() => setStatusFilter('refunded')}
-                  className={`px-3 py-1 rounded font-medium transition text-sm ${statusFilter === 'refunded' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-3 py-1 rounded font-medium transition text-sm ${statusFilter === 'refunded' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                 >
                   {t('machines', 'refunded')}
                 </button>
@@ -333,19 +333,19 @@ export default function MachinesPage() {
                 placeholder={t('machines', 'searchMachines')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
 
-              <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+              <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`px-3 py-1 rounded font-medium transition ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-3 py-1 rounded font-medium transition ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                 >
                   {t('machines', 'listView')}
                 </button>
                 <button
                   onClick={() => setViewMode('map')}
-                  className={`px-3 py-1 rounded font-medium transition ${viewMode === 'map' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  className={`px-3 py-1 rounded font-medium transition ${viewMode === 'map' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
                 >
                   {t('machines', 'mapView')}
                 </button>
@@ -402,8 +402,8 @@ function ListView({ machines, onSelectMachine, statusConfig }: { machines: Machi
   if (machines.length === 0) {
     return (
       <div className="text-center py-12">
-        <svg className="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        <p className="text-gray-600 text-lg">{t('machines', 'noMachinesFound')}</p>
+        <svg className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <p className="text-gray-600 dark:text-gray-400 text-lg">{t('machines', 'noMachinesFound')}</p>
       </div>
     );
   }
@@ -423,7 +423,7 @@ function ListView({ machines, onSelectMachine, statusConfig }: { machines: Machi
         return (
           <div
             key={machine.id}
-            className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition"
+            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition"
           >
             <div className="flex items-start justify-between">
               <button
@@ -441,57 +441,57 @@ function ListView({ machines, onSelectMachine, statusConfig }: { machines: Machi
                 <div className="flex-1 min-w-0">
                   {/* Line 1 — serial + taxonomy chips */}
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <h3 className="font-semibold text-gray-900">{machine.serialNumber}</h3>
-                    <span className="text-xs font-medium bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{machine.serialNumber}</h3>
+                    <span className="text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded">
                       {categoryLabel}
                     </span>
                     {subcategoryLabel && (
-                      <span className="text-xs font-medium bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                      <span className="text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded">
                         {subcategoryLabel}
                       </span>
                     )}
-                    <span className="text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                    <span className="text-xs font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
                       {machine.model}
                     </span>
                     {machine.nickname && (
-                      <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                      <span className="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
                         {machine.nickname}
                       </span>
                     )}
                   </div>
 
                   {/* Line 2 — client + IP + city */}
-                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-2 flex-wrap">
+                  <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-2 flex-wrap">
                     {machine.client && <span>{machine.client.displayName}</span>}
                     {machine.ipAddress && (
                       <div className="flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0" /></svg>
+                        <svg className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0" /></svg>
                         <span className="font-mono text-xs">{machine.ipAddress}</span>
                       </div>
                     )}
                     {machine.city && machine.province && (
                       <div className="flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        <svg className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                         <span>{machine.city}, {machine.province}</span>
                       </div>
                     )}
                   </div>
 
                   {/* Line 3 — station + invoice (always shown when present, for robots + lasers alike) */}
-                  <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                  <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
                     {stationLink && (
                       <span className="inline-flex items-center gap-1">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                        <span className="font-medium text-gray-700">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
                           #{stationLink.stationNumber}
                         </span>
-                        <span className="text-gray-500">— {stationLink.title}</span>
+                        <span className="text-gray-500 dark:text-gray-400">— {stationLink.title}</span>
                       </span>
                     )}
                     {machine.invoice && (
                       <span className="inline-flex items-center gap-1">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        <span className="font-medium text-gray-700">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
                           #{machine.invoice.invoiceNumber}
                         </span>
                       </span>
@@ -523,7 +523,7 @@ function ListView({ machines, onSelectMachine, statusConfig }: { machines: Machi
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusConfig[machine.status].color}`}>
                   {statusConfig[machine.status].label}
                 </span>
-                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                <svg className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </div>
             </div>
           </div>
@@ -546,11 +546,11 @@ function MapView({ machines, statusConfig }: { machines: Machine[]; statusConfig
   return (
     <div className="grid gap-6">
       {Object.entries(grouped).map(([location, locationMachines]) => (
-        <div key={location} className="bg-white rounded-lg border border-gray-200 p-6">
+        <div key={location} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h3 className="font-semibold text-gray-900 text-lg">{location}</h3>
-              <p className="text-sm text-gray-600">{locationMachines.length} machine(s)</p>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{location}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{locationMachines.length} machine(s)</p>
             </div>
             {locationMachines[0].latitude && locationMachines[0].longitude && (
               <a
@@ -567,10 +567,10 @@ function MapView({ machines, statusConfig }: { machines: Machine[]; statusConfig
 
           <div className="space-y-2">
             {locationMachines.map((m) => (
-              <div key={m.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+              <div key={m.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded">
                 <div>
-                  <p className="font-medium text-gray-900">{m.serialNumber} - {m.model}</p>
-                  <p className="text-sm text-gray-600">{m.client?.displayName || t('machines', 'unassigned')}</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">{m.serialNumber} - {m.model}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{m.client?.displayName || t('machines', 'unassigned')}</p>
                 </div>
                 <span className={`px-2 py-1 rounded text-xs font-medium ${statusConfig[m.status].color}`}>
                   {statusConfig[m.status].label}
@@ -583,8 +583,8 @@ function MapView({ machines, statusConfig }: { machines: Machine[]; statusConfig
 
       {Object.keys(grouped).length === 0 && (
         <div className="text-center py-12">
-          <svg className="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <p className="text-gray-600 text-lg">{t('machines', 'noMachinesLocation')}</p>
+          <svg className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <p className="text-gray-600 dark:text-gray-400 text-lg">{t('machines', 'noMachinesLocation')}</p>
         </div>
       )}
     </div>
@@ -626,12 +626,12 @@ function DetailPanel({
       : t('stations', 'categoryAccessory');
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-lg z-50 overflow-y-auto">
-      <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">{machine.serialNumber}</h2>
+    <div className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white dark:bg-gray-800 shadow-lg z-50 overflow-y-auto">
+      <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{machine.serialNumber}</h2>
         <button
           onClick={onClose}
-          className="text-gray-500 hover:text-gray-700 text-2xl"
+          className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl"
         >
           ×
         </button>
@@ -660,32 +660,32 @@ function DetailPanel({
 
         {/* Machine Info */}
         <div>
-          <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'machineDetails')}</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('machines', 'machineDetails')}</h3>
           <div className="space-y-2 text-sm">
             <div>
-              <span className="text-gray-600">{t('stations', 'category')}:</span>
-              <span className="ml-2 font-medium text-gray-900">{categoryLabel}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t('stations', 'category')}:</span>
+              <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">{categoryLabel}</span>
             </div>
             {subcategoryLabel && (
               <div>
-                <span className="text-gray-600">{t('stations', 'subcategory')}:</span>
-                <span className="ml-2 font-medium text-gray-900">{subcategoryLabel}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('stations', 'subcategory')}:</span>
+                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">{subcategoryLabel}</span>
               </div>
             )}
             <div>
-              <span className="text-gray-600">{t('machines', 'modelRequired')}:</span>
-              <span className="ml-2 font-medium text-gray-900">{machine.model}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t('machines', 'modelRequired')}:</span>
+              <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">{machine.model}</span>
             </div>
             {machine.nickname && (
               <div>
-                <span className="text-gray-600">{t('machines', 'nickname')}:</span>
-                <span className="ml-2 font-medium text-gray-900">{machine.nickname}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('machines', 'nickname')}:</span>
+                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">{machine.nickname}</span>
               </div>
             )}
             {machine.ipAddress && (
               <div>
-                <span className="text-gray-600">{t('machines', 'ipAddress')}:</span>
-                <span className="ml-2 font-medium text-gray-900 font-mono">{machine.ipAddress}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('machines', 'ipAddress')}:</span>
+                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100 font-mono">{machine.ipAddress}</span>
               </div>
             )}
           </div>
@@ -694,8 +694,8 @@ function DetailPanel({
         {/* Address Info */}
         {(machine.address || machine.city || machine.province) && (
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'location')}</h3>
-            <div className="space-y-1 text-sm text-gray-600">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('machines', 'location')}</h3>
+            <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
               {machine.address && <p>{machine.address}</p>}
               {machine.city && machine.province && <p>{machine.city}, {machine.province}</p>}
               {machine.postalCode && <p>{machine.postalCode}</p>}
@@ -707,10 +707,10 @@ function DetailPanel({
         {/* Client Info */}
         {machine.client && (
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'client')}</h3>
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <p className="font-medium text-blue-900">{machine.client.displayName}</p>
-              <p className="text-sm text-blue-700">{machine.client.companyName}</p>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('machines', 'client')}</h3>
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+              <p className="font-medium text-blue-900 dark:text-blue-200">{machine.client.displayName}</p>
+              <p className="text-sm text-blue-700 dark:text-blue-300">{machine.client.companyName}</p>
             </div>
           </div>
         )}
@@ -718,15 +718,15 @@ function DetailPanel({
         {/* Invoice Info */}
         {machine.invoice && (
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'invoice')}</h3>
-            <p className="text-sm text-gray-600">{t('machines', 'invoice')}: {machine.invoice.invoiceNumber}</p>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('machines', 'invoice')}</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{t('machines', 'invoice')}: {machine.invoice.invoiceNumber}</p>
           </div>
         )}
 
         {/* Status Section */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">{t('common', 'status')}</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('common', 'status')}</h3>
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusConfig[machine.status].color}`}>
               {statusConfig[machine.status].label}
             </span>
@@ -737,25 +737,25 @@ function DetailPanel({
               <>
                 <button
                   onClick={() => onStatusChange(machine.id, 'in_repair', { type: 'repair_started' })}
-                  className="w-full px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition text-sm font-medium"
+                  className="w-full px-4 py-2 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/50 transition text-sm font-medium"
                 >
                   {t('machines', 'sendToRepair')}
                 </button>
                 <button
                   onClick={() => onStatusChange(machine.id, 'refunded', { type: 'refunded' })}
-                  className="w-full px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition text-sm font-medium"
+                  className="w-full px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition text-sm font-medium"
                 >
                   {t('machines', 'refund')}
                 </button>
                 <button
                   onClick={() => setShowRelocateForm(true)}
-                  className="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition text-sm font-medium"
+                  className="w-full px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition text-sm font-medium"
                 >
                   {t('machines', 'relocate')}
                 </button>
                 <button
                   onClick={() => setShowReassignForm(true)}
-                  className="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition text-sm font-medium"
+                  className="w-full px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition text-sm font-medium"
                 >
                   {t('machines', 'reassign')}
                 </button>
@@ -765,7 +765,7 @@ function DetailPanel({
             {machine.status === 'in_repair' && (
               <button
                 onClick={() => onStatusChange(machine.id, 'active', { type: 'repair_completed' })}
-                className="w-full px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition text-sm font-medium"
+                className="w-full px-4 py-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition text-sm font-medium"
               >
                 {t('machines', 'reactivate')}
               </button>
@@ -775,35 +775,35 @@ function DetailPanel({
 
         {/* Relocate Form */}
         {showRelocateForm && (
-          <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-            <h4 className="font-semibold text-gray-900 text-sm">{t('machines', 'newLocation')}</h4>
+          <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('machines', 'newLocation')}</h4>
             <input
               type="text"
               placeholder={t('machines', 'address')}
               value={relocateData.address}
               onChange={(e) => setRelocateData({ ...relocateData, address: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
             />
             <input
               type="text"
               placeholder={t('machines', 'city')}
               value={relocateData.city}
               onChange={(e) => setRelocateData({ ...relocateData, city: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
             />
             <input
               type="text"
               placeholder={t('machines', 'province')}
               value={relocateData.province}
               onChange={(e) => setRelocateData({ ...relocateData, province: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
             />
             <input
               type="text"
               placeholder={t('machines', 'postalCode')}
               value={relocateData.postalCode}
               onChange={(e) => setRelocateData({ ...relocateData, postalCode: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
             />
             <div className="flex gap-2">
               <button
@@ -817,7 +817,7 @@ function DetailPanel({
               </button>
               <button
                 onClick={() => setShowRelocateForm(false)}
-                className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-300"
+                className="flex-1 px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600"
               >
                 {t('common', 'cancel')}
               </button>
@@ -827,12 +827,12 @@ function DetailPanel({
 
         {/* Reassign Form */}
         {showReassignForm && (
-          <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-            <h4 className="font-semibold text-gray-900 text-sm">{t('machines', 'selectNewClient')}</h4>
+          <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-3">
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{t('machines', 'selectNewClient')}</h4>
             <select
               value={selectedClientId}
               onChange={(e) => setSelectedClientId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
             >
               <option value="">{t('machines', 'chooseClient')}</option>
               {clients.map((c) => (
@@ -856,7 +856,7 @@ function DetailPanel({
               </button>
               <button
                 onClick={() => setShowReassignForm(false)}
-                className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-300"
+                className="flex-1 px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600"
               >
                 {t('common', 'cancel')}
               </button>
@@ -867,21 +867,21 @@ function DetailPanel({
         {/* Events */}
         {machine.recentEvents.length > 0 && (
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'eventHistory')}</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('machines', 'eventHistory')}</h3>
             <div className="space-y-3">
               {machine.recentEvents.map((event) => (
                 <div key={event.id} className="flex gap-3">
                   <div className="flex-shrink-0 mt-1">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900 capitalize">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 capitalize">
                       {event.eventType.replace(/_/g, ' ')}
                     </p>
                     {event.notes && (
-                      <p className="text-sm text-gray-600">{event.notes}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{event.notes}</p>
                     )}
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       {new Date(event.createdAt).toLocaleDateString()}
                     </p>
                   </div>
@@ -894,13 +894,13 @@ function DetailPanel({
         {/* Stations */}
         {machine.stations.length > 0 && (
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">{t('machines', 'linkedStations')}</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('machines', 'linkedStations')}</h3>
             <div className="space-y-2">
               {machine.stations.map((station) => (
-                <div key={station.id} className="p-2 bg-gray-50 rounded text-sm">
-                  <p className="font-medium text-gray-900">{station.stationNumber}</p>
-                  <p className="text-gray-600">{station.title}</p>
-                  <p className="text-xs text-gray-500">{station.status}</p>
+                <div key={station.id} className="p-2 bg-gray-50 dark:bg-gray-900 rounded text-sm">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">{station.stationNumber}</p>
+                  <p className="text-gray-600 dark:text-gray-400">{station.title}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{station.status}</p>
                 </div>
               ))}
             </div>
@@ -911,17 +911,17 @@ function DetailPanel({
         <LicensePanel machine={machine} />
 
         {/* Actions */}
-        <div className="flex gap-2 pt-4 border-t border-gray-200">
+        <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={onEdit}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm font-medium"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
             {t('common', 'edit')}
           </button>
           <button
             onClick={() => onDelete(machine.id)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition text-sm font-medium"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition text-sm font-medium"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             {t('common', 'delete')}
@@ -994,12 +994,12 @@ function NewMachineModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900">{t('machines', 'newMachine')}</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('machines', 'newMachine')}</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl"
           >
             ×
           </button>
@@ -1008,7 +1008,7 @@ function NewMachineModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Type Selection */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-3">{t('stations', 'machineType')}</label>
+            <label className="block text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('stations', 'machineType')}</label>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -1019,7 +1019,7 @@ function NewMachineModal({
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as 'robot' | 'laser' })}
                   className="w-4 h-4"
                 />
-                <span className="text-gray-700">{t('machines', 'robots')}</span>
+                <span className="text-gray-700 dark:text-gray-300">{t('machines', 'robots')}</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -1030,7 +1030,7 @@ function NewMachineModal({
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as 'robot' | 'laser' })}
                   className="w-4 h-4"
                 />
-                <span className="text-gray-700">{t('machines', 'lasers')}</span>
+                <span className="text-gray-700 dark:text-gray-300">{t('machines', 'lasers')}</span>
               </label>
             </div>
           </div>
@@ -1038,24 +1038,24 @@ function NewMachineModal({
           {/* Basic Info */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'serialNumberRequired')}</label>
+              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{t('machines', 'serialNumberRequired')}</label>
               <input
                 type="text"
                 required
                 value={formData.serialNumber}
                 onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., SN-2024-001"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'modelRequired')}</label>
+              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{t('machines', 'modelRequired')}</label>
               <input
                 type="text"
                 required
                 value={formData.model}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., UR10e"
               />
             </div>
@@ -1063,35 +1063,35 @@ function NewMachineModal({
 
           {/* Nickname */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'nickname')}</label>
+            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{t('machines', 'nickname')}</label>
             <input
               type="text"
               value={formData.nickname}
               onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="e.g., Main Assembly Bot"
             />
           </div>
 
           {/* IP Address */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'ipAddress')}</label>
+            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{t('machines', 'ipAddress')}</label>
             <input
               type="text"
               value={formData.ipAddress}
               onChange={(e) => setFormData({ ...formData, ipAddress: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="e.g., 192.168.1.100"
             />
           </div>
 
           {/* Client */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'clientOptional')}</label>
+            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{t('machines', 'clientOptional')}</label>
             <select
               value={formData.clientId}
               onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">{t('machines', 'unassigned')}</option>
               {clients.map((c) => (
@@ -1104,34 +1104,34 @@ function NewMachineModal({
 
           {/* Address Fields */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'address')}</label>
+            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{t('machines', 'address')}</label>
             <input
               type="text"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Street address"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'city')}</label>
+              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{t('machines', 'city')}</label>
               <input
                 type="text"
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="City"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'province')}</label>
+              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{t('machines', 'province')}</label>
               <input
                 type="text"
                 value={formData.province}
                 onChange={(e) => setFormData({ ...formData, province: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Province/State"
               />
             </div>
@@ -1139,33 +1139,33 @@ function NewMachineModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'postalCode')}</label>
+              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{t('machines', 'postalCode')}</label>
               <input
                 type="text"
                 value={formData.postalCode}
                 onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Postal code"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">{t('machines', 'country')}</label>
+              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{t('machines', 'country')}</label>
               <input
                 type="text"
                 value={formData.country}
                 onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Country"
               />
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 justify-end pt-6 border-t border-gray-200">
+          <div className="flex gap-3 justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium"
             >
               {t('common', 'cancel')}
             </button>
@@ -1228,27 +1228,27 @@ function LicensePanel({ machine }: { machine: Machine }) {
 
   const badgeColor =
     mode === 'killed'
-      ? 'bg-red-100 text-red-800'
+      ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
       : mode === 'rented'
-      ? 'bg-amber-100 text-amber-800'
+      ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
       : mode === 'sold'
-      ? 'bg-green-100 text-green-800'
-      : 'bg-gray-100 text-gray-800';
+      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
 
   return (
-    <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+    <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-gray-900">Licensing</h3>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Licensing</h3>
         <span className={`text-xs px-2 py-0.5 rounded ${badgeColor}`}>{mode}</span>
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-xs">
         <label className="flex flex-col">
-          <span className="text-gray-600 mb-1">Mode</span>
+          <span className="text-gray-600 dark:text-gray-400 mb-1">Mode</span>
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value as typeof mode)}
-            className="border border-gray-300 rounded px-2 py-1"
+            className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           >
             <option value="unlicensed">Unlicensed</option>
             <option value="sold">Sold (unlimited)</option>
@@ -1257,18 +1257,18 @@ function LicensePanel({ machine }: { machine: Machine }) {
           </select>
         </label>
         <label className="flex flex-col">
-          <span className="text-gray-600 mb-1">Expires (rented only)</span>
+          <span className="text-gray-600 dark:text-gray-400 mb-1">Expires (rented only)</span>
           <input
             type="date"
             value={expiresAt}
             disabled={mode !== 'rented'}
             onChange={(e) => setExpiresAt(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1 disabled:bg-gray-100"
+            className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 disabled:bg-gray-100 dark:disabled:bg-gray-700"
           />
         </label>
       </div>
 
-      <label className="flex items-center gap-2 mt-2 text-xs text-gray-700">
+      <label className="flex items-center gap-2 mt-2 text-xs text-gray-700 dark:text-gray-300">
         <input
           type="checkbox"
           checked={killSwitch}
@@ -1277,7 +1277,7 @@ function LicensePanel({ machine }: { machine: Machine }) {
         Kill-switch active (refuse operation immediately)
       </label>
 
-      <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+      <div className="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
         <span>
           Last check:{' '}
           {machine.licenseLastCheckedAt
@@ -1293,7 +1293,7 @@ function LicensePanel({ machine }: { machine: Machine }) {
         </button>
       </div>
 
-      {msg && <p className="mt-1 text-xs text-gray-600">{msg}</p>}
+      {msg && <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">{msg}</p>}
     </div>
   );
 }

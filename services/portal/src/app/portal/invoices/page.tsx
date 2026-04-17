@@ -24,11 +24,11 @@ export default function ClientInvoicesPage() {
       <PageHeader title="Invoices & Quotes" subtitle="View your invoices and quotes from LaserNet" />
 
       {/* Tab Switcher */}
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit mb-6">
+      <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1 w-fit mb-6">
         <button
           onClick={() => setTab('invoices')}
           className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${
-            tab === 'invoices' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            tab === 'invoices' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
           }`}
         >
           Invoices ({myInvoices.length})
@@ -36,7 +36,7 @@ export default function ClientInvoicesPage() {
         <button
           onClick={() => setTab('quotes')}
           className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${
-            tab === 'quotes' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            tab === 'quotes' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
           }`}
         >
           Quotes ({myQuotes.length})
@@ -66,7 +66,7 @@ export default function ClientInvoicesPage() {
                     </div>
                     <div>
                       <p className="font-medium">{inv.invoiceNumber}</p>
-                      <p className="text-sm text-gray-500">Issued {inv.date} • Due {inv.dueDate}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Issued {inv.date} • Due {inv.dueDate}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -84,7 +84,7 @@ export default function ClientInvoicesPage() {
             </div>
           ) : (
             <div className="card text-center py-12">
-              <p className="text-gray-500">No invoices yet.</p>
+              <p className="text-gray-500 dark:text-gray-400">No invoices yet.</p>
             </div>
           )}
         </div>
@@ -113,7 +113,7 @@ export default function ClientInvoicesPage() {
                     </div>
                     <div>
                       <p className="font-medium">{quote.quoteNumber}</p>
-                      <p className="text-sm text-gray-500">Created {quote.date} • Valid until {quote.validUntil}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Created {quote.date} • Valid until {quote.validUntil}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -131,7 +131,7 @@ export default function ClientInvoicesPage() {
             </div>
           ) : (
             <div className="card text-center py-12">
-              <p className="text-gray-500">No quotes yet.</p>
+              <p className="text-gray-500 dark:text-gray-400">No quotes yet.</p>
             </div>
           )}
         </div>
@@ -140,13 +140,13 @@ export default function ClientInvoicesPage() {
       {/* Invoice Detail Modal */}
       {selectedInvoice && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedInvoice(null)}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6 border-b border-gray-100 flex justify-between items-start">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-start">
               <div>
                 <h2 className="text-xl font-bold">{selectedInvoice.invoiceNumber}</h2>
-                <p className="text-sm text-gray-500 mt-1">From QuickBooks</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">From QuickBooks</p>
               </div>
-              <button onClick={() => setSelectedInvoice(null)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setSelectedInvoice(null)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -156,12 +156,12 @@ export default function ClientInvoicesPage() {
               {/* Invoice Header */}
               <div className="flex justify-between mb-6">
                 <div>
-                  <p className="text-sm text-gray-500">Bill To</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Bill To</p>
                   <p className="font-medium">{selectedInvoice.clientName}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Date: {selectedInvoice.date}</p>
-                  <p className="text-sm text-gray-500">Due: {selectedInvoice.dueDate}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Date: {selectedInvoice.date}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Due: {selectedInvoice.dueDate}</p>
                   <span className={`text-xs px-2.5 py-1 rounded-full font-medium mt-1 inline-block ${
                     selectedInvoice.status === 'paid' ? 'bg-green-100 text-green-700' :
                     selectedInvoice.status === 'overdue' ? 'bg-red-100 text-red-700' :
@@ -174,12 +174,12 @@ export default function ClientInvoicesPage() {
 
               {/* Line Items */}
               <table className="w-full mb-6">
-                <thead className="border-b border-gray-200">
+                <thead className="border-b border-gray-200 dark:border-gray-700">
                   <tr>
-                    <th className="text-left pb-2 text-sm font-medium text-gray-500">Description</th>
-                    <th className="text-center pb-2 text-sm font-medium text-gray-500">Qty</th>
-                    <th className="text-right pb-2 text-sm font-medium text-gray-500">Rate</th>
-                    <th className="text-right pb-2 text-sm font-medium text-gray-500">Amount</th>
+                    <th className="text-left pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Description</th>
+                    <th className="text-center pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Qty</th>
+                    <th className="text-right pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Rate</th>
+                    <th className="text-right pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -195,9 +195,9 @@ export default function ClientInvoicesPage() {
               </table>
 
               {/* Total */}
-              <div className="border-t border-gray-200 pt-4 flex justify-end">
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 flex justify-end">
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Total</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
                   <p className="text-2xl font-bold">${selectedInvoice.amount.toLocaleString()}</p>
                 </div>
               </div>
@@ -209,13 +209,13 @@ export default function ClientInvoicesPage() {
       {/* Quote Detail Modal */}
       {selectedQuote && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedQuote(null)}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6 border-b border-gray-100 flex justify-between items-start">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-start">
               <div>
                 <h2 className="text-xl font-bold">{selectedQuote.quoteNumber}</h2>
-                <p className="text-sm text-gray-500 mt-1">From QuickBooks</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">From QuickBooks</p>
               </div>
-              <button onClick={() => setSelectedQuote(null)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setSelectedQuote(null)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -224,21 +224,21 @@ export default function ClientInvoicesPage() {
             <div className="p-6">
               <div className="flex justify-between mb-6">
                 <div>
-                  <p className="text-sm text-gray-500">Prepared For</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Prepared For</p>
                   <p className="font-medium">{selectedQuote.clientName}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Date: {selectedQuote.date}</p>
-                  <p className="text-sm text-gray-500">Valid Until: {selectedQuote.validUntil}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Date: {selectedQuote.date}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Valid Until: {selectedQuote.validUntil}</p>
                 </div>
               </div>
               <table className="w-full mb-6">
-                <thead className="border-b border-gray-200">
+                <thead className="border-b border-gray-200 dark:border-gray-700">
                   <tr>
-                    <th className="text-left pb-2 text-sm font-medium text-gray-500">Description</th>
-                    <th className="text-center pb-2 text-sm font-medium text-gray-500">Qty</th>
-                    <th className="text-right pb-2 text-sm font-medium text-gray-500">Rate</th>
-                    <th className="text-right pb-2 text-sm font-medium text-gray-500">Amount</th>
+                    <th className="text-left pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Description</th>
+                    <th className="text-center pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Qty</th>
+                    <th className="text-right pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Rate</th>
+                    <th className="text-right pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -252,9 +252,9 @@ export default function ClientInvoicesPage() {
                   ))}
                 </tbody>
               </table>
-              <div className="border-t border-gray-200 pt-4 flex justify-end">
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 flex justify-end">
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Total</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
                   <p className="text-2xl font-bold">${selectedQuote.amount.toLocaleString()}</p>
                 </div>
               </div>

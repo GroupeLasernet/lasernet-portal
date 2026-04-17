@@ -6,18 +6,18 @@ import { useLanguage } from '@/lib/LanguageContext';
 import PageHeader from '@/components/PageHeader';
 
 const priorityColors = {
-  critical: 'bg-red-100 text-red-800 border border-red-300',
-  high: 'bg-orange-100 text-orange-800 border border-orange-300',
-  medium: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
-  low: 'bg-blue-100 text-blue-800 border border-blue-300',
+  critical: 'bg-red-100 text-red-800 border border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800',
+  high: 'bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800',
+  medium: 'bg-yellow-100 text-yellow-800 border border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800',
+  low: 'bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800',
 };
 
 const statusColors = {
-  open: 'bg-blue-100 text-blue-800 border border-blue-300',
-  in_progress: 'bg-purple-100 text-purple-800 border border-purple-300',
-  waiting: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
-  resolved: 'bg-green-100 text-green-800 border border-green-300',
-  closed: 'bg-gray-100 text-gray-800 border border-gray-300',
+  open: 'bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800',
+  in_progress: 'bg-purple-100 text-purple-800 border border-purple-300 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800',
+  waiting: 'bg-yellow-100 text-yellow-800 border border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800',
+  resolved: 'bg-green-100 text-green-800 border border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800',
+  closed: 'bg-gray-100 text-gray-800 border border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600',
 };
 
 const statusFlow: Record<TicketStatus, TicketStatus | null> = {
@@ -125,7 +125,7 @@ export default function AdminTicketsPage() {
       <PageHeader
         title={t('tickets', 'title')}
         actions={
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
             {t('tickets', 'totalTickets')} <span className="font-semibold">{filteredTickets.length}</span>
           </div>
         }
@@ -134,7 +134,7 @@ export default function AdminTicketsPage() {
       {/* Filters */}
       <div className="card mb-6 flex gap-4">
         <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">{t('tickets', 'statusFilter')}</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('tickets', 'statusFilter')}</label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as TicketStatus | 'all')}
@@ -149,7 +149,7 @@ export default function AdminTicketsPage() {
           </select>
         </div>
         <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">{t('tickets', 'priorityFilter')}</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('tickets', 'priorityFilter')}</label>
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value as TicketPriority | 'all')}
@@ -169,7 +169,7 @@ export default function AdminTicketsPage() {
         <div className="flex-1">
           {filteredTickets.length === 0 ? (
             <div className="card text-center py-12">
-              <p className="text-gray-500">{t('tickets', 'noTickets')}</p>
+              <p className="text-gray-500 dark:text-gray-400">{t('tickets', 'noTickets')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -184,7 +184,7 @@ export default function AdminTicketsPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="font-semibold text-gray-900">{ticket.ticketNumber}</span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">{ticket.ticketNumber}</span>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[ticket.status]}`}>
                           {ticket.status.replace('_', ' ')}
                         </span>
@@ -192,9 +192,9 @@ export default function AdminTicketsPage() {
                           {ticket.priority}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 mb-1">{ticket.clientCompanyName}</p>
-                      <p className="text-gray-900 font-medium">{ticket.subject}</p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{ticket.clientCompanyName}</p>
+                      <p className="text-gray-900 dark:text-gray-100 font-medium">{ticket.subject}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         Created: {new Date(ticket.createdAt).toLocaleDateString()}
                       </p>
                     </div>
@@ -208,12 +208,12 @@ export default function AdminTicketsPage() {
         {/* Detail Panel */}
         {selectedTicket && (
           <div className="w-96 card sticky top-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">{t('tickets', 'ticketDetails')}</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">{t('tickets', 'ticketDetails')}</h2>
 
             {/* Ticket Header */}
-            <div className="mb-4 pb-4 border-b border-gray-200">
+            <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-lg font-semibold text-gray-900">{selectedTicket.ticketNumber}</span>
+                <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{selectedTicket.ticketNumber}</span>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[selectedTicket.status]}`}>
                   {selectedTicket.status.replace('_', ' ')}
                 </span>
@@ -224,38 +224,38 @@ export default function AdminTicketsPage() {
             </div>
 
             {/* Client & Creator Info */}
-            <div className="mb-4 pb-4 border-b border-gray-200">
-              <p className="text-sm font-medium text-gray-700 mb-1">{t('tickets', 'clientCompany')}</p>
-              <p className="text-gray-900 font-semibold">{selectedTicket.clientCompanyName}</p>
-              <p className="text-sm font-medium text-gray-700 mt-3 mb-1">{t('tickets', 'createdBy')}</p>
-              <p className="text-gray-900">{selectedTicket.createdBy.name}</p>
-              <p className="text-xs text-gray-600">{selectedTicket.createdBy.email}</p>
-              <p className="text-xs text-gray-600">{selectedTicket.createdBy.role}</p>
+            <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('tickets', 'clientCompany')}</p>
+              <p className="text-gray-900 dark:text-gray-100 font-semibold">{selectedTicket.clientCompanyName}</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-3 mb-1">{t('tickets', 'createdBy')}</p>
+              <p className="text-gray-900 dark:text-gray-100">{selectedTicket.createdBy.name}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">{selectedTicket.createdBy.email}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">{selectedTicket.createdBy.role}</p>
             </div>
 
             {/* Subject & Description */}
-            <div className="mb-4 pb-4 border-b border-gray-200">
-              <p className="text-sm font-medium text-gray-700 mb-1">{t('tickets', 'subject')}</p>
-              <p className="text-gray-900 font-semibold">{selectedTicket.subject}</p>
-              <p className="text-sm font-medium text-gray-700 mt-3 mb-1">{t('common', 'description')}</p>
-              <p className="text-gray-700 text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
+            <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('tickets', 'subject')}</p>
+              <p className="text-gray-900 dark:text-gray-100 font-semibold">{selectedTicket.subject}</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-3 mb-1">{t('common', 'description')}</p>
+              <p className="text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
             </div>
 
             {/* Attachments */}
             {selectedTicket.attachments.length > 0 && (
-              <div className="mb-4 pb-4 border-b border-gray-200">
-                <p className="text-sm font-medium text-gray-700 mb-2">{t('tickets', 'attachments')}</p>
+              <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('tickets', 'attachments')}</p>
                 <div className="space-y-2">
                   {selectedTicket.attachments.map((att) => (
                     <div key={att.id}>
                       {att.type === 'image' ? (
-                        <img src={att.url} alt={att.name} className="max-w-full h-auto rounded-lg border border-gray-200" />
+                        <img src={att.url} alt={att.name} className="max-w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700" />
                       ) : (
                         <a
                           href={att.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-brand-600 hover:underline text-sm"
+                          className="text-brand-600 dark:text-brand-400 hover:underline text-sm"
                         >
                           {att.name}
                         </a>
@@ -267,11 +267,11 @@ export default function AdminTicketsPage() {
             )}
 
             {/* Link Invoice Section */}
-            <div className="mb-4 pb-4 border-b border-gray-200">
-              <p className="text-sm font-medium text-gray-700 mb-2">{t('tickets', 'linkInvoice')}</p>
+            <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('tickets', 'linkInvoice')}</p>
               {selectedTicket.linkedInvoiceNumber ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-2">
-                  <p className="text-sm text-gray-700">
+                <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-2">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
                     {t('tickets', 'linked')} <span className="font-semibold">{selectedTicket.linkedInvoiceNumber}</span>
                   </p>
                 </div>
@@ -302,7 +302,7 @@ export default function AdminTicketsPage() {
 
             {/* Status Control */}
             <div className="mb-4">
-              <p className="text-sm font-medium text-gray-700 mb-2">{t('tickets', 'updateStatus')}</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('tickets', 'updateStatus')}</p>
               {statusFlow[selectedTicket.status] ? (
                 <button
                   onClick={() => handleUpdateStatus(selectedTicket)}
@@ -311,12 +311,12 @@ export default function AdminTicketsPage() {
                   {t('tickets', 'moveTo')} {statusFlow[selectedTicket.status]?.replace('_', ' ')}
                 </button>
               ) : (
-                <p className="text-xs text-gray-500">{t('tickets', 'ticketClosed')}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('tickets', 'ticketClosed')}</p>
               )}
             </div>
 
             {/* Metadata */}
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
               <p>{t('tickets', 'created')} {new Date(selectedTicket.createdAt).toLocaleString()}</p>
               <p>{t('tickets', 'updated')} {new Date(selectedTicket.updatedAt).toLocaleString()}</p>
             </div>

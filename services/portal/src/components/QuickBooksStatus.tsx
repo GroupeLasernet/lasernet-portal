@@ -47,11 +47,11 @@ export default function QuickBooksStatus() {
   }, []);
 
   const styles: Record<QbState, { dot: string; text: string; bg: string; labelKey: 'qbChecking' | 'qbConnected' | 'qbDisconnected' | 'qbNotConfigured' | 'qbUnavailable' }> = {
-    loading:         { dot: 'bg-gray-300 animate-pulse', text: 'text-gray-500',  bg: 'hover:bg-gray-50',   labelKey: 'qbChecking' },
-    connected:       { dot: 'bg-green-500',              text: 'text-green-700', bg: 'hover:bg-green-50',  labelKey: 'qbConnected' },
-    disconnected:    { dot: 'bg-red-500',                text: 'text-red-700',   bg: 'hover:bg-red-50',    labelKey: 'qbDisconnected' },
-    'missing-creds': { dot: 'bg-amber-500',              text: 'text-amber-700', bg: 'hover:bg-amber-50',  labelKey: 'qbNotConfigured' },
-    error:           { dot: 'bg-gray-400',               text: 'text-gray-500',  bg: 'hover:bg-gray-50',   labelKey: 'qbUnavailable' },
+    loading:         { dot: 'bg-gray-300 dark:bg-gray-600 animate-pulse', text: 'text-gray-500 dark:text-gray-400',  bg: 'hover:bg-gray-50 dark:hover:bg-gray-700',   labelKey: 'qbChecking' },
+    connected:       { dot: 'bg-green-500',              text: 'text-green-700 dark:text-green-400', bg: 'hover:bg-green-50 dark:hover:bg-green-900/30',  labelKey: 'qbConnected' },
+    disconnected:    { dot: 'bg-red-500',                text: 'text-red-700 dark:text-red-400',   bg: 'hover:bg-red-50 dark:hover:bg-red-900/30',    labelKey: 'qbDisconnected' },
+    'missing-creds': { dot: 'bg-amber-500',              text: 'text-amber-700 dark:text-amber-400', bg: 'hover:bg-amber-50 dark:hover:bg-amber-900/30',  labelKey: 'qbNotConfigured' },
+    error:           { dot: 'bg-gray-400 dark:bg-gray-500',               text: 'text-gray-500 dark:text-gray-400',  bg: 'hover:bg-gray-50 dark:hover:bg-gray-700',   labelKey: 'qbUnavailable' },
   };
   const s = styles[state];
 
@@ -60,10 +60,10 @@ export default function QuickBooksStatus() {
       type="button"
       onClick={() => router.push('/admin/clients')}
       title={t('nav', 'clientDataServerTitle')}
-      className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border border-gray-200 transition-colors ${s.bg}`}
+      className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 transition-colors ${s.bg}`}
     >
-      <span className="flex items-center gap-2 font-medium text-gray-700">
-        <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <span className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+        <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <ellipse cx="12" cy="5" rx="8" ry="3" />
           <path d="M4 5v6c0 1.657 3.582 3 8 3s8-1.343 8-3V5" />
           <path d="M4 11v6c0 1.657 3.582 3 8 3s8-1.343 8-3v-6" />

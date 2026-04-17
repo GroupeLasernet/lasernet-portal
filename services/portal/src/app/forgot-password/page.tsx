@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
           <img src="/prisma-logo-light.svg" alt="Prisma" className="h-40 w-auto mx-auto" />
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8 mt-2">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mt-2">
           {submitted ? (
             <>
               <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-green-100 mx-auto mb-4">
@@ -51,10 +51,10 @@ export default function ForgotPasswordPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h1 className="text-lg font-semibold text-center text-gray-900 mb-2">
+              <h1 className="text-lg font-semibold text-center text-gray-900 dark:text-gray-100 mb-2">
                 {t('forgot', 'checkInboxTitle')}
               </h1>
-              <p className="text-center text-gray-600 text-sm mb-6">
+              <p className="text-center text-gray-600 dark:text-gray-400 text-sm mb-6">
                 {t('forgot', 'checkInboxBody')}
               </p>
               <Link href="/login" className="btn-primary block text-center w-full">
@@ -64,15 +64,15 @@ export default function ForgotPasswordPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <h1 className="text-lg font-semibold text-gray-900 mb-1">
+                <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
                   {t('forgot', 'title')}
                 </h1>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   {t('forgot', 'subtitle')}
                 </p>
               </div>
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('login', 'emailAddress')}
                 </label>
                 <input
@@ -102,7 +102,7 @@ export default function ForgotPasswordPage() {
               </button>
 
               <div className="text-center">
-                <Link href="/login" className="text-sm text-brand-600 hover:text-brand-700">
+                <Link href="/login" className="text-sm text-brand-600 dark:text-brand-400 hover:text-brand-700">
                   {t('forgot', 'backToLogin')}
                 </Link>
               </div>

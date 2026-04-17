@@ -20,10 +20,10 @@ interface HoldButtonProps {
 }
 
 const COLOR_CLASSES: Record<NonNullable<HoldButtonProps['color']>, { base: string; fill: string; text: string }> = {
-  blue:  { base: 'border-blue-300 hover:bg-blue-50',  fill: 'bg-blue-500/80',  text: 'text-blue-700'  },
-  red:   { base: 'border-red-300 hover:bg-red-50',    fill: 'bg-red-500/80',   text: 'text-red-700'   },
-  gray:  { base: 'border-gray-300 hover:bg-gray-50',  fill: 'bg-gray-500/70',  text: 'text-gray-700'  },
-  amber: { base: 'border-amber-300 hover:bg-amber-50', fill: 'bg-amber-500/80', text: 'text-amber-700' },
+  blue:  { base: 'border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30',  fill: 'bg-blue-500/80',  text: 'text-blue-700 dark:text-blue-300'  },
+  red:   { base: 'border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/30',    fill: 'bg-red-500/80',   text: 'text-red-700 dark:text-red-300'   },
+  gray:  { base: 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700',  fill: 'bg-gray-500/70',  text: 'text-gray-700 dark:text-gray-300'  },
+  amber: { base: 'border-amber-300 dark:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30', fill: 'bg-amber-500/80', text: 'text-amber-700 dark:text-amber-300' },
 };
 
 export default function HoldButton({

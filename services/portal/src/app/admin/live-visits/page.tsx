@@ -515,13 +515,13 @@ export default function VisitsPage() {
       {/* ════════════════════════════════════════════════════════════════════════
           SECTION 1 — AGENDA (white container)
           ════════════════════════════════════════════════════════════════════════ */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">{t('liveVisits', 'agendaTitle')}</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('liveVisits', 'agendaTitle')}</h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setAgendaOffset(o => o - 1)}
-              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -529,13 +529,13 @@ export default function VisitsPage() {
             </button>
             <button
               onClick={() => setAgendaOffset(0)}
-              className="px-3 py-1 text-xs font-medium rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors"
+              className="px-3 py-1 text-xs font-medium rounded-lg bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 hover:bg-brand-100 transition-colors"
             >
               {t('liveVisits', 'today')}
             </button>
             <button
               onClick={() => setAgendaOffset(o => o + 1)}
-              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -556,19 +556,19 @@ export default function VisitsPage() {
                   key={`${year}-${month}`}
                   className={`flex-shrink-0 w-[280px] rounded-xl border p-4 ${
                     isCurrent
-                      ? 'border-brand-300 bg-brand-50/30'
-                      : 'border-gray-200 bg-gray-50/50'
+                      ? 'border-brand-300 bg-brand-50/30 dark:bg-brand-900/20'
+                      : 'border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50'
                   }`}
                 >
                   {/* Month + year */}
-                  <p className={`text-sm font-semibold mb-3 ${isCurrent ? 'text-brand-700' : 'text-gray-700'}`}>
+                  <p className={`text-sm font-semibold mb-3 ${isCurrent ? 'text-brand-700 dark:text-brand-300' : 'text-gray-700 dark:text-gray-300'}`}>
                     {monthNames[month]} {year}
                   </p>
 
                   {/* Day headers */}
                   <div className="grid grid-cols-7 gap-0.5 mb-1">
                     {dayHeaders.map((d, i) => (
-                      <div key={i} className="text-[10px] font-medium text-gray-400 text-center">{d}</div>
+                      <div key={i} className="text-[10px] font-medium text-gray-400 dark:text-gray-500 text-center">{d}</div>
                     ))}
                   </div>
 
@@ -591,8 +591,8 @@ export default function VisitsPage() {
                             isToday
                               ? 'bg-brand-600 text-white font-bold'
                               : count > 0
-                              ? 'bg-brand-50 text-brand-700 font-medium'
-                              : 'text-gray-500'
+                              ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-medium'
+                              : 'text-gray-500 dark:text-gray-400'
                           }`}
                         >
                           <span className="leading-none">{day}</span>
@@ -616,31 +616,31 @@ export default function VisitsPage() {
       {/* ════════════════════════════════════════════════════════════════════════
           SECTION 2 — FOLLOW-UP NEEDED (white container)
           ════════════════════════════════════════════════════════════════════════ */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900">{t('liveVisits', 'followUpTitle')}</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('liveVisits', 'followUpTitle')}</h2>
         </div>
 
         <div className="p-4">
           {followUpGroups.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">{t('liveVisits', 'noFollowUps')}</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">{t('liveVisits', 'noFollowUps')}</p>
           ) : (
             <div className="flex gap-4 overflow-x-auto pb-2">
               {followUpGroups.map(vg => (
                 <div
                   key={vg.id}
-                  className="flex-shrink-0 w-[300px] bg-gray-50 border border-gray-200 rounded-xl p-4"
+                  className="flex-shrink-0 w-[300px] bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4"
                 >
-                  <p className="font-semibold text-gray-900 truncate">{getBusinessName(vg)}</p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{getBusinessName(vg)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {vg.expectedFollowUpAt
                       ? new Date(vg.expectedFollowUpAt).toLocaleDateString(lang === 'fr' ? 'fr-CA' : 'en-CA')
                       : ''}
                   </p>
                   {vg.notes && (
-                    <p className="text-xs text-gray-400 mt-2 line-clamp-2">{vg.notes}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 line-clamp-2">{vg.notes}</p>
                   )}
-                  <p className="text-xs text-gray-400 mt-2">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
                     {vg.visitors.length} {t('liveVisits', 'visitors').toLowerCase()}
                   </p>
                 </div>

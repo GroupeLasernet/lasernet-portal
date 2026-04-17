@@ -158,10 +158,10 @@ const NEED_TYPES = ['info', 'quote', 'manual', 'photos', 'videos', 'reports', 'o
 const NEED_STATUSES = ['pending', 'in_progress', 'sent', 'completed'] as const;
 
 const NEED_STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  in_progress: 'bg-blue-100 text-blue-800',
-  sent: 'bg-purple-100 text-purple-800',
-  completed: 'bg-green-100 text-green-800',
+  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+  in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  sent: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
 };
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -483,24 +483,24 @@ export default function VisitGroupDetailPage() {
   if (!group) {
     return (
       <div className="p-6">
-        <button onClick={() => router.push('/admin/live-visits')} className="text-sm text-brand-600 hover:text-brand-700 mb-4 flex items-center gap-1">
+        <button onClick={() => router.push('/admin/live-visits')} className="text-sm text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 mb-4 flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           {tt('back')}
         </button>
-        <p className="text-gray-500">{tt('notFound')}</p>
+        <p className="text-gray-500 dark:text-gray-400">{tt('notFound')}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gray-50">
+    <div className="min-h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900">
       <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
 
         {/* ── Header ───────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <button
             onClick={() => router.push('/admin/live-visits')}
-            className="text-sm text-brand-600 hover:text-brand-700 flex items-center gap-1 self-start"
+            className="text-sm text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 flex items-center gap-1 self-start"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -510,23 +510,23 @@ export default function VisitGroupDetailPage() {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 truncate">
                 {businessName || `Visit #${group.id.slice(0, 8)}`}
               </h1>
               {businessType && (
-                <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                   {businessType}
                 </span>
               )}
               <span
                 className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  group.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                  group.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                 }`}
               >
                 {group.status === 'active' ? tt('active') : tt('completed')}
               </span>
             </div>
-            <p className="text-xs text-gray-400 mt-1">{formatDate(group.createdAt)}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{formatDate(group.createdAt)}</p>
           </div>
 
           {group.status === 'active' && (
@@ -540,10 +540,10 @@ export default function VisitGroupDetailPage() {
         </div>
 
         {/* ── Visitors Section ─────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl shadow-sm border p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">{tt('visitors')}</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">{tt('visitors')}</h2>
           {group.visits.length === 0 ? (
-            <p className="text-sm text-gray-400">{tt('noVisitors')}</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">{tt('noVisitors')}</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {group.visits.map(visit => {
@@ -561,8 +561,8 @@ export default function VisitGroupDetailPage() {
                     title={leadId ? tt('setMainContact') : undefined}
                     className={`relative text-left p-3 rounded-xl border transition ${
                       isMain
-                        ? 'border-brand-300 bg-brand-50 ring-1 ring-brand-200'
-                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                        ? 'border-brand-300 bg-brand-50 dark:bg-brand-900/30 ring-1 ring-brand-200 dark:ring-brand-700'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
                     }`}
                   >
                     {isMain && (
@@ -576,18 +576,18 @@ export default function VisitGroupDetailPage() {
                       {photo ? (
                         <img src={photo} alt={name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-sm font-bold text-brand-700">{name.charAt(0).toUpperCase()}</span>
+                        <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm font-bold text-brand-700 dark:text-brand-300">{name.charAt(0).toUpperCase()}</span>
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
-                        {email && <p className="text-xs text-gray-500 truncate">{email}</p>}
-                        {company && <p className="text-xs text-gray-400 truncate">{company}</p>}
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{name}</p>
+                        {email && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{email}</p>}
+                        {company && <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{company}</p>}
                       </div>
                     </div>
                     {isMain && (
-                      <p className="text-[10px] font-medium text-brand-600 mt-2">{tt('mainContact')}</p>
+                      <p className="text-[10px] font-medium text-brand-600 dark:text-brand-400 mt-2">{tt('mainContact')}</p>
                     )}
                   </button>
                 );
@@ -597,15 +597,15 @@ export default function VisitGroupDetailPage() {
         </div>
 
         {/* ── Business Linking Section ─────────────────────────────────── */}
-        <div className="bg-white rounded-2xl shadow-sm border p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">{tt('business')}</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">{tt('business')}</h2>
 
           {group.managedClient || group.localBusiness ? (
             <div>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{businessName}</p>
-                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 mt-1">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{businessName}</p>
+                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 mt-1">
                     {businessType}
                   </span>
                   {(() => {
@@ -613,13 +613,13 @@ export default function VisitGroupDetailPage() {
                     if (!biz) return null;
                     const parts = [biz.address, biz.city, biz.province, biz.postalCode].filter(Boolean);
                     return parts.length > 0 ? (
-                      <p className="text-xs text-gray-500 mt-1">{parts.join(', ')}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{parts.join(', ')}</p>
                     ) : null;
                   })()}
                 </div>
                 <button
                   onClick={() => setShowBusinessSearch(true)}
-                  className="text-xs font-medium text-brand-600 hover:text-brand-700 transition"
+                  className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition"
                 >
                   {tt('changeBusiness')}
                 </button>
@@ -627,7 +627,7 @@ export default function VisitGroupDetailPage() {
             </div>
           ) : (
             <div>
-              <p className="text-sm text-gray-400 mb-3">{tt('noBusiness')}</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">{tt('noBusiness')}</p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowBusinessSearch(true)}
@@ -637,7 +637,7 @@ export default function VisitGroupDetailPage() {
                 </button>
                 <button
                   onClick={() => setShowCreateBiz(true)}
-                  className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-xs font-medium transition"
+                  className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition"
                 >
                   {tt('createLocalBusiness')}
                 </button>
@@ -647,10 +647,10 @@ export default function VisitGroupDetailPage() {
 
           {/* Business search overlay */}
           {showBusinessSearch && (
-            <div className="mt-4 border rounded-xl p-4 bg-gray-50">
+            <div className="mt-4 border dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-900">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-semibold text-gray-600">{tt('searchBusiness')}</h3>
-                <button onClick={() => { setShowBusinessSearch(false); setBusiness_query(''); setBusinessResults([]); }} className="text-xs text-gray-400 hover:text-gray-600">
+                <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400">{tt('searchBusiness')}</h3>
+                <button onClick={() => { setShowBusinessSearch(false); setBusiness_query(''); setBusinessResults([]); }} className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                   {tt('cancel')}
                 </button>
               </div>
@@ -660,7 +660,7 @@ export default function VisitGroupDetailPage() {
                 onChange={e => searchBusinesses(e.target.value)}
                 placeholder={tt('searchBusiness')}
                 autoFocus
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
               />
               {businessSearching && (
                 <div className="flex justify-center py-3">
@@ -673,24 +673,24 @@ export default function VisitGroupDetailPage() {
                     <button
                       key={`${biz.type}-${biz.id}`}
                       onClick={() => handleLinkBusiness(biz)}
-                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 transition"
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-gray-800 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 transition"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900">{biz.name}</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{biz.name}</span>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                          biz.type === 'managed' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+                          biz.type === 'managed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
                         }`}>
                           {biz.type === 'managed' ? tt('managedClient') : tt('localBusiness')}
                         </span>
                       </div>
-                      {biz.city && <p className="text-xs text-gray-500">{biz.city}</p>}
+                      {biz.city && <p className="text-xs text-gray-500 dark:text-gray-400">{biz.city}</p>}
                     </button>
                   ))}
                 </div>
               )}
               <button
                 onClick={() => { setShowBusinessSearch(false); setShowCreateBiz(true); }}
-                className="mt-2 text-xs font-medium text-brand-600 hover:text-brand-700 transition"
+                className="mt-2 text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition"
               >
                 + {tt('createLocalBusiness')}
               </button>
@@ -699,52 +699,52 @@ export default function VisitGroupDetailPage() {
 
           {/* Create local business form */}
           {showCreateBiz && (
-            <div className="mt-4 border rounded-xl p-4 bg-gray-50">
+            <div className="mt-4 border dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-900">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-semibold text-gray-600">{tt('createLocalBusiness')}</h3>
-                <button onClick={() => setShowCreateBiz(false)} className="text-xs text-gray-400 hover:text-gray-600">
+                <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400">{tt('createLocalBusiness')}</h3>
+                <button onClick={() => setShowCreateBiz(false)} className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                   {tt('cancel')}
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{tt('name')} *</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{tt('name')} *</label>
                   <input type="text" value={bizForm.name} onChange={e => setBizForm({ ...bizForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{tt('address')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{tt('address')}</label>
                   <input type="text" value={bizForm.address} onChange={e => setBizForm({ ...bizForm, address: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{tt('city')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{tt('city')}</label>
                   <input type="text" value={bizForm.city} onChange={e => setBizForm({ ...bizForm, city: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{tt('province')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{tt('province')}</label>
                   <input type="text" value={bizForm.province} onChange={e => setBizForm({ ...bizForm, province: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{tt('postalCode')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{tt('postalCode')}</label>
                   <input type="text" value={bizForm.postalCode} onChange={e => setBizForm({ ...bizForm, postalCode: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{tt('phone')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{tt('phone')}</label>
                   <input type="tel" value={bizForm.phone} onChange={e => setBizForm({ ...bizForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{tt('email')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{tt('email')}</label>
                   <input type="email" value={bizForm.email} onChange={e => setBizForm({ ...bizForm, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent" />
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-4">
-                <button onClick={() => setShowCreateBiz(false)} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-xs font-medium transition">
+                <button onClick={() => setShowCreateBiz(false)} className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition">
                   {tt('cancel')}
                 </button>
                 <button
@@ -760,12 +760,12 @@ export default function VisitGroupDetailPage() {
         </div>
 
         {/* ── Visit Needs Section ──────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl shadow-sm border p-5">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-700">{tt('needs')}</h2>
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{tt('needs')}</h2>
             <button
               onClick={() => setShowNeedForm(!showNeedForm)}
-              className="text-xs font-medium text-brand-600 hover:text-brand-700 transition"
+              className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition"
             >
               {showNeedForm ? tt('cancel') : `+ ${tt('addNeed')}`}
             </button>
@@ -773,14 +773,14 @@ export default function VisitGroupDetailPage() {
 
           {/* Add need form */}
           {showNeedForm && (
-            <div className="bg-gray-50 rounded-xl border p-4 mb-4 space-y-3">
+            <div className="bg-gray-50 dark:bg-gray-900 rounded-xl border dark:border-gray-700 p-4 mb-4 space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{tt('needType')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{tt('needType')}</label>
                   <select
                     value={needForm.type}
                     onChange={e => setNeedForm({ ...needForm, type: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
                   >
                     {NEED_TYPES.map(t => (
                       <option key={t} value={t}>{needTypeLabel(t)}</option>
@@ -788,21 +788,21 @@ export default function VisitGroupDetailPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{tt('needDescription')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{tt('needDescription')}</label>
                   <input
                     type="text"
                     value={needForm.description}
                     onChange={e => setNeedForm({ ...needForm, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{tt('needExpectedDate')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{tt('needExpectedDate')}</label>
                   <input
                     type="date"
                     value={needForm.expectedDate}
                     onChange={e => setNeedForm({ ...needForm, expectedDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -820,22 +820,22 @@ export default function VisitGroupDetailPage() {
 
           {/* Needs list */}
           {group.needs.length === 0 ? (
-            <p className="text-sm text-gray-400">{tt('noNeeds')}</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">{tt('noNeeds')}</p>
           ) : (
             <div className="space-y-2">
               {group.needs.map(need => (
-                <div key={need.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 bg-gray-50 rounded-xl border p-3">
+                <div key={need.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 bg-gray-50 dark:bg-gray-900 rounded-xl border dark:border-gray-700 p-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-gray-900">{needTypeLabel(need.type)}</span>
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${NEED_STATUS_COLORS[need.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{needTypeLabel(need.type)}</span>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${NEED_STATUS_COLORS[need.status] ?? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
                         {needStatusLabel(need.status)}
                       </span>
                       {need.expectedDate && (
-                        <span className="text-[10px] text-gray-400">{formatDate(need.expectedDate)}</span>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(need.expectedDate)}</span>
                       )}
                     </div>
-                    {need.description && <p className="text-xs text-gray-600 mt-1">{need.description}</p>}
+                    {need.description && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{need.description}</p>}
                   </div>
 
                   <div className="flex items-center gap-1 flex-shrink-0">
@@ -846,7 +846,7 @@ export default function VisitGroupDetailPage() {
                         className={`px-2 py-1 rounded text-[10px] font-medium transition ${
                           need.status === s
                             ? NEED_STATUS_COLORS[s]
-                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-600 dark:hover:text-gray-300'
                         }`}
                       >
                         {needStatusLabel(s)}
@@ -854,7 +854,7 @@ export default function VisitGroupDetailPage() {
                     ))}
                     <button
                       onClick={() => handleDeleteNeed(need.id)}
-                      className="p-1 text-gray-300 hover:text-red-500 transition ml-1"
+                      className="p-1 text-gray-300 dark:text-gray-600 hover:text-red-500 transition ml-1"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -868,16 +868,16 @@ export default function VisitGroupDetailPage() {
         </div>
 
         {/* ── Files Section ────────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl shadow-sm border p-5">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-700">{tt('files')}</h2>
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{tt('files')}</h2>
             <div className="flex items-center gap-2">
               {uploading && (
-                <span className="text-xs text-gray-400">{tt('uploading')}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">{tt('uploading')}</span>
               )}
               <button
                 onClick={startCamera}
-                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-xs font-medium transition"
+                className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium transition"
               >
                 {tt('takePhoto')}
               </button>
@@ -920,33 +920,33 @@ export default function VisitGroupDetailPage() {
           )}
 
           {group.files.length === 0 ? (
-            <p className="text-sm text-gray-400">{tt('noFiles')}</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">{tt('noFiles')}</p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {group.files.map(file => {
                 const isImage = file.fileType.startsWith('image/');
                 return (
-                  <div key={file.id} className="rounded-xl border overflow-hidden bg-gray-50">
+                  <div key={file.id} className="rounded-xl border dark:border-gray-700 overflow-hidden bg-gray-50 dark:bg-gray-900">
                     {isImage ? (
-                      <div className="aspect-square bg-gray-100">
+                      <div className="aspect-square bg-gray-100 dark:bg-gray-800">
                         <img src={file.fileData} alt={file.fileName} className="w-full h-full object-cover" />
                       </div>
                     ) : (
-                      <div className="aspect-square bg-gray-100 flex items-center justify-center">
-                        <svg className="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <div className="aspect-square bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <svg className="w-10 h-10 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                       </div>
                     )}
                     <div className="p-2">
-                      <p className="text-xs font-medium text-gray-900 truncate">{file.fileName}</p>
+                      <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{file.fileName}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-200 text-gray-600">
+                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                           {file.fileType.split('/').pop()?.toUpperCase()}
                         </span>
-                        <span className="text-[10px] text-gray-400">{formatDate(file.createdAt)}</span>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(file.createdAt)}</span>
                       </div>
-                      {file.notes && <p className="text-[10px] text-gray-500 mt-1 truncate">{file.notes}</p>}
+                      {file.notes && <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 truncate">{file.notes}</p>}
                     </div>
                   </div>
                 );
@@ -956,13 +956,13 @@ export default function VisitGroupDetailPage() {
         </div>
 
         {/* ── Notes Section ────────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl shadow-sm border p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">{tt('notes')}</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{tt('notes')}</h2>
           <textarea
             value={notesValue}
             onChange={e => setNotesValue(e.target.value)}
             rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent resize-none"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent resize-none"
           />
           <div className="flex justify-end mt-3">
             <button
@@ -976,13 +976,13 @@ export default function VisitGroupDetailPage() {
         </div>
 
         {/* ── Follow-up Date ───────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl shadow-sm border p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">{tt('followUp')}</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border dark:border-gray-700 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{tt('followUp')}</h2>
           <input
             type="date"
             value={followUp}
             onChange={e => handleFollowUpChange(e.target.value)}
-            className="w-full sm:w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+            className="w-full sm:w-64 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
           />
         </div>
 

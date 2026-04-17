@@ -105,17 +105,17 @@ const STAGES: LeadStage[] = ['new', 'qualified', 'demo_scheduled', 'demo_done', 
 const SOURCES: LeadSource[] = ['walk_in', 'inbound_call', 'outbound_call', 'referral', 'web'];
 
 const STAGE_COLORS: Record<LeadStage, string> = {
-  new: 'bg-blue-100 text-blue-800',
-  qualified: 'bg-indigo-100 text-indigo-800',
-  demo_scheduled: 'bg-yellow-100 text-yellow-800',
-  demo_done: 'bg-orange-100 text-orange-800',
-  quote_sent: 'bg-purple-100 text-purple-800',
-  negotiation: 'bg-pink-100 text-pink-800',
-  won: 'bg-green-100 text-green-800',
-  lost: 'bg-red-100 text-red-800',
+  new: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  qualified: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
+  demo_scheduled: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  demo_done: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+  quote_sent: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+  negotiation: 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-400',
+  won: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  lost: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
 };
 
-const INPUT_CLS = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent';
+const INPUT_CLS = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -449,33 +449,33 @@ export default function AdminLeadsPage() {
   // ── Table View ──
   const renderTable = () => {
     if (filtered.length === 0) {
-      return <div className="text-center text-gray-400 py-16 text-sm">{t('leads', 'noLeads')}</div>;
+      return <div className="text-center text-gray-400 dark:text-gray-500 py-16 text-sm">{t('leads', 'noLeads')}</div>;
     }
     return (
-      <div className="overflow-x-auto border rounded-xl bg-white">
+      <div className="overflow-x-auto border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800">
         <table className="min-w-full text-sm">
           <thead>
-            <tr className="border-b bg-gray-50">
-              <th className="sticky left-0 z-10 bg-gray-50 px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Client Name</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Reason of Call</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Inventory Type Suggested</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Phone</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Business Name</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Email</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Objective</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 whitespace-nowrap">Avg Budget</th>
+            <tr className="border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+              <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-900 px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Client Name</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Reason of Call</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Inventory Type Suggested</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Phone</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Business Name</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Email</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Objective</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Avg Budget</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody className="divide-y dark:divide-gray-700">
             {filtered.map(lead => {
               const products = parseProducts(lead.productsOfInterest);
               return (
                 <tr
                   key={lead.id}
                   onClick={() => setSelectedId(lead.id)}
-                  className={`cursor-pointer hover:bg-gray-50 transition ${selectedId === lead.id ? 'bg-brand-50' : ''}`}
+                  className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition ${selectedId === lead.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
                 >
-                  <td className="sticky left-0 z-10 bg-white px-4 py-3 font-medium text-gray-900 whitespace-nowrap">
+                  <td className="sticky left-0 z-10 bg-white dark:bg-gray-800 px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <span>{lead.name}</span>
                       <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STAGE_COLORS[lead.stage]}`}>
@@ -483,13 +483,13 @@ export default function AdminLeadsPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">{lead.callbackReason || '-'}</td>
-                  <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">{products.length > 0 ? products.join(', ') : '-'}</td>
-                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{lead.phone || '-'}</td>
-                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{lead.company || '-'}</td>
-                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{lead.email || '-'}</td>
-                  <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">{lead.objective || '-'}</td>
-                  <td className="px-4 py-3 text-right text-gray-600 whitespace-nowrap">
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[200px] truncate">{lead.callbackReason || '-'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[200px] truncate">{products.length > 0 ? products.join(', ') : '-'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{lead.phone || '-'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{lead.company || '-'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{lead.email || '-'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[200px] truncate">{lead.objective || '-'}</td>
+                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 whitespace-nowrap">
                     {lead.budget != null ? `$${lead.budget.toLocaleString()}` : '-'}
                   </td>
                 </tr>
@@ -511,31 +511,31 @@ export default function AdminLeadsPage() {
     return (
       <div className="flex gap-4 overflow-x-auto pb-4 min-h-[60vh]">
         {stageGroups.map(({ stage, leads: stageLeads }) => (
-          <div key={stage} className="flex-shrink-0 w-64 bg-gray-50 rounded-xl p-3">
+          <div key={stage} className="flex-shrink-0 w-64 bg-gray-50 dark:bg-gray-900 rounded-xl p-3">
             <div className="flex items-center gap-2 mb-3">
               <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STAGE_COLORS[stage]}`}>
                 {t('leads', `stage_${stage}`)}
               </span>
-              <span className="text-xs text-gray-400">{stageLeads.length}</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">{stageLeads.length}</span>
             </div>
             <div className="space-y-2">
               {stageLeads.map(lead => (
                 <button
                   key={lead.id}
                   onClick={() => setSelectedId(lead.id)}
-                  className={`w-full text-left bg-white rounded-lg shadow-sm border p-3 hover:shadow-md transition ${
+                  className={`w-full text-left bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-3 hover:shadow-md transition ${
                     selectedId === lead.id ? 'ring-2 ring-brand-600' : ''
                   }`}
                 >
-                  <p className="text-sm font-medium text-gray-900 truncate">{lead.name}</p>
-                  {lead.company && <p className="text-xs text-gray-500 truncate">{lead.company}</p>}
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{lead.name}</p>
+                  {lead.company && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{lead.company}</p>}
                   {lead.estimatedValue != null && (
-                    <p className="text-xs font-medium text-brand-600 mt-1">${lead.estimatedValue.toLocaleString()}</p>
+                    <p className="text-xs font-medium text-brand-600 dark:text-brand-400 mt-1">${lead.estimatedValue.toLocaleString()}</p>
                   )}
                 </button>
               ))}
               {stageLeads.length === 0 && (
-                <p className="text-xs text-gray-400 text-center py-4">{t('leads', 'noLeads')}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-4">{t('leads', 'noLeads')}</p>
               )}
             </div>
           </div>
@@ -551,20 +551,20 @@ export default function AdminLeadsPage() {
     const todayStr = dateKey(today);
 
     return (
-      <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="p-4 border-b">
-          <h3 className="text-sm font-semibold text-gray-700">Follow-up Calendar</h3>
-          <p className="text-xs text-gray-400 mt-1">Next 60 days - showing leads with scheduled follow-ups</p>
+      <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
+        <div className="p-4 border-b dark:border-gray-700">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Follow-up Calendar</h3>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Next 60 days - showing leads with scheduled follow-ups</p>
         </div>
         <div className="overflow-y-auto max-h-[calc(100vh-340px)]">
-          <div className="grid grid-cols-7 gap-px bg-gray-200">
+          <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700">
             {/* Day-of-week headers */}
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-              <div key={d} className="bg-gray-50 px-2 py-2 text-xs font-semibold text-gray-500 text-center">{d}</div>
+              <div key={d} className="bg-gray-50 dark:bg-gray-900 px-2 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 text-center">{d}</div>
             ))}
             {/* Leading empty cells to align first day */}
             {Array.from({ length: calendarDays[0]?.getDay() ?? 0 }).map((_, i) => (
-              <div key={`empty-${i}`} className="bg-white min-h-[80px]" />
+              <div key={`empty-${i}`} className="bg-white dark:bg-gray-800 min-h-[80px]" />
             ))}
             {calendarDays.map(day => {
               const key = dateKey(day);
@@ -573,12 +573,12 @@ export default function AdminLeadsPage() {
               return (
                 <div
                   key={key}
-                  className={`bg-white min-h-[80px] p-1.5 ${isToday ? 'ring-2 ring-inset ring-brand-500' : ''}`}
+                  className={`bg-white dark:bg-gray-800 min-h-[80px] p-1.5 ${isToday ? 'ring-2 ring-inset ring-brand-500' : ''}`}
                 >
-                  <div className={`text-xs font-medium mb-1 ${isToday ? 'text-brand-600' : 'text-gray-500'}`}>
+                  <div className={`text-xs font-medium mb-1 ${isToday ? 'text-brand-600 dark:text-brand-400' : 'text-gray-500 dark:text-gray-400'}`}>
                     {day.getDate()}
                     {day.getDate() === 1 && (
-                      <span className="ml-1 text-[10px] text-gray-400">
+                      <span className="ml-1 text-[10px] text-gray-400 dark:text-gray-500">
                         {day.toLocaleDateString(undefined, { month: 'short' })}
                       </span>
                     )}
@@ -588,7 +588,7 @@ export default function AdminLeadsPage() {
                       <button
                         key={lead.id}
                         onClick={() => setSelectedId(lead.id)}
-                        className="block w-full text-left px-1 py-0.5 rounded text-[10px] font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 truncate transition"
+                        className="block w-full text-left px-1 py-0.5 rounded text-[10px] font-medium text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-900/30 hover:bg-brand-100 dark:hover:bg-brand-900/50 truncate transition"
                         title={lead.name}
                       >
                         {lead.name}
@@ -616,23 +616,23 @@ export default function AdminLeadsPage() {
           onClick={() => setSelectedId(null)}
         />
         {/* Panel */}
-        <div className="fixed top-0 right-0 h-full w-full max-w-[500px] z-50 bg-white shadow-xl border-l overflow-y-auto">
+        <div className="fixed top-0 right-0 h-full w-full max-w-[500px] z-50 bg-white dark:bg-gray-800 shadow-xl border-l dark:border-gray-700 overflow-y-auto">
           {/* Header */}
-          <div className="sticky top-0 bg-white border-b px-5 py-4 flex items-center justify-between z-10">
+          <div className="sticky top-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-5 py-4 flex items-center justify-between z-10">
             <div className="flex items-center gap-3 min-w-0">
               {selectedLead.photo ? (
                 <img src={selectedLead.photo} alt={selectedLead.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-bold text-brand-700">{selectedLead.name.charAt(0).toUpperCase()}</span>
+                <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-bold text-brand-700 dark:text-brand-300">{selectedLead.name.charAt(0).toUpperCase()}</span>
                 </div>
               )}
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-gray-900 truncate">{selectedLead.name}</h2>
-                {selectedLead.company && <p className="text-xs text-gray-500 truncate">{selectedLead.company}</p>}
+                <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 truncate">{selectedLead.name}</h2>
+                {selectedLead.company && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedLead.company}</p>}
               </div>
             </div>
-            <button onClick={() => setSelectedId(null)} className="p-1.5 text-gray-400 hover:text-gray-600 transition rounded-lg hover:bg-gray-100">
+            <button onClick={() => setSelectedId(null)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -642,67 +642,67 @@ export default function AdminLeadsPage() {
           <div className="p-5 space-y-5">
             {/* Editable fields */}
             <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Contact Info</h3>
+              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Contact Info</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'name')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'name')}</label>
                   <input type="text" value={detailForm.name} onChange={e => setDetailForm({ ...detailForm, name: e.target.value })} className={INPUT_CLS} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'email')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'email')}</label>
                   <input type="email" value={detailForm.email} onChange={e => setDetailForm({ ...detailForm, email: e.target.value })} className={INPUT_CLS} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'company')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'company')}</label>
                   <input type="text" value={detailForm.company} onChange={e => setDetailForm({ ...detailForm, company: e.target.value })} className={INPUT_CLS} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'phone')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'phone')}</label>
                   <input type="tel" value={detailForm.phone} onChange={e => setDetailForm({ ...detailForm, phone: e.target.value })} className={INPUT_CLS} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Phone 2</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Phone 2</label>
                   <input type="tel" value={detailForm.phone2} onChange={e => setDetailForm({ ...detailForm, phone2: e.target.value })} className={INPUT_CLS} />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Other Contacts</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Other Contacts</label>
                   <input type="text" value={detailForm.otherContacts} onChange={e => setDetailForm({ ...detailForm, otherContacts: e.target.value })} className={INPUT_CLS} placeholder="Alternate emails, contacts..." />
                 </div>
               </div>
             </div>
 
-            <hr className="border-gray-100" />
+            <hr className="border-gray-100 dark:border-gray-700" />
 
             {/* Lead details */}
             <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Lead Details</h3>
+              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Lead Details</h3>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Callback Reason</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Callback Reason</label>
                 <input type="text" value={detailForm.callbackReason} onChange={e => setDetailForm({ ...detailForm, callbackReason: e.target.value })} className={INPUT_CLS} />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Objective</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Objective</label>
                 <textarea value={detailForm.objective} onChange={e => setDetailForm({ ...detailForm, objective: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Budget</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Budget</label>
                   <input type="number" value={detailForm.budget} onChange={e => setDetailForm({ ...detailForm, budget: e.target.value })} placeholder="0.00" className={INPUT_CLS} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'estimatedValue')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'estimatedValue')}</label>
                   <input type="number" value={detailForm.estimatedValue} onChange={e => setDetailForm({ ...detailForm, estimatedValue: e.target.value })} placeholder="0.00" className={INPUT_CLS} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'stage')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'stage')}</label>
                   <select value={detailForm.stage} onChange={e => setDetailForm({ ...detailForm, stage: e.target.value as LeadStage })} className={INPUT_CLS}>
                     {STAGES.map(s => <option key={s} value={s}>{t('leads', `stage_${s}`)}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'source')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'source')}</label>
                   <select value={detailForm.source} onChange={e => setDetailForm({ ...detailForm, source: e.target.value as LeadSource })} className={INPUT_CLS}>
                     {SOURCES.map(s => <option key={s} value={s}>{t('leads', `source_${s}`)}</option>)}
                   </select>
@@ -710,42 +710,42 @@ export default function AdminLeadsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'assignedTo')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'assignedTo')}</label>
                   <select value={detailForm.assignedToId} onChange={e => setDetailForm({ ...detailForm, assignedToId: e.target.value })} className={INPUT_CLS}>
                     <option value="">{t('leads', 'unassigned')}</option>
                     {team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'nextFollowUp')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'nextFollowUp')}</label>
                   <input type="date" value={detailForm.nextFollowUpAt} onChange={e => setDetailForm({ ...detailForm, nextFollowUpAt: e.target.value })} className={INPUT_CLS} />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'notes')}</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
                 <textarea value={detailForm.notes} onChange={e => setDetailForm({ ...detailForm, notes: e.target.value })} rows={3} className={`${INPUT_CLS} resize-none`} />
               </div>
             </div>
 
-            <hr className="border-gray-100" />
+            <hr className="border-gray-100 dark:border-gray-700" />
 
             {/* Products of Interest */}
             <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Products of Interest</h3>
+              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Products of Interest</h3>
               {qbItems.length === 0 ? (
-                <p className="text-xs text-gray-400">No inventory items loaded from QuickBooks.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">No inventory items loaded from QuickBooks.</p>
               ) : (
-                <div className="max-h-[160px] overflow-y-auto border rounded-lg p-2 space-y-1">
+                <div className="max-h-[160px] overflow-y-auto border dark:border-gray-700 rounded-lg p-2 space-y-1">
                   {qbItems.map(item => (
-                    <label key={item.id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
+                    <label key={item.id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={detailForm.productsOfInterest.includes(item.name)}
                         onChange={() => toggleProduct(item.name)}
-                        className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        className="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500"
                       />
-                      <span className="text-sm text-gray-700">{item.name}</span>
-                      {item.type && <span className="text-[10px] text-gray-400 ml-auto">{item.type}</span>}
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{item.name}</span>
+                      {item.type && <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">{item.type}</span>}
                     </label>
                   ))}
                 </div>
@@ -754,7 +754,7 @@ export default function AdminLeadsPage() {
               {detailForm.productsOfInterest.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {detailForm.productsOfInterest.map(p => (
-                    <span key={p} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-brand-50 text-brand-700">
+                    <span key={p} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300">
                       {p}
                       <button onClick={() => toggleProduct(p)} className="text-brand-400 hover:text-brand-600">
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -765,12 +765,12 @@ export default function AdminLeadsPage() {
               )}
             </div>
 
-            <hr className="border-gray-100" />
+            <hr className="border-gray-100 dark:border-gray-700" />
 
             {/* Quotes placeholder */}
             <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Quotes</h3>
-              <div className="border border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center text-gray-400">
+              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Quotes</h3>
+              <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
                 <svg className="w-8 h-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -789,19 +789,19 @@ export default function AdminLeadsPage() {
               </button>
             </div>
 
-            <hr className="border-gray-100" />
+            <hr className="border-gray-100 dark:border-gray-700" />
 
             {/* Tabbed section: Activity, Calls, Visits, Messages */}
-            <div className="bg-white rounded-xl border">
-              <div className="flex border-b">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+              <div className="flex border-b dark:border-gray-700">
                 {(['activity', 'calls', 'visits', 'messages'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`flex-1 py-3 text-sm font-medium text-center transition border-b-2 ${
                       activeTab === tab
-                        ? 'border-brand-600 text-brand-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                        ? 'border-brand-600 text-brand-600 dark:text-brand-400'
+                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
                     {t('leads', tab)}
@@ -820,12 +820,12 @@ export default function AdminLeadsPage() {
                     {activeTab === 'activity' && (
                       <div className="space-y-3">
                         {activities.length === 0 ? (
-                          <p className="text-sm text-gray-400 text-center py-8">{t('leads', 'noActivity')}</p>
+                          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noActivity')}</p>
                         ) : (
-                          <div className="relative pl-4 border-l-2 border-gray-200 space-y-4">
+                          <div className="relative pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
                             {activities.map(act => (
                               <div key={act.id} className="relative">
-                                <div className={`absolute -left-[21px] w-3 h-3 rounded-full border-2 border-white ${
+                                <div className={`absolute -left-[21px] w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
                                   act.type === 'stage_change' ? 'bg-brand-600' :
                                   act.type === 'call_logged' ? 'bg-blue-500' :
                                   act.type === 'visit_logged' ? 'bg-orange-500' :
@@ -834,11 +834,11 @@ export default function AdminLeadsPage() {
                                   'bg-gray-400'
                                 }`} />
                                 <div className="ml-2">
-                                  <p className="text-sm text-gray-700">{act.description}</p>
+                                  <p className="text-sm text-gray-700 dark:text-gray-300">{act.description}</p>
                                   <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[10px] text-gray-400">{formatDate(act.createdAt)}</span>
+                                    <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(act.createdAt)}</span>
                                     {(act.actorName || act.actor?.name) && (
-                                      <span className="text-[10px] text-gray-400">{act.actorName || act.actor?.name}</span>
+                                      <span className="text-[10px] text-gray-400 dark:text-gray-500">{act.actorName || act.actor?.name}</span>
                                     )}
                                   </div>
                                 </div>
@@ -862,23 +862,23 @@ export default function AdminLeadsPage() {
                         </div>
 
                         {showCallForm && (
-                          <div className="bg-gray-50 rounded-lg p-4 space-y-3 border">
+                          <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700">
                             <div className="grid grid-cols-2 gap-3">
                               <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'callType')}</label>
+                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callType')}</label>
                                 <select value={callForm.type} onChange={e => setCallForm({ ...callForm, type: e.target.value as 'inbound' | 'outbound' })} className={INPUT_CLS}>
                                   <option value="outbound">{t('leads', 'callOutbound')}</option>
                                   <option value="inbound">{t('leads', 'callInbound')}</option>
                                 </select>
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'clientType')}</label>
-                                <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'clientType')}</label>
+                                <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
                                   <button
                                     type="button"
                                     onClick={() => setCallForm({ ...callForm, clientType: 'new' })}
                                     className={`flex-1 px-3 py-2 text-sm font-medium transition ${
-                                      callForm.clientType === 'new' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                                      callForm.clientType === 'new' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                                     }`}
                                   >
                                     {t('leads', 'clientNew')}
@@ -887,7 +887,7 @@ export default function AdminLeadsPage() {
                                     type="button"
                                     onClick={() => setCallForm({ ...callForm, clientType: 'existing' })}
                                     className={`flex-1 px-3 py-2 text-sm font-medium transition ${
-                                      callForm.clientType === 'existing' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                                      callForm.clientType === 'existing' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                                     }`}
                                   >
                                     {t('leads', 'clientExisting')}
@@ -896,15 +896,15 @@ export default function AdminLeadsPage() {
                               </div>
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'callDuration')}</label>
+                              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callDuration')}</label>
                               <input type="number" placeholder={t('leads', 'durationSeconds')} value={callForm.duration} onChange={e => setCallForm({ ...callForm, duration: e.target.value })} className={INPUT_CLS} />
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'callOutcome')}</label>
+                              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callOutcome')}</label>
                               <input type="text" value={callForm.outcome} onChange={e => setCallForm({ ...callForm, outcome: e.target.value })} className={INPUT_CLS} />
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'notes')}</label>
+                              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
                               <textarea value={callForm.notes} onChange={e => setCallForm({ ...callForm, notes: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
                             </div>
                             <div className="flex justify-end">
@@ -916,33 +916,33 @@ export default function AdminLeadsPage() {
                         )}
 
                         {calls.length === 0 ? (
-                          <p className="text-sm text-gray-400 text-center py-8">{t('leads', 'noCalls')}</p>
+                          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noCalls')}</p>
                         ) : (
                           calls.map(call => (
-                            <div key={call.id} className="bg-gray-50 rounded-lg p-3 border">
+                            <div key={call.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
                               <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center gap-2">
                                   <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                    call.type === 'inbound' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                                    call.type === 'inbound' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                   }`}>
                                     {t('leads', `call${call.type.charAt(0).toUpperCase() + call.type.slice(1)}`)}
                                   </span>
                                   {(call as any).clientType && (
                                     <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                      (call as any).clientType === 'existing' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
+                                      (call as any).clientType === 'existing' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                                     }`}>
                                       {(call as any).clientType === 'existing' ? t('leads', 'clientExisting') : t('leads', 'clientNew')}
                                     </span>
                                   )}
-                                  {call.outcome && <span className="text-xs text-gray-600">{call.outcome}</span>}
+                                  {call.outcome && <span className="text-xs text-gray-600 dark:text-gray-400">{call.outcome}</span>}
                                 </div>
-                                <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                                <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500">
                                   {call.duration != null && <span>{formatDuration(call.duration)}</span>}
                                   <span>{formatDate(call.calledAt)}</span>
                                 </div>
                               </div>
-                              {call.notes && <p className="text-xs text-gray-600 mt-1">{call.notes}</p>}
-                              <p className="text-[10px] text-gray-400 mt-1">{call.loggedBy?.name || ''}</p>
+                              {call.notes && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{call.notes}</p>}
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{call.loggedBy?.name || ''}</p>
                             </div>
                           ))
                         )}
@@ -953,16 +953,16 @@ export default function AdminLeadsPage() {
                     {activeTab === 'visits' && (
                       <div className="space-y-3">
                         {visits.length === 0 ? (
-                          <p className="text-sm text-gray-400 text-center py-8">{t('leads', 'noVisits')}</p>
+                          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noVisits')}</p>
                         ) : (
                           visits.map(visit => (
-                            <div key={visit.id} className="bg-gray-50 rounded-lg p-3 border">
+                            <div key={visit.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
                               <div className="flex items-center justify-between mb-1">
-                                <p className="text-sm font-medium text-gray-900">{visit.visitorName}</p>
-                                <span className="text-[10px] text-gray-400">{formatDate(visit.visitedAt)}</span>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{visit.visitorName}</p>
+                                <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(visit.visitedAt)}</span>
                               </div>
-                              <p className="text-xs text-gray-600">{visit.purpose}</p>
-                              {visit.notes && <p className="text-xs text-gray-500 mt-1">{visit.notes}</p>}
+                              <p className="text-xs text-gray-600 dark:text-gray-400">{visit.purpose}</p>
+                              {visit.notes && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{visit.notes}</p>}
                             </div>
                           ))
                         )}
@@ -974,26 +974,26 @@ export default function AdminLeadsPage() {
                       <div className="flex flex-col h-[300px]">
                         <div className="flex-1 overflow-y-auto space-y-3 mb-3">
                           {messages.length === 0 ? (
-                            <p className="text-sm text-gray-400 text-center py-8">{t('leads', 'noMessages')}</p>
+                            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noMessages')}</p>
                           ) : (
                             messages.map(msg => (
                               <div key={msg.id} className="flex gap-2">
-                                <div className="w-7 h-7 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-[10px] font-bold text-brand-700">{msg.senderName.charAt(0).toUpperCase()}</span>
+                                <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
+                                  <span className="text-[10px] font-bold text-brand-700 dark:text-brand-300">{msg.senderName.charAt(0).toUpperCase()}</span>
                                 </div>
-                                <div className="bg-gray-50 rounded-lg p-2.5 border max-w-[80%]">
+                                <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-2.5 border dark:border-gray-700 max-w-[80%]">
                                   <div className="flex items-center gap-2 mb-0.5">
-                                    <span className="text-xs font-medium text-gray-900">{msg.senderName}</span>
-                                    <span className="text-[10px] text-gray-400">{formatDate(msg.sentAt)}</span>
+                                    <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{msg.senderName}</span>
+                                    <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(msg.sentAt)}</span>
                                   </div>
-                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.content}</p>
+                                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{msg.content}</p>
                                 </div>
                               </div>
                             ))
                           )}
                           <div ref={messagesEndRef} />
                         </div>
-                        <div className="flex gap-2 border-t pt-3">
+                        <div className="flex gap-2 border-t dark:border-gray-700 pt-3">
                           <textarea
                             value={messageBody}
                             onChange={e => setMessageBody(e.target.value)}
@@ -1029,7 +1029,7 @@ export default function AdminLeadsPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header area */}
-      <div className="p-6 border-b bg-white">
+      <div className="p-6 border-b dark:border-gray-700 bg-white dark:bg-gray-800">
         <PageHeader
           title={t('leads', 'title')}
           subtitle={t('leads', 'subtitle')}
@@ -1053,7 +1053,7 @@ export default function AdminLeadsPage() {
               key={mode}
               onClick={() => setViewMode(mode)}
               className={`px-3 py-1.5 text-sm font-medium rounded-lg transition ${
-                viewMode === mode ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                viewMode === mode ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {t('leads', `view${mode.charAt(0).toUpperCase() + mode.slice(1)}`)}
@@ -1075,7 +1075,7 @@ export default function AdminLeadsPage() {
           <button
             onClick={() => setStageFilter('all')}
             className={`px-2.5 py-1 text-xs rounded-full font-medium transition ${
-              stageFilter === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              stageFilter === 'all' ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
             {t('leads', 'filterAll')}
@@ -1085,7 +1085,7 @@ export default function AdminLeadsPage() {
               key={s}
               onClick={() => setStageFilter(s)}
               className={`px-2.5 py-1 text-xs rounded-full font-medium transition ${
-                stageFilter === s ? STAGE_COLORS[s] : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                stageFilter === s ? STAGE_COLORS[s] : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {t('leads', `stage_${s}`)}
@@ -1097,7 +1097,7 @@ export default function AdminLeadsPage() {
           <button
             onClick={() => setSourceFilter('all')}
             className={`px-2.5 py-1 text-xs rounded-full font-medium transition ${
-              sourceFilter === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              sourceFilter === 'all' ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
             {t('leads', 'filterAll')}
@@ -1107,7 +1107,7 @@ export default function AdminLeadsPage() {
               key={s}
               onClick={() => setSourceFilter(s)}
               className={`px-2.5 py-1 text-xs rounded-full font-medium transition ${
-                sourceFilter === s ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                sourceFilter === s ? 'bg-gray-700 text-white dark:bg-gray-300 dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {t('leads', `source_${s}`)}
@@ -1137,10 +1137,10 @@ export default function AdminLeadsPage() {
       {/* ── New Lead Modal ─────────────────────────────────────────────────── */}
       {showNewLead && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">{t('leads', 'newLead')}</h3>
-              <button onClick={() => setShowNewLead(false)} className="p-1 text-gray-400 hover:text-gray-600 transition">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('leads', 'newLead')}</h3>
+              <button onClick={() => setShowNewLead(false)} className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -1148,58 +1148,58 @@ export default function AdminLeadsPage() {
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'name')}</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'name')}</label>
                 <input type="text" value={newLeadForm.name} onChange={e => setNewLeadForm({ ...newLeadForm, name: e.target.value })} className={INPUT_CLS} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'email')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'email')}</label>
                   <input type="email" value={newLeadForm.email} onChange={e => setNewLeadForm({ ...newLeadForm, email: e.target.value })} className={INPUT_CLS} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'phone')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'phone')}</label>
                   <input type="tel" value={newLeadForm.phone} onChange={e => setNewLeadForm({ ...newLeadForm, phone: e.target.value })} className={INPUT_CLS} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Phone 2</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Phone 2</label>
                   <input type="tel" value={newLeadForm.phone2} onChange={e => setNewLeadForm({ ...newLeadForm, phone2: e.target.value })} className={INPUT_CLS} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'company')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'company')}</label>
                   <input type="text" value={newLeadForm.company} onChange={e => setNewLeadForm({ ...newLeadForm, company: e.target.value })} className={INPUT_CLS} />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Callback Reason</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Callback Reason</label>
                 <input type="text" value={newLeadForm.callbackReason} onChange={e => setNewLeadForm({ ...newLeadForm, callbackReason: e.target.value })} className={INPUT_CLS} />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Objective</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Objective</label>
                 <textarea value={newLeadForm.objective} onChange={e => setNewLeadForm({ ...newLeadForm, objective: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Budget</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Budget</label>
                   <input type="number" value={newLeadForm.budget} onChange={e => setNewLeadForm({ ...newLeadForm, budget: e.target.value })} placeholder="0.00" className={INPUT_CLS} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'source')}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'source')}</label>
                   <select value={newLeadForm.source} onChange={e => setNewLeadForm({ ...newLeadForm, source: e.target.value as LeadSource })} className={INPUT_CLS}>
                     {SOURCES.map(s => <option key={s} value={s}>{t('leads', `source_${s}`)}</option>)}
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">{t('leads', 'notes')}</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
                 <textarea value={newLeadForm.notes} onChange={e => setNewLeadForm({ ...newLeadForm, notes: e.target.value })} rows={3} className={`${INPUT_CLS} resize-none`} />
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-5">
               <button
                 onClick={() => setShowNewLead(false)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition"
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium transition"
               >
                 {t('leads', 'cancel')}
               </button>

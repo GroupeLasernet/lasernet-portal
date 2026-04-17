@@ -234,7 +234,7 @@ export default function ClientTicketsPage() {
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <div className="card text-center py-12">
-          <p className="text-gray-500">Loading...</p>
+          <p className="text-gray-500 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
@@ -248,8 +248,8 @@ export default function ClientTicketsPage() {
           <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
           </svg>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Account Not Set Up</h2>
-          <p className="text-gray-500 max-w-md mx-auto">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Account Not Set Up</h2>
+          <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto">
             Your account hasn&apos;t been linked to a client profile yet. Please contact your LaserNet administrator to get access to the support ticket system.
           </p>
         </div>
@@ -263,7 +263,7 @@ export default function ClientTicketsPage() {
       <div>
         <PageHeader title="Complete Your Profile" />
         <div className="card">
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
             Before you can create support tickets, please register as the contact person for{' '}
             <span className="font-semibold">{managedClient.qbClient.companyName}</span>.
           </p>
@@ -271,7 +271,7 @@ export default function ClientTicketsPage() {
           <div className="space-y-4 mb-6">
             {/* Photo Upload */}
             <div className="flex flex-col items-center">
-              <label className="block text-sm font-medium text-gray-700 mb-3">Photo</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Photo</label>
               <Avatar
                 photo={formData.photo}
                 name={formData.name || 'User'}
@@ -283,7 +283,7 @@ export default function ClientTicketsPage() {
 
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Name *</label>
               <input
                 type="text"
                 value={formData.name}
@@ -295,7 +295,7 @@ export default function ClientTicketsPage() {
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email *</label>
               <input
                 type="email"
                 value={formData.email}
@@ -307,7 +307,7 @@ export default function ClientTicketsPage() {
 
             {/* Phone */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone</label>
               <input
                 type="tel"
                 value={formData.phone}
@@ -319,7 +319,7 @@ export default function ClientTicketsPage() {
 
             {/* Role */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Role</label>
               <input
                 type="text"
                 value={formData.role}
@@ -360,12 +360,12 @@ export default function ClientTicketsPage() {
       {/* Create Ticket Form */}
       {showCreateForm && (
         <div className="card mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Create New Ticket</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Create New Ticket</h2>
 
           <div className="space-y-4">
             {/* Subject */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Subject *</label>
               <input
                 type="text"
                 value={ticketForm.subject}
@@ -377,7 +377,7 @@ export default function ClientTicketsPage() {
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description *</label>
               <textarea
                 value={ticketForm.description}
                 onChange={(e) => setTicketForm({ ...ticketForm, description: e.target.value })}
@@ -388,7 +388,7 @@ export default function ClientTicketsPage() {
 
             {/* Priority */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Priority</label>
               <select
                 value={ticketForm.priority}
                 onChange={(e) => setTicketForm({ ...ticketForm, priority: e.target.value as TicketPriority })}
@@ -403,7 +403,7 @@ export default function ClientTicketsPage() {
 
             {/* Attachments */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">Attachments</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Attachments</label>
 
               {/* Upload Buttons */}
               <div className="flex gap-3 mb-4">
@@ -433,9 +433,9 @@ export default function ClientTicketsPage() {
                   {ticketForm.attachments.map((att) => (
                     <div
                       key={att.id}
-                      className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200"
+                      className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700"
                     >
-                      <span className="text-sm text-gray-700">{att.name}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{att.name}</span>
                       <button
                         onClick={() => removeAttachment(att.id)}
                         className="text-red-600 hover:text-red-800 text-sm font-medium"
@@ -450,7 +450,7 @@ export default function ClientTicketsPage() {
               {/* Image Preview */}
               {imagePreview && (
                 <div className="mb-4">
-                  <img src={imagePreview} alt="Preview" className="max-w-full h-auto rounded-lg border border-gray-200 max-h-48" />
+                  <img src={imagePreview} alt="Preview" className="max-w-full h-auto rounded-lg border border-gray-200 dark:border-gray-700 max-h-48" />
                 </div>
               )}
             </div>
@@ -487,7 +487,7 @@ export default function ClientTicketsPage() {
       {/* Tickets List */}
       {tickets.length === 0 ? (
         <div className="card text-center py-12">
-          <p className="text-gray-500 mb-4">No tickets yet</p>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">No tickets yet</p>
           {!showCreateForm && (
             <button onClick={() => setShowCreateForm(true)} className="btn-primary">
               Create Your First Ticket
@@ -501,7 +501,7 @@ export default function ClientTicketsPage() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="font-semibold text-gray-900">{ticket.ticketNumber}</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{ticket.ticketNumber}</span>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[ticket.status]}`}>
                       {ticket.status.replace('_', ' ')}
                     </span>
@@ -509,14 +509,14 @@ export default function ClientTicketsPage() {
                       {ticket.priority}
                     </span>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">{ticket.subject}</h3>
-                  <p className="text-gray-600 text-sm mb-2">{ticket.description.substring(0, 100)}...</p>
-                  <p className="text-xs text-gray-500">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">{ticket.subject}</h3>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">{ticket.description.substring(0, 100)}...</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Created: {new Date(ticket.createdAt).toLocaleDateString()}
                   </p>
                 </div>
                 {ticket.attachments.length > 0 && (
-                  <div className="text-xs text-gray-500 ml-4">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 ml-4">
                     {ticket.attachments.length} attachment{ticket.attachments.length > 1 ? 's' : ''}
                   </div>
                 )}

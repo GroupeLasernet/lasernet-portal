@@ -197,10 +197,10 @@ function SetupAccountContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 dark:from-gray-900 to-white dark:to-gray-900 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="w-12 h-12 border-3 border-brand-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Verifying invitation...</p>
+          <p className="text-gray-600 dark:text-gray-400">Verifying invitation...</p>
         </div>
       </div>
     );
@@ -208,7 +208,7 @@ function SetupAccountContent() {
 
   if (error && !inviteData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 dark:from-gray-900 to-white dark:to-gray-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full">
           <div className="card">
             <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-red-100 mx-auto mb-4">
@@ -216,8 +216,8 @@ function SetupAccountContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h1 className="text-lg font-semibold text-center text-gray-900 mb-2">Invalid Invitation</h1>
-            <p className="text-center text-gray-600 text-sm mb-6">{error}</p>
+            <h1 className="text-lg font-semibold text-center text-gray-900 dark:text-gray-100 mb-2">Invalid Invitation</h1>
+            <p className="text-center text-gray-600 dark:text-gray-400 text-sm mb-6">{error}</p>
             <Link href="/login" className="btn-primary block text-center w-full">
               Back to Login
             </Link>
@@ -229,7 +229,7 @@ function SetupAccountContent() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 dark:from-gray-900 to-white dark:to-gray-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full">
           <div className="card">
             <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-green-100 mx-auto mb-4">
@@ -237,8 +237,8 @@ function SetupAccountContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h1 className="text-lg font-semibold text-center text-gray-900 mb-2">Account Created!</h1>
-            <p className="text-center text-gray-600 text-sm mb-6">
+            <h1 className="text-lg font-semibold text-center text-gray-900 dark:text-gray-100 mb-2">Account Created!</h1>
+            <p className="text-center text-gray-600 dark:text-gray-400 text-sm mb-6">
               Your account has been set up successfully. Redirecting to login...
             </p>
             <div className="w-8 h-1 bg-gradient-to-r from-brand-600 to-brand-400 rounded-full mx-auto"></div>
@@ -249,12 +249,12 @@ function SetupAccountContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-white py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 dark:from-gray-900 to-white dark:to-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Complete Your Registration</h1>
-          <p className="text-gray-600">Welcome to LaserNet Portal. Set up your account to get started.</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Complete Your Registration</h1>
+          <p className="text-gray-600 dark:text-gray-400">Welcome to LaserNet Portal. Set up your account to get started.</p>
         </div>
 
         {/* Setup Form */}
@@ -268,7 +268,7 @@ function SetupAccountContent() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Photo Upload */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">Profile Photo</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Profile Photo</label>
               <div className="flex items-center gap-4">
                 <Avatar
                   photo={photo}
@@ -278,15 +278,15 @@ function SetupAccountContent() {
                   onPhotoChange={handlePhotoChange}
                 />
                 <div>
-                  <p className="text-xs text-gray-500">Click the avatar to upload a photo</p>
-                  <p className="text-xs text-gray-400">Or leave empty for auto-generated initials</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Click the avatar to upload a photo</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Or leave empty for auto-generated initials</p>
                 </div>
               </div>
             </div>
 
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
               <input
                 type="text"
                 value={name}
@@ -299,19 +299,19 @@ function SetupAccountContent() {
 
             {/* Email (read-only) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email (not editable)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email (not editable)</label>
               <input
                 type="email"
                 value={email}
                 disabled
-                className="input-field bg-gray-50 cursor-not-allowed"
+                className="input-field bg-gray-50 dark:bg-gray-900 cursor-not-allowed"
               />
-              <p className="text-xs text-gray-400 mt-1">Your invitation was sent to this email</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Your invitation was sent to this email</p>
             </div>
 
             {/* Phone */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
               <input
                 type="tel"
                 value={phone}
@@ -324,7 +324,7 @@ function SetupAccountContent() {
 
             {/* Role */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
               <input
                 type="text"
                 value={role}
@@ -337,7 +337,7 @@ function SetupAccountContent() {
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password *</label>
               <input
                 type="password"
                 value={password}
@@ -346,12 +346,12 @@ function SetupAccountContent() {
                 className="input-field"
                 disabled={submitting}
               />
-              <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Minimum 6 characters</p>
             </div>
 
             {/* Confirm Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirm Password *</label>
               <input
                 type="password"
                 value={confirmPassword}
@@ -372,16 +372,16 @@ function SetupAccountContent() {
             </button>
 
             {/* Terms */}
-            <p className="text-xs text-gray-500 text-center">
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
               By creating an account, you agree to our Terms of Service and Privacy Policy.
             </p>
           </form>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-gray-600 mt-6">
+        <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-6">
           Already have an account?{' '}
-          <Link href="/login" className="font-medium text-brand-600 hover:text-brand-700">
+          <Link href="/login" className="font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700">
             Log in instead
           </Link>
         </p>
@@ -393,10 +393,10 @@ function SetupAccountContent() {
 export default function SetupAccountPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 dark:from-gray-900 to-white dark:to-gray-900 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="w-12 h-12 border-3 border-brand-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     }>

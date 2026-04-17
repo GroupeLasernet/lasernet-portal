@@ -34,23 +34,23 @@ export default function InventoryPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">{t('settings', 'stockTitle')}</h1>
-        <p className="text-sm text-gray-500 mt-1">{t('settings', 'stockDesc')}</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('settings', 'stockTitle')}</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'stockDesc')}</p>
       </div>
 
       {/* Browse existing inventory */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800">{t('settings', 'stockBrowse')}</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">{t('settings', 'stockBrowse')}</h2>
         </div>
         <InventoryBrowser t={t} />
       </div>
 
       {/* Add new stock item */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800">{t('settings', 'addStockTitle')}</h2>
-          <p className="text-sm text-gray-500 mt-1">{t('settings', 'addStockDesc')}</p>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">{t('settings', 'addStockTitle')}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'addStockDesc')}</p>
         </div>
         <AddStockForm t={t} />
       </div>
@@ -154,9 +154,9 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
     : items;
 
   const detailRow = (label: string, value: string | number | null | undefined, fallback?: string) => (
-    <div className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-b-0">
-      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider w-28 flex-shrink-0 pt-0.5">{label}</span>
-      <span className="text-sm text-gray-800 flex-1">{value !== null && value !== undefined && value !== '' ? String(value) : (fallback || '—')}</span>
+    <div className="flex items-start gap-3 py-2.5 border-b border-gray-50 dark:border-gray-700 last:border-b-0">
+      <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider w-28 flex-shrink-0 pt-0.5">{label}</span>
+      <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{value !== null && value !== undefined && value !== '' ? String(value) : (fallback || '—')}</span>
     </div>
   );
 
@@ -164,35 +164,35 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
     <div className="p-6">
       <div className="flex gap-4 min-h-[360px]">
         {/* Left: item list */}
-        <div className="w-[280px] flex-shrink-0 flex flex-col border border-gray-200 rounded-xl overflow-hidden">
-          <div className="p-2 border-b border-gray-100">
+        <div className="w-[280px] flex-shrink-0 flex flex-col border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+          <div className="p-2 border-b border-gray-100 dark:border-gray-700">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('settings', 'stockSearch')}
-              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-brand-500"
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-gray-100"
             />
           </div>
 
           <div className="flex-1 overflow-y-auto max-h-[500px]">
             {filtered.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">{t('settings', 'stockNoItems')}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-6">{t('settings', 'stockNoItems')}</p>
             ) : (
               filtered.map(item => (
                 <button
                   key={item.id}
                   onClick={() => setSelectedItem(item)}
-                  className={`w-full text-left px-3 py-2.5 border-b border-gray-50 transition-colors ${
+                  className={`w-full text-left px-3 py-2.5 border-b border-gray-50 dark:border-gray-700 transition-colors ${
                     selectedItem?.id === item.id
-                      ? 'bg-brand-50 border-l-2 border-l-brand-500'
-                      : 'hover:bg-gray-50'
+                      ? 'bg-brand-50 dark:bg-brand-900/30 border-l-2 border-l-brand-500'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
-                  <p className={`text-sm font-medium truncate ${selectedItem?.id === item.id ? 'text-brand-700' : 'text-gray-800'}`}>
+                  <p className={`text-sm font-medium truncate ${selectedItem?.id === item.id ? 'text-brand-700 dark:text-brand-300' : 'text-gray-800 dark:text-gray-200'}`}>
                     {item.name}
                   </p>
-                  <p className="text-xs text-gray-400 truncate mt-0.5">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
                     {item.type}{item.sku ? ` · ${item.sku}` : ''}{item.qtyOnHand !== null ? ` · ${item.qtyOnHand} en stock` : ''}
                   </p>
                 </button>
@@ -200,21 +200,21 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
             )}
           </div>
 
-          <div className="px-3 py-2 border-t border-gray-100 bg-gray-50">
-            <p className="text-xs text-gray-400">{filtered.length} {filtered.length === 1 ? 'item' : 'items'}</p>
+          <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <p className="text-xs text-gray-400 dark:text-gray-500">{filtered.length} {filtered.length === 1 ? 'item' : 'items'}</p>
           </div>
         </div>
 
         {/* Right: detail panel */}
-        <div className="flex-1 border border-gray-200 rounded-xl overflow-hidden">
+        <div className="flex-1 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
           {selectedItem ? (
             <div className="p-5">
               <div className="flex items-center gap-3 mb-4">
-                <h4 className="text-lg font-bold text-gray-900 flex-1">{selectedItem.name}</h4>
+                <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex-1">{selectedItem.name}</h4>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                  selectedItem.type === 'Inventory' ? 'bg-blue-50 text-blue-700'
-                    : selectedItem.type === 'Service' ? 'bg-purple-50 text-purple-700'
-                    : 'bg-gray-100 text-gray-600'
+                  selectedItem.type === 'Inventory' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                    : selectedItem.type === 'Service' ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                 }`}>
                   {selectedItem.type}
                 </span>
@@ -230,9 +230,9 @@ function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
               {detailRow(t('settings', 'stockFieldActive'), selectedItem.active ? t('settings', 'stockYes') : t('settings', 'stockNo'))}
             </div>
           ) : (
-            <div className="flex items-center justify-center h-full text-gray-300">
+            <div className="flex items-center justify-center h-full text-gray-300 dark:text-gray-600">
               <div className="text-center">
-                <svg className="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-12 h-12 mx-auto mb-3 text-gray-200 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
                 <p className="text-sm">{t('settings', 'stockSelectItem')}</p>
@@ -350,8 +350,8 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
 
       {/* Type selector */}
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t('settings', 'stockType')}</label>
-        <p className="text-xs text-gray-400 mb-2">{t('settings', 'stockTypeHint')}</p>
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">{t('settings', 'stockType')}</label>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t('settings', 'stockTypeHint')}</p>
         <div className="flex gap-2">
           {(['Inventory', 'NonInventory', 'Service'] as const).map(tp => (
             <button
@@ -361,7 +361,7 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 itemType === tp
                   ? 'bg-brand-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {tp === 'Inventory' ? t('settings', 'stockInventory')
@@ -374,47 +374,47 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
 
       {/* Name (required) */}
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockName')} *</label>
-        <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockNameHint')}</p>
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockName')} *</label>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('settings', 'stockNameHint')}</p>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
           placeholder="Ex: UR10e Cobot, Laser Head 50W..."
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+          className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-gray-100"
         />
       </div>
 
       {/* Description */}
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockDescription')}</label>
-        <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockDescHint')}</p>
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockDescription')}</label>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('settings', 'stockDescHint')}</p>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
           placeholder="Ex: Universal Robots UR10e collaborative robot arm with teach pendant"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 resize-none"
+          className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-gray-100 resize-none"
         />
       </div>
 
       {/* SKU + Prices row */}
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockSku')}</label>
-          <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockSkuHint')}</p>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockSku')}</label>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('settings', 'stockSkuHint')}</p>
           <input
             type="text"
             value={sku}
             onChange={(e) => setSku(e.target.value)}
             placeholder="UR10E-001"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+            className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-gray-100"
           />
         </div>
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockPrice')}</label>
-          <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockPriceHint')}</p>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockPrice')}</label>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('settings', 'stockPriceHint')}</p>
           <input
             type="number"
             step="0.01"
@@ -422,12 +422,12 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
             value={unitPrice}
             onChange={(e) => setUnitPrice(e.target.value)}
             placeholder="0.00"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+            className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-gray-100"
           />
         </div>
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockCost')}</label>
-          <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockCostHint')}</p>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockCost')}</label>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('settings', 'stockCostHint')}</p>
           <input
             type="number"
             step="0.01"
@@ -435,7 +435,7 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
             value={purchaseCost}
             onChange={(e) => setPurchaseCost(e.target.value)}
             placeholder="0.00"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+            className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-gray-100"
           />
         </div>
       </div>
@@ -443,34 +443,34 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
       {/* Qty on hand — Inventory only */}
       {isInventory && (
         <div className="max-w-[200px]">
-          <label className="block text-sm font-semibold text-gray-700 mb-1">{t('settings', 'stockQty')}</label>
-          <p className="text-xs text-gray-400 mb-1.5">{t('settings', 'stockQtyHint')}</p>
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockQty')}</label>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">{t('settings', 'stockQtyHint')}</p>
           <input
             type="number"
             min="0"
             value={qtyOnHand}
             onChange={(e) => setQtyOnHand(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+            className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-gray-100"
           />
         </div>
       )}
 
       {/* QB Accounts */}
-      <div className="border-t border-gray-100 pt-5">
-        <p className="text-sm font-bold text-gray-700 mb-1">{t('settings', 'stockAccounts')}</p>
-        <p className="text-xs text-gray-400 mb-4">{t('settings', 'stockAccountsHint')}</p>
+      <div className="border-t border-gray-100 dark:border-gray-700 pt-5">
+        <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{t('settings', 'stockAccounts')}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">{t('settings', 'stockAccountsHint')}</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
+            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
               {t('settings', 'stockIncomeAccount')} {isInventory ? '*' : ''}
             </label>
-            <p className="text-[11px] text-gray-400 mb-1">{t('settings', 'stockIncomeHint')}</p>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-1">{t('settings', 'stockIncomeHint')}</p>
             <select
               value={incomeAccountId}
               onChange={(e) => setIncomeAccountId(e.target.value)}
               required={isInventory}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-gray-100"
             >
               <option value="">{t('settings', 'stockSelectAccount')}</option>
               {incomeAccounts.map(a => (
@@ -480,15 +480,15 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
+            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
               {t('settings', 'stockExpenseAccount')} {isInventory ? '*' : ''}
             </label>
-            <p className="text-[11px] text-gray-400 mb-1">{t('settings', 'stockExpenseHint')}</p>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-1">{t('settings', 'stockExpenseHint')}</p>
             <select
               value={expenseAccountId}
               onChange={(e) => setExpenseAccountId(e.target.value)}
               required={isInventory}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-gray-100"
             >
               <option value="">{t('settings', 'stockSelectAccount')}</option>
               {expenseAccounts.map(a => (
@@ -499,15 +499,15 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
 
           {isInventory && (
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
                 {t('settings', 'stockAssetAccount')} *
               </label>
-              <p className="text-[11px] text-gray-400 mb-1">{t('settings', 'stockAssetHint')}</p>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-1">{t('settings', 'stockAssetHint')}</p>
               <select
                 value={assetAccountId}
                 onChange={(e) => setAssetAccountId(e.target.value)}
                 required
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500"
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 dark:bg-gray-900 dark:text-gray-100"
               >
                 <option value="">{t('settings', 'stockSelectAccount')}</option>
                 {assetAccounts.map(a => (
@@ -523,8 +523,8 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
       {result && (
         <div className={`p-3 rounded-lg text-sm font-medium ${
           result.success
-            ? 'bg-green-50 border border-green-200 text-green-700'
-            : 'bg-red-50 border border-red-200 text-red-700'
+            ? 'bg-green-50 border border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400'
+            : 'bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400'
         }`}>
           {result.message}
         </div>

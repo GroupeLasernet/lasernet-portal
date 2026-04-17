@@ -10,7 +10,7 @@ import PageHeader from '@/components/PageHeader';
 
 const ChevronIcon = ({ open }: { open: boolean }) => (
   <svg
-    className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
+    className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
     fill="none" viewBox="0 0 24 24" stroke="currentColor"
   >
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -48,10 +48,10 @@ const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onCon
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
-      <div className="bg-white rounded-xl shadow-xl p-5 max-w-xs w-full text-center">
-        <p className="text-sm font-medium text-gray-800 mb-4">{label}</p>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-5 max-w-xs w-full text-center">
+        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-4">{label}</p>
         <div className="flex gap-3">
-          <button onClick={onCancel} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition">{t('common', 'no')}</button>
+          <button onClick={onCancel} className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium transition">{t('common', 'no')}</button>
           <button
             onMouseDown={startHold}
             onMouseUp={cancelHold}
@@ -847,11 +847,11 @@ export default function AdminClientsPage() {
   const formatDate = (dateStr: string) => { if (!dateStr) return '\u2014'; return new Date(dateStr).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' }); };
   const stationStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-700';
-      case 'waiting_pairing': return 'bg-blue-100 text-blue-700';
-      case 'not_configured': return 'bg-yellow-100 text-yellow-700';
-      case 'in_trouble': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'active': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+      case 'waiting_pairing': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+      case 'not_configured': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
+      case 'in_trouble': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+      default: return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
     }
   };
 
@@ -879,8 +879,8 @@ export default function AdminClientsPage() {
             <div className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className={`w-6 h-6 ${qbConnected && dataSource === 'quickbooks' ? 'bg-green-100' : 'bg-yellow-100'} rounded flex items-center justify-center`}>
-                    <span className={`${qbConnected && dataSource === 'quickbooks' ? 'text-green-600' : 'text-yellow-600'} text-xs font-bold`}>QB</span>
+                  <div className={`w-6 h-6 ${qbConnected && dataSource === 'quickbooks' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-100 dark:bg-yellow-900/30'} rounded flex items-center justify-center`}>
+                    <span className={`${qbConnected && dataSource === 'quickbooks' ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'} text-xs font-bold`}>QB</span>
                   </div>
                   <h2 className="font-semibold text-sm">{t('clients', 'qbClients')}</h2>
                 </div>
@@ -891,20 +891,20 @@ export default function AdminClientsPage() {
                 )}
               </div>
               {!credentialsConfigured && (
-                <p className="text-[10px] text-red-600 bg-red-50 px-2 py-1 rounded mb-2">
+                <p className="text-[10px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded mb-2">
                   {t('clients', 'credentialsMissing')}
                 </p>
               )}
               {connectError && (
-                <p className="text-[10px] text-red-600 bg-red-50 px-2 py-1 rounded mb-2">{connectError}</p>
+                <p className="text-[10px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded mb-2">{connectError}</p>
               )}
               {dataSource === 'mock' && credentialsConfigured && (
-                <p className="text-[10px] text-yellow-600 bg-yellow-50 px-2 py-1 rounded mb-2">
+                <p className="text-[10px] text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 px-2 py-1 rounded mb-2">
                   {qbConnected ? t('clients', 'sessionExpired') : t('clients', 'demoData')}
                 </p>
               )}
               {dataSource === 'quickbooks' && (
-                <p className="text-[10px] text-green-600 bg-green-50 px-2 py-1 rounded mb-2">{t('clients', 'connected')}</p>
+                <p className="text-[10px] text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded mb-2">{t('clients', 'connected')}</p>
               )}
               <input
                 type="text"
@@ -917,22 +917,22 @@ export default function AdminClientsPage() {
 
             {/* Search results — only show when typing */}
             {qbSearch.trim().length > 0 && (
-              <div className="border-t border-gray-100 max-h-[200px] overflow-y-auto">
+              <div className="border-t border-gray-100 dark:border-gray-700 max-h-[200px] overflow-y-auto">
                 {filteredQBClients.length > 0 ? (
                   filteredQBClients.map((client) => (
-                    <div key={client.id} className="flex items-center justify-between px-4 py-2.5 border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                    <div key={client.id} className="flex items-center justify-between px-4 py-2.5 border-b border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <Avatar photo={null} name={client.displayName} size="sm" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">{client.displayName}</p>
-                          <p className="text-xs text-gray-500 truncate">{client.companyName}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{client.companyName}</p>
                         </div>
                       </div>
                       <button onClick={() => handleAddClient(client)} className="flex-shrink-0 ml-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">{t('common', 'add')}</button>
                     </div>
                   ))
                 ) : (
-                  <div className="p-3 text-center text-sm text-gray-400">{t('clients', 'noMatchingClients')}</div>
+                  <div className="p-3 text-center text-sm text-gray-400 dark:text-gray-500">{t('clients', 'noMatchingClients')}</div>
                 )}
               </div>
             )}
@@ -940,9 +940,9 @@ export default function AdminClientsPage() {
 
           {/* Enrolment List */}
           <div className="card flex-1 flex flex-col !p-0 overflow-hidden">
-            <div className="p-4 border-b border-gray-100">
+            <div className="p-4 border-b border-gray-100 dark:border-gray-700">
               <h2 className="font-semibold text-sm flex items-center gap-2">
-                <svg className="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
                 {t('clients', 'enrolment')}
@@ -954,20 +954,20 @@ export default function AdminClientsPage() {
                   <div
                     key={mc.id}
                     onClick={() => setSelectedClientId(mc.id)}
-                    className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 cursor-pointer transition-colors ${
-                      selectedClientId === mc.id ? 'bg-brand-50 border-l-2 border-l-brand-600' : 'hover:bg-gray-50'
+                    className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 dark:border-gray-700 cursor-pointer transition-colors ${
+                      selectedClientId === mc.id ? 'bg-brand-50 dark:bg-brand-900/30 border-l-2 border-l-brand-600' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     <Avatar photo={null} name={mc.qbClient.displayName} size="sm" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{mc.qbClient.displayName}</p>
-                      <p className="text-xs text-gray-500 truncate">{mc.qbClient.companyName}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{mc.qbClient.companyName}</p>
                       <div className="flex items-center gap-2 mt-1">
                         {mc.responsiblePerson && (
-                          <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">Main Contact set</span>
+                          <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded-full">Main Contact set</span>
                         )}
                         {mc.subEmployees.length > 0 && (
-                          <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">{mc.subEmployees.length} staff</span>
+                          <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded-full">{mc.subEmployees.length} staff</span>
                         )}
                       </div>
                     </div>
@@ -975,16 +975,16 @@ export default function AdminClientsPage() {
                 ))
               ) : (
                 <div className="p-6 text-center">
-                  <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-10 h-10 text-gray-200 dark:text-gray-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  <p className="text-sm text-gray-400">{t('clients', 'noClientsEnrolled')}</p>
-                  <p className="text-xs text-gray-400 mt-1">{t('clients', 'searchQBAbove')}</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">{t('clients', 'noClientsEnrolled')}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('clients', 'searchQBAbove')}</p>
                 </div>
               )}
             </div>
-            <div className="p-3 border-t border-gray-100 bg-gray-50">
-              <p className="text-xs text-gray-500 text-center">
+            <div className="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                 {managedClients.length} {t('clients', 'clientsEnrolled')}
               </p>
             </div>
@@ -999,36 +999,36 @@ export default function AdminClientsPage() {
             <>
               <div className="card !p-0">
                 {/* Client Header */}
-                <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-brand-50 to-white">
+                <div className="p-5 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-brand-50 to-white dark:from-brand-900/30 dark:to-gray-800">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-4">
                       <Avatar photo={null} name={selectedClient.qbClient.displayName} size="lg" />
                       <div>
                         <h2 className="text-lg font-bold">{selectedClient.qbClient.displayName}</h2>
-                        <p className="text-sm text-gray-500">{selectedClient.qbClient.companyName}</p>
-                        <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{selectedClient.qbClient.companyName}</p>
+                        <div className="flex items-center gap-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
                           <span>{selectedClient.qbClient.email}</span>
                           <span>{selectedClient.qbClient.phone}</span>
                         </div>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                           {selectedClient.qbClient.address}, {selectedClient.qbClient.city}, {selectedClient.qbClient.province} {selectedClient.qbClient.postalCode}
                         </p>
                       </div>
                     </div>
-                    <button onClick={() => setConfirmDelete({ type: 'client', id: selectedClient.id, label: t('clients', 'removeClient') })} className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">{t('common', 'remove')}</button>
+                    <button onClick={() => setConfirmDelete({ type: 'client', id: selectedClient.id, label: t('clients', 'removeClient') })} className="text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 px-3 py-1.5 rounded-lg transition-colors">{t('common', 'remove')}</button>
                   </div>
                 </div>
 
                 {/* Street View — Collapsible */}
                 {(selectedClient.qbClient.address || selectedClient.qbClient.city) && (
-                  <div className="border-b border-gray-100">
-                    <button onClick={() => setStreetViewOpen(!streetViewOpen)} className="w-full flex items-center gap-2 px-5 py-3 hover:bg-gray-50 transition-colors">
+                  <div className="border-b border-gray-100 dark:border-gray-700">
+                    <button onClick={() => setStreetViewOpen(!streetViewOpen)} className="w-full flex items-center gap-2 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       <ChevronIcon open={streetViewOpen} />
-                      <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      <span className="text-sm font-medium text-gray-700">{t('clients', 'streetView')}</span>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('clients', 'streetView')}</span>
                     </button>
                     {streetViewOpen && (
                       <div className="px-5 pb-4">
@@ -1039,14 +1039,14 @@ export default function AdminClientsPage() {
                 )}
 
                 {/* Main Contact — Collapsible */}
-                <div className="border-b border-gray-100">
+                <div className="border-b border-gray-100 dark:border-gray-700">
                   <div className="flex items-center justify-between px-5">
                     <button onClick={() => setMainContactOpen(!mainContactOpen)} className="flex items-center gap-2 py-3 hover:opacity-80 transition-opacity">
                       <ChevronIcon open={mainContactOpen} />
-                      <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                       </svg>
-                      <span className="text-sm font-semibold text-gray-900">{t('clients', 'mainContact')}</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('clients', 'mainContact')}</span>
                     </button>
                     {!selectedClient.responsiblePerson && mainContactOpen && (
                       <button onClick={() => openContactForm('maincontact')} className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ {t('clients', 'setMainContact')}</button>
@@ -1055,19 +1055,19 @@ export default function AdminClientsPage() {
                   {mainContactOpen && (
                     <div className="px-5 pb-4">
                       {selectedClient.responsiblePerson ? (
-                        <div className="flex items-center gap-4 bg-green-50 rounded-xl p-4">
+                        <div className="flex items-center gap-4 bg-green-50 dark:bg-green-900/30 rounded-xl p-4">
                           <Avatar photo={selectedClient.responsiblePerson.photo} name={selectedClient.responsiblePerson.name} size="lg" />
                           <div className="flex-1">
                             <p className="font-semibold">{selectedClient.responsiblePerson.name}</p>
-                            <p className="text-sm text-gray-600">{selectedClient.responsiblePerson.role}</p>
-                            <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{selectedClient.responsiblePerson.role}</p>
+                            <div className="flex items-center gap-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
                               <span>{selectedClient.responsiblePerson.email}</span>
                               <span>{selectedClient.responsiblePerson.phone}</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="w-14 flex flex-col items-center gap-1">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">{t('clients', 'trainingCol')}</span>
+                              <span className="text-[9px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium leading-none">{t('clients', 'trainingCol')}</span>
                               {selectedClient.responsiblePerson.trainingCompleted ? (
                                 <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                               ) : (
@@ -1075,7 +1075,7 @@ export default function AdminClientsPage() {
                               )}
                             </div>
                             <div className="w-14 flex flex-col items-center gap-1">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">{t('clients', 'bookletCol')}</span>
+                              <span className="text-[9px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium leading-none">{t('clients', 'bookletCol')}</span>
                               {selectedClient.responsiblePerson.trainingPhoto ? (
                                 <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                               ) : (
@@ -1084,12 +1084,12 @@ export default function AdminClientsPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
-                            <button onClick={() => openEditForm('maincontact', selectedClient.responsiblePerson!)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'edit')}><EditIcon /></button>
-                            <button onClick={() => setConfirmDelete({ type: 'maincontact', id: selectedClient.id, label: t('clients', 'removeMainContact') })} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'remove')}><TrashIcon /></button>
+                            <button onClick={() => openEditForm('maincontact', selectedClient.responsiblePerson!)} className="text-gray-400 dark:text-gray-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={t('common', 'edit')}><EditIcon /></button>
+                            <button onClick={() => setConfirmDelete({ type: 'maincontact', id: selectedClient.id, label: t('clients', 'removeMainContact') })} className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={t('common', 'remove')}><TrashIcon /></button>
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-gray-400 italic">{t('clients', 'noMainContact')}</p>
+                        <p className="text-sm text-gray-400 dark:text-gray-500 italic">{t('clients', 'noMainContact')}</p>
                       )}
                     </div>
                   )}
@@ -1100,11 +1100,11 @@ export default function AdminClientsPage() {
                   <div className="flex items-center justify-between px-5">
                     <button onClick={() => setStaffOpen(!staffOpen)} className="flex items-center gap-2 py-3 hover:opacity-80 transition-opacity">
                       <ChevronIcon open={staffOpen} />
-                      <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      <span className="text-sm font-semibold text-gray-900">{t('clients', 'staff')}</span>
-                      {selectedClient.subEmployees.length > 0 && <span className="text-xs text-gray-400 ml-1">({selectedClient.subEmployees.length})</span>}
+                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('clients', 'staff')}</span>
+                      {selectedClient.subEmployees.length > 0 && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">({selectedClient.subEmployees.length})</span>}
                     </button>
                     {staffOpen && (
                       <button onClick={() => openContactForm('staff')} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ {t('clients', 'addStaff')}</button>
@@ -1115,18 +1115,18 @@ export default function AdminClientsPage() {
                       {selectedClient.subEmployees.length > 0 ? (
                         <div className="space-y-2">
                           {selectedClient.subEmployees.map((emp) => (
-                            <div key={emp.id} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3 hover:bg-blue-50 transition-colors">
+                            <div key={emp.id} className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-xl p-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
                               <Avatar photo={emp.photo} name={emp.name} size="md" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-sm">{emp.name}</p>
-                                <p className="text-xs text-gray-500">{emp.role}</p>
-                                <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{emp.role}</p>
+                                <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400 dark:text-gray-500">
                                   <span>{emp.email}</span><span>{emp.phone}</span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
                                 <div className="w-14 flex flex-col items-center gap-1">
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">{t('clients', 'trainingCol')}</span>
+                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium leading-none">{t('clients', 'trainingCol')}</span>
                                   {emp.trainingCompleted ? (
                                     <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                   ) : (
@@ -1134,7 +1134,7 @@ export default function AdminClientsPage() {
                                   )}
                                 </div>
                                 <div className="w-14 flex flex-col items-center gap-1">
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 font-medium leading-none">{t('clients', 'bookletCol')}</span>
+                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium leading-none">{t('clients', 'bookletCol')}</span>
                                   {emp.trainingPhoto ? (
                                     <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                   ) : (
@@ -1143,14 +1143,14 @@ export default function AdminClientsPage() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">
-                                <button onClick={() => openEditForm('staff', emp)} className="text-gray-400 hover:text-brand-600 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'edit')}><EditIcon /></button>
-                                <button onClick={() => setConfirmDelete({ type: 'staff', id: selectedClient.id, id2: emp.id, label: t('clients', 'removeStaff') })} className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-white" title={t('common', 'remove')}><TrashIcon size="w-4 h-4" /></button>
+                                <button onClick={() => openEditForm('staff', emp)} className="text-gray-400 dark:text-gray-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={t('common', 'edit')}><EditIcon /></button>
+                                <button onClick={() => setConfirmDelete({ type: 'staff', id: selectedClient.id, id2: emp.id, label: t('clients', 'removeStaff') })} className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={t('common', 'remove')}><TrashIcon size="w-4 h-4" /></button>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-gray-400 italic">{t('clients', 'noStaff')}</p>
+                        <p className="text-sm text-gray-400 dark:text-gray-500 italic">{t('clients', 'noStaff')}</p>
                       )}
                     </div>
                   )}
@@ -1159,17 +1159,17 @@ export default function AdminClientsPage() {
 
               {/* INVOICES BOX */}
               <div className="card !p-0">
-                <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-white">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-white dark:from-purple-900/30 dark:to-gray-800">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-sm flex items-center gap-2">
                       <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       {t('clients', 'invoices')}
-                      {clientInvoices.length > 0 && <span className="text-xs text-gray-400 font-normal">({clientInvoices.length})</span>}
+                      {clientInvoices.length > 0 && <span className="text-xs text-gray-400 dark:text-gray-500 font-normal">({clientInvoices.length})</span>}
                     </h3>
                     <div className="flex items-center gap-2">
-                      {invoicesSource === 'mock' && <span className="text-[10px] text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded">{t('clients', 'demoData')}</span>}
+                      {invoicesSource === 'mock' && <span className="text-[10px] text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 px-2 py-0.5 rounded">{t('clients', 'demoData')}</span>}
                       <span className="text-[10px] text-purple-500">{t('clients', 'clickInvoice')}</span>
                     </div>
                   </div>
@@ -1178,53 +1178,53 @@ export default function AdminClientsPage() {
                   {invoicesLoading ? (
                     <div className="p-6 text-center">
                       <div className="animate-spin w-6 h-6 border-2 border-purple-200 border-t-purple-600 rounded-full mx-auto mb-2"></div>
-                      <p className="text-sm text-gray-400">{t('clients', 'loadingInvoices')}</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500">{t('clients', 'loadingInvoices')}</p>
                     </div>
                   ) : clientInvoices.length > 0 ? (
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-gray-100 text-left">
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('clients', 'invoiceNumber')}</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common', 'date')}</th>
-                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">{t('clients', 'items')}</th>
+                        <tr className="border-b border-gray-100 dark:border-gray-700 text-left">
+                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('clients', 'invoiceNumber')}</th>
+                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('common', 'date')}</th>
+                          <th className="px-4 py-2.5 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">{t('clients', 'items')}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {clientInvoices.map((inv) => (
-                          <tr key={inv.id} onClick={() => openInvoicePreview(inv)} className="border-b border-gray-50 hover:bg-purple-50 transition-colors cursor-pointer group">
-                            <td className="px-4 py-3 font-medium group-hover:text-purple-700">{inv.invoiceNumber}</td>
-                            <td className="px-4 py-3 text-gray-500">{formatDate(inv.date)}</td>
-                            <td className="px-4 py-3 text-right text-gray-500">{inv.items?.length || 0}</td>
+                          <tr key={inv.id} onClick={() => openInvoicePreview(inv)} className="border-b border-gray-50 dark:border-gray-700 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors cursor-pointer group">
+                            <td className="px-4 py-3 font-medium group-hover:text-purple-700 dark:group-hover:text-purple-400">{inv.invoiceNumber}</td>
+                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{formatDate(inv.date)}</td>
+                            <td className="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{inv.items?.length || 0}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   ) : (
                     <div className="p-6 text-center">
-                      <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-10 h-10 text-gray-200 dark:text-gray-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      <p className="text-sm text-gray-400">{t('clients', 'noInvoices')}</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500">{t('clients', 'noInvoices')}</p>
                     </div>
                   )}
                 </div>
                 {clientInvoices.length > 0 && (
-                  <div className="p-3 border-t border-gray-100 bg-gray-50">
-                    <p className="text-xs text-gray-500 text-center">{clientInvoices.length} {clientInvoices.length === 1 ? 'invoice' : 'invoices'}</p>
+                  <div className="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center">{clientInvoices.length} {clientInvoices.length === 1 ? 'invoice' : 'invoices'}</p>
                   </div>
                 )}
               </div>
 
               {/* STATIONS BOX */}
               <div className="card !p-0">
-                <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-white">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-orange-50 to-white dark:from-orange-900/30 dark:to-gray-800">
                   <button onClick={() => setStationsOpen(!stationsOpen)} className="w-full flex items-center justify-between">
                     <h3 className="font-semibold text-sm flex items-center gap-2">
                       <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                       </svg>
                       {t('clients', 'stationsSection')}
-                      {clientStations.length > 0 && <span className="text-xs text-gray-400 font-normal">({clientStations.length})</span>}
+                      {clientStations.length > 0 && <span className="text-xs text-gray-400 dark:text-gray-500 font-normal">({clientStations.length})</span>}
                     </h3>
                     <ChevronIcon open={stationsOpen} />
                   </button>
@@ -1232,9 +1232,9 @@ export default function AdminClientsPage() {
                 {stationsOpen && (
                   <div>
                     {clientStations.length > 0 ? (
-                      <div className="divide-y divide-gray-50">
+                      <div className="divide-y divide-gray-50 dark:divide-gray-700">
                         {clientStations.map((station) => (
-                          <div key={station.id} className="p-4 hover:bg-gray-50 transition-colors">
+                          <div key={station.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
@@ -1250,16 +1250,16 @@ export default function AdminClientsPage() {
                                     {stationStatusLabel(station.status)}
                                   </span>
                                 </div>
-                                <p className="text-xs text-gray-400 mt-0.5">{t('clients', 'fromInvoice')} {station.invoiceNumber} — {formatDate(station.createdAt)}</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('clients', 'fromInvoice')} {station.invoiceNumber} — {formatDate(station.createdAt)}</p>
                                 {station.linkedInvoices && station.linkedInvoices.length > 0 && (
                                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                                    <span className="text-[10px] text-gray-400 uppercase tracking-wide mr-1">
+                                    <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mr-1">
                                       {t('clients', 'linkedInvoices') || 'Linked invoices'}:
                                     </span>
                                     {station.linkedInvoices.map((inv) => (
                                       <span
                                         key={`${station.id}-${inv.invoiceNumber}`}
-                                        className="group inline-flex items-center gap-1 text-[10px] font-medium pl-1.5 pr-1 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-100 hover:bg-orange-100 transition-colors"
+                                        className="group inline-flex items-center gap-1 text-[10px] font-medium pl-1.5 pr-1 py-0.5 rounded bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-100 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
                                       >
                                         <span>#{inv.invoiceNumber}</span>
                                         <button
@@ -1281,10 +1281,10 @@ export default function AdminClientsPage() {
                                   </div>
                                 )}
                                 {station.description && (
-                                  <p className="text-xs text-gray-500 mt-1">{station.description}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{station.description}</p>
                                 )}
                               </div>
-                              <button onClick={() => setConfirmDelete({ type: 'station', id: station.id, label: t('clients', 'deleteStation') })} className="text-gray-300 hover:text-red-500 transition-colors p-1 ml-3" title={t('common', 'delete')}>
+                              <button onClick={() => setConfirmDelete({ type: 'station', id: station.id, label: t('clients', 'deleteStation') })} className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1 ml-3" title={t('common', 'delete')}>
                                 <TrashIcon size="w-4 h-4" />
                               </button>
                             </div>
@@ -1293,11 +1293,11 @@ export default function AdminClientsPage() {
                       </div>
                     ) : (
                       <div className="p-6 text-center">
-                        <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-10 h-10 text-gray-200 dark:text-gray-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                         </svg>
-                        <p className="text-sm text-gray-400">{t('clients', 'noStations')}</p>
-                        <p className="text-xs text-gray-400 mt-1">{t('clients', 'clickInvoiceStations')}</p>
+                        <p className="text-sm text-gray-400 dark:text-gray-500">{t('clients', 'noStations')}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('clients', 'clickInvoiceStations')}</p>
                       </div>
                     )}
                   </div>
@@ -1306,7 +1306,7 @@ export default function AdminClientsPage() {
 
               {/* TRAINING AGENDA BOX */}
               <div className="card !p-0">
-                <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-teal-50 to-white">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-teal-50 to-white dark:from-teal-900/30 dark:to-gray-800">
                   <div className="flex items-center justify-between">
                     <button onClick={() => setTrainingAgendaOpen(!trainingAgendaOpen)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                       <ChevronIcon open={trainingAgendaOpen} />
@@ -1315,7 +1315,7 @@ export default function AdminClientsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                         </svg>
                         {t('clients', 'trainingAgenda')}
-                        {clientTrainings.length > 0 && <span className="text-xs text-gray-400 font-normal">({clientTrainings.length})</span>}
+                        {clientTrainings.length > 0 && <span className="text-xs text-gray-400 dark:text-gray-500 font-normal">({clientTrainings.length})</span>}
                       </h3>
                     </button>
                     {trainingAgendaOpen && (
@@ -1332,33 +1332,33 @@ export default function AdminClientsPage() {
                 {trainingAgendaOpen && (
                   <div>
                     {clientTrainings.length > 0 ? (
-                      <div className="divide-y divide-gray-50">
+                      <div className="divide-y divide-gray-50 dark:divide-gray-700">
                         {clientTrainings.map((tr: any) => (
-                          <div key={tr.id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setTrainingDetail(tr)}>
+                          <div key={tr.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer" onClick={() => setTrainingDetail(tr)}>
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                   <p className="font-medium text-sm">{tr.title}</p>
                                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                                    tr.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                    tr.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                                    'bg-teal-100 text-teal-700'
+                                    tr.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                    tr.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                    'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
                                   }`}>
                                     {tr.status}
                                   </span>
                                 </div>
-                                <p className="text-xs text-gray-400 mt-0.5">
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                                   {formatDate(tr.date)}
                                   {tr.duration && <span> — {tr.duration} min</span>}
                                   {tr.template && <span> — Template: {tr.template.name}</span>}
                                 </p>
                                 {tr.attendees?.length > 0 && (
-                                  <p className="text-xs text-gray-500 mt-1">{tr.attendees.length} attendee{tr.attendees.length !== 1 ? 's' : ''}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{tr.attendees.length} attendee{tr.attendees.length !== 1 ? 's' : ''}</p>
                                 )}
                               </div>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setConfirmDelete({ type: 'training', id: tr.id, label: 'Delete this training?' }); }}
-                                className="text-gray-300 hover:text-red-500 transition-colors p-1 ml-2"
+                                className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1 ml-2"
                               >
                                 <TrashIcon size="w-4 h-4" />
                               </button>
@@ -1368,11 +1368,11 @@ export default function AdminClientsPage() {
                       </div>
                     ) : (
                       <div className="p-6 text-center">
-                        <svg className="w-10 h-10 text-gray-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-10 h-10 text-gray-200 dark:text-gray-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                         </svg>
-                        <p className="text-sm text-gray-400">{t('clients', 'noTrainings')}</p>
-                        <p className="text-xs text-gray-400 mt-1">{t('clients', 'clickNewTraining')}</p>
+                        <p className="text-sm text-gray-400 dark:text-gray-500">{t('clients', 'noTrainings')}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('clients', 'clickNewTraining')}</p>
                       </div>
                     )}
                   </div>
@@ -1382,10 +1382,10 @@ export default function AdminClientsPage() {
           ) : (
             <div className="card flex-1 flex items-center justify-center">
               <div className="text-center">
-                <svg className="w-16 h-16 text-gray-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-16 h-16 text-gray-200 dark:text-gray-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                <p className="text-gray-400 text-sm">{t('clients', 'selectClient')}</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm">{t('clients', 'selectClient')}</p>
               </div>
             </div>
           )}
@@ -1395,9 +1395,9 @@ export default function AdminClientsPage() {
       {/* INVOICE PREVIEW MODAL */}
       {previewInvoice && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col">
             {/* Modal Header */}
-            <div className="p-6 border-b border-gray-100 flex-shrink-0">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -1406,30 +1406,30 @@ export default function AdminClientsPage() {
                     </svg>
                     Invoice {previewInvoice.invoiceNumber}
                   </h2>
-                  <p className="text-sm text-gray-500 mt-1">{previewInvoice.clientName}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{previewInvoice.clientName}</p>
                 </div>
-                <button onClick={() => setPreviewInvoice(null)} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+                <button onClick={() => setPreviewInvoice(null)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
               <div className="flex items-center gap-6 mt-3 text-sm">
-                <div><span className="text-gray-400">Date:</span> <span className="font-medium">{formatDate(previewInvoice.date)}</span></div>
-                <div><span className="text-gray-400">Due:</span> <span className="font-medium">{formatDate(previewInvoice.dueDate)}</span></div>
-                <div><span className="text-gray-400">Items:</span> <span className="font-medium">{previewInvoice.items?.length || 0}</span></div>
+                <div><span className="text-gray-400 dark:text-gray-500">Date:</span> <span className="font-medium">{formatDate(previewInvoice.date)}</span></div>
+                <div><span className="text-gray-400 dark:text-gray-500">Due:</span> <span className="font-medium">{formatDate(previewInvoice.dueDate)}</span></div>
+                <div><span className="text-gray-400 dark:text-gray-500">Items:</span> <span className="font-medium">{previewInvoice.items?.length || 0}</span></div>
               </div>
             </div>
 
             {/* Line Items */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="mb-3">
-                <h3 className="text-sm font-semibold text-gray-700">{t('clients', 'lineItems')}</h3>
-                <p className="text-xs text-gray-400 mt-1">{t('clients', 'selectItems')}</p>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('clients', 'lineItems')}</h3>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('clients', 'selectItems')}</p>
               </div>
 
               {/* Column headers */}
-              <div className="flex items-center gap-2 px-4 py-2 text-[10px] font-medium text-gray-400 uppercase tracking-wider border-b border-gray-100 mb-2">
+              <div className="flex items-center gap-2 px-4 py-2 text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700 mb-2">
                 <div className="w-6" />
                 <div className="w-24">{t('clients', 'model')}</div>
                 <div className="flex-1">{t('common', 'description')}</div>
@@ -1451,8 +1451,8 @@ export default function AdminClientsPage() {
                       key={index}
                       className={`p-3 rounded-xl border-2 transition-all ${
                         selectedItems.has(index)
-                          ? 'border-purple-400 bg-purple-50'
-                          : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                          ? 'border-purple-400 bg-purple-50 dark:bg-purple-900/30'
+                          : 'border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
                       <label className="flex items-center gap-2 cursor-pointer">
@@ -1460,13 +1460,13 @@ export default function AdminClientsPage() {
                           type="checkbox"
                           checked={selectedItems.has(index)}
                           onChange={() => toggleItem(index)}
-                          className="w-4 h-4 mx-2 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                          className="w-4 h-4 mx-2 text-purple-600 rounded border-gray-300 dark:border-gray-600 focus:ring-purple-500"
                         />
                         <div className="w-24">
-                          <span className="text-xs text-gray-500">{item.model || '—'}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{item.model || '—'}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">{item.description}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.description}</p>
                         </div>
                         <div className="w-20 text-center">
                           <span className={`text-xs font-medium ${stationsForItem > 0 ? 'text-green-600' : 'text-gray-300'}`}>
@@ -1481,12 +1481,12 @@ export default function AdminClientsPage() {
                       </label>
                       {/* Quantity selector for multi-unit items */}
                       {selectedItems.has(index) && available > 1 && (
-                        <div className="mt-3 ml-8 flex items-center gap-3 bg-white rounded-lg p-2 border border-purple-200">
-                          <span className="text-xs text-gray-500">{t('clients', 'howManyStations')}</span>
+                        <div className="mt-3 ml-8 flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg p-2 border border-purple-200 dark:border-purple-700">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{t('clients', 'howManyStations')}</span>
                           <select
                             value={itemQuantities[index] || 1}
                             onChange={(e) => setItemQuantities(prev => ({ ...prev, [index]: parseInt(e.target.value) }))}
-                            className="text-sm border border-gray-200 rounded px-2 py-1 focus:ring-purple-500 focus:border-purple-500"
+                            className="text-sm border border-gray-200 dark:border-gray-700 rounded px-2 py-1 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-gray-100"
                           >
                             {Array.from({ length: available }, (_, i) => i + 1).map(n => (
                               <option key={n} value={n}>{n} station{n > 1 ? 's' : ''}</option>
@@ -1501,7 +1501,7 @@ export default function AdminClientsPage() {
             </div>
 
             {/* Create Station Footer */}
-            <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex-shrink-0">
+            <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-b-2xl flex-shrink-0">
               {selectedItems.size > 0 ? (
                 <div className="space-y-3">
                   {/* Choose: add to existing or create new */}
@@ -1515,7 +1515,7 @@ export default function AdminClientsPage() {
                           onChange={() => setStationMode('existing')}
                           className="text-purple-600 focus:ring-purple-500"
                         />
-                        <span className="text-sm text-gray-700">{t('clients', 'addToExisting')}</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{t('clients', 'addToExisting')}</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -1525,7 +1525,7 @@ export default function AdminClientsPage() {
                           onChange={() => setStationMode('new')}
                           className="text-purple-600 focus:ring-purple-500"
                         />
-                        <span className="text-sm text-gray-700">{t('clients', 'createNewStation')}</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{t('clients', 'createNewStation')}</span>
                       </label>
                     </div>
                   )}
@@ -1555,7 +1555,7 @@ export default function AdminClientsPage() {
                   )}
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">{selectedItems.size} {t('clients', 'itemsSelected')}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{selectedItems.size} {t('clients', 'itemsSelected')}</span>
                     <button
                       onClick={handleCreateStation}
                       className="bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors flex items-center gap-2"
@@ -1568,7 +1568,7 @@ export default function AdminClientsPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 text-center">{t('clients', 'selectLineItems')}</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 text-center">{t('clients', 'selectLineItems')}</p>
               )}
             </div>
           </div>
@@ -1587,14 +1587,14 @@ export default function AdminClientsPage() {
       {/* ADD / EDIT CONTACT MODAL */}
       {showContactForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
-            <div className="p-6 border-b border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-lg font-semibold">
                 {editingContactId
                   ? (contactFormType === 'maincontact' ? t('clients', 'editMainContact') : t('clients', 'editStaff'))
                   : (contactFormType === 'maincontact' ? t('clients', 'setMainContact') : t('clients', 'addStaffMember'))}
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 {contactFormType === 'maincontact' ? t('clients', 'mainContactDesc') : t('clients', 'staffDesc')}
               </p>
             </div>
@@ -1602,43 +1602,43 @@ export default function AdminClientsPage() {
               <div className="flex items-center gap-4">
                 <Avatar photo={contactForm.photo} name={contactForm.name || '?'} size="xl" editable onPhotoChange={(base64) => setContactForm({ ...contactForm, photo: base64 })} />
                 <div>
-                  <p className="text-sm font-medium text-gray-700">{t('clients', 'profilePhoto')}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{t('clients', 'clickAvatar')}</p>
-                  <p className="text-xs text-gray-400">{t('clients', 'leaveEmptyInitials')}</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('clients', 'profilePhoto')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('clients', 'clickAvatar')}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{t('clients', 'leaveEmptyInitials')}</p>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'fullName')}</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('clients', 'fullName')}</label>
                 <input className="input-field" value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} placeholder="e.g. Pierre Martin" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'emailRequired')}</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('clients', 'emailRequired')}</label>
                 <input className="input-field" type="email" value={contactForm.email} onChange={(e) => { setContactForm({ ...contactForm, email: e.target.value }); setContactError(null); }} placeholder="e.g. pierre@company.ca" />
-                {contactError && <p className="text-xs text-red-600 mt-1">{contactError}</p>}
+                {contactError && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{contactError}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'phoneLabel')}</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('clients', 'phoneLabel')}</label>
                 <input className="input-field" value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="e.g. 514-555-0000" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'roleLabel')}</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('clients', 'roleLabel')}</label>
                 <input className="input-field" value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} placeholder="e.g. IT Manager, Receptionist, Owner" />
               </div>
 
               {/* QR Code for self-edit profile */}
               {editingContactId && contactForm.email && (
-                <div className="pt-3 border-t border-gray-100">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('clients', 'profileQRCode')}</label>
+                <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('clients', 'profileQRCode')}</label>
                   <div className="flex items-center gap-3">
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
                         `${typeof window !== 'undefined' ? window.location.origin : ''}/profile/${editingContactId}`
                       )}`}
                       alt="QR Code"
-                      className="w-24 h-24 border border-gray-200 rounded-lg"
+                      className="w-24 h-24 border border-gray-200 dark:border-gray-700 rounded-lg"
                     />
                     <div className="flex flex-col gap-2">
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
                         <p>{t('clients', 'scanToEdit')}</p>
                       </div>
                       <button
@@ -1662,11 +1662,11 @@ export default function AdminClientsPage() {
               )}
 
               {editingContactId && managedClients.length > 1 && (
-                <div className="pt-3 border-t border-gray-100">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {t('clients', 'reassignSection')}
                   </label>
-                  <p className="text-xs text-gray-400 mb-2">{t('clients', 'reassignDesc')}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t('clients', 'reassignDesc')}</p>
                   <select
                     className="input-field"
                     value={reassignTargetId}
@@ -1685,11 +1685,11 @@ export default function AdminClientsPage() {
               )}
 
               {editingContactId && contactForm.email && (
-                <div className="pt-2 border-t border-gray-100">
+                <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-700">{t('clients', 'passwordSection')}</p>
-                      <p className="text-xs text-gray-400">{t('clients', 'sendResetEmail')}</p>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('clients', 'passwordSection')}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">{t('clients', 'sendResetEmail')}</p>
                     </div>
                     <button type="button" onClick={() => handleResetPassword(contactForm.email, contactForm.name)}
                       disabled={resetSending || (!!resetCountdowns[contactForm.email] && resetCountdowns[contactForm.email] > 0)}
@@ -1704,7 +1704,7 @@ export default function AdminClientsPage() {
                 </div>
               )}
             </div>
-            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+            <div className="p-6 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3">
               <button onClick={() => { setShowContactForm(false); setEditingContactId(null); setReassignTargetId(''); }} className="btn-secondary">{t('common', 'cancel')}</button>
               <button onClick={handleSaveContact} disabled={!contactForm.name.trim() || !contactForm.email.trim()} className="btn-primary disabled:opacity-50">
                 {editingContactId ? t('clients', 'saveChanges') : (contactFormType === 'maincontact' ? t('clients', 'setAsMainContact') : t('clients', 'addStaffMember'))}
@@ -1717,8 +1717,8 @@ export default function AdminClientsPage() {
       {/* NEW TRAINING MODAL */}
       {showTrainingForm && selectedClient && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex-shrink-0">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -1727,9 +1727,9 @@ export default function AdminClientsPage() {
                     </svg>
                     {t('clients', 'newTraining')}
                   </h2>
-                  <p className="text-sm text-gray-500 mt-1">{t('clients', 'forCompany')} {selectedClient.qbClient.companyName}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('clients', 'forCompany')} {selectedClient.qbClient.companyName}</p>
                 </div>
-                <button onClick={() => setShowTrainingForm(false)} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+                <button onClick={() => setShowTrainingForm(false)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -1737,7 +1737,7 @@ export default function AdminClientsPage() {
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* Template link */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'trainingTemplate')}</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('clients', 'trainingTemplate')}</label>
                 {trainingTemplates.length > 0 ? (
                   <select
                     value={trainingForm.templateId}
@@ -1751,72 +1751,72 @@ export default function AdminClientsPage() {
                     {trainingTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 ) : (
-                  <div className="bg-yellow-50 text-yellow-700 text-xs rounded-lg px-3 py-2">
+                  <div className="bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs rounded-lg px-3 py-2">
                     {t('clients', 'noTemplatesWarning')}
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'titleRequired')}</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('clients', 'titleRequired')}</label>
                 <input className="input-field" value={trainingForm.title} onChange={(e) => setTrainingForm({ ...trainingForm, title: e.target.value })} placeholder="e.g. Laser Safety Training" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('common', 'description')}</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('common', 'description')}</label>
                 <textarea className="input-field text-sm" rows={2} value={trainingForm.description} onChange={(e) => setTrainingForm({ ...trainingForm, description: e.target.value })} placeholder="Optional details..." />
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'dateRequired')}</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('clients', 'dateRequired')}</label>
                   <input type="datetime-local" className="input-field text-sm" value={trainingForm.date} onChange={(e) => setTrainingForm({ ...trainingForm, date: e.target.value })} />
                 </div>
                 <div className="w-32">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'durationMin')}</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('clients', 'durationMin')}</label>
                   <input type="number" className="input-field text-sm" value={trainingForm.duration} onChange={(e) => setTrainingForm({ ...trainingForm, duration: e.target.value })} placeholder="60" />
                 </div>
               </div>
 
               {/* Attendees — pick from client's staff */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'attendees')}</label>
-                <p className="text-xs text-gray-400 mb-2">{t('clients', 'addStaffFrom')} {selectedClient.qbClient.companyName}</p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('clients', 'attendees')}</label>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t('clients', 'addStaffFrom')} {selectedClient.qbClient.companyName}</p>
                 <div className="space-y-1 max-h-40 overflow-y-auto">
                   {/* Main contact */}
                   {selectedClient.responsiblePerson && (
-                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                    <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
                       <div className="flex items-center gap-2">
                         <Avatar photo={selectedClient.responsiblePerson.photo} name={selectedClient.responsiblePerson.name} size="sm" />
                         <div>
                           <p className="text-sm font-medium">{selectedClient.responsiblePerson.name}</p>
-                          <p className="text-xs text-gray-400">{selectedClient.responsiblePerson.role || 'Main Contact'}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">{selectedClient.responsiblePerson.role || 'Main Contact'}</p>
                         </div>
                       </div>
                       {trainingAttendees.some(a => a.contactId === selectedClient.responsiblePerson!.id) ? (
-                        <button onClick={() => setTrainingAttendees(prev => prev.filter(a => a.contactId !== selectedClient.responsiblePerson!.id))} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50">Remove</button>
+                        <button onClick={() => setTrainingAttendees(prev => prev.filter(a => a.contactId !== selectedClient.responsiblePerson!.id))} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30">Remove</button>
                       ) : (
-                        <button onClick={() => setTrainingAttendees(prev => [...prev, { contactId: selectedClient.responsiblePerson!.id, name: selectedClient.responsiblePerson!.name, email: selectedClient.responsiblePerson!.email }])} className="text-xs text-teal-600 hover:text-teal-700 px-2 py-1 rounded hover:bg-teal-50 font-medium">+ Add</button>
+                        <button onClick={() => setTrainingAttendees(prev => [...prev, { contactId: selectedClient.responsiblePerson!.id, name: selectedClient.responsiblePerson!.name, email: selectedClient.responsiblePerson!.email }])} className="text-xs text-teal-600 hover:text-teal-700 px-2 py-1 rounded hover:bg-teal-50 dark:hover:bg-teal-900/30 font-medium">+ Add</button>
                       )}
                     </div>
                   )}
                   {/* Staff employees */}
                   {selectedClient.subEmployees.map(emp => (
-                    <div key={emp.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                    <div key={emp.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
                       <div className="flex items-center gap-2">
                         <Avatar photo={emp.photo} name={emp.name} size="sm" />
                         <div>
                           <p className="text-sm font-medium">{emp.name}</p>
-                          <p className="text-xs text-gray-400">{emp.role || 'Staff'}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">{emp.role || 'Staff'}</p>
                         </div>
                       </div>
                       {trainingAttendees.some(a => a.contactId === emp.id) ? (
-                        <button onClick={() => setTrainingAttendees(prev => prev.filter(a => a.contactId !== emp.id))} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50">Remove</button>
+                        <button onClick={() => setTrainingAttendees(prev => prev.filter(a => a.contactId !== emp.id))} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30">Remove</button>
                       ) : (
-                        <button onClick={() => setTrainingAttendees(prev => [...prev, { contactId: emp.id, name: emp.name, email: emp.email }])} className="text-xs text-teal-600 hover:text-teal-700 px-2 py-1 rounded hover:bg-teal-50 font-medium">+ Add</button>
+                        <button onClick={() => setTrainingAttendees(prev => [...prev, { contactId: emp.id, name: emp.name, email: emp.email }])} className="text-xs text-teal-600 hover:text-teal-700 px-2 py-1 rounded hover:bg-teal-50 dark:hover:bg-teal-900/30 font-medium">+ Add</button>
                       )}
                     </div>
                   ))}
                   {!selectedClient.responsiblePerson && selectedClient.subEmployees.length === 0 && (
-                    <p className="text-xs text-gray-400 italic py-2">{t('clients', 'noContactsToAdd')}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 italic py-2">{t('clients', 'noContactsToAdd')}</p>
                   )}
                 </div>
                 {trainingAttendees.length > 0 && (
@@ -1826,30 +1826,30 @@ export default function AdminClientsPage() {
 
               {/* File upload */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('clients', 'filesSection')}</label>
-                <p className="text-xs text-gray-400 mb-2">{t('clients', 'attachBooklet')}</p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('clients', 'filesSection')}</label>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t('clients', 'attachBooklet')}</p>
                 {trainingFiles.length > 0 && (
                   <div className="space-y-1 mb-2">
                     {trainingFiles.map((f, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-blue-50 rounded-lg px-3 py-1.5 text-sm">
+                      <div key={idx} className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/30 rounded-lg px-3 py-1.5 text-sm">
                         <div className="flex items-center gap-2">
                           <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                          <span className="text-blue-700 font-medium truncate max-w-[200px]">{f.name}</span>
-                          <span className="text-blue-400 text-xs">{(f.fileSize / 1024).toFixed(0)} KB</span>
+                          <span className="text-blue-700 dark:text-blue-300 font-medium truncate max-w-[200px]">{f.name}</span>
+                          <span className="text-blue-400 dark:text-blue-500 text-xs">{(f.fileSize / 1024).toFixed(0)} KB</span>
                         </div>
-                        <button type="button" onClick={() => setTrainingFiles(prev => prev.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 text-xs">Remove</button>
+                        <button type="button" onClick={() => setTrainingFiles(prev => prev.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 dark:hover:text-red-300 text-xs">Remove</button>
                       </div>
                     ))}
                   </div>
                 )}
-                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 cursor-pointer transition-colors">
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer transition-colors">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                   {t('clients', 'uploadFiles')}
                   <input type="file" multiple className="hidden" onChange={handleTrainingFileUpload} />
                 </label>
               </div>
             </div>
-            <div className="p-6 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0">
+            <div className="p-6 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3 flex-shrink-0">
               <button onClick={() => setShowTrainingForm(false)} className="btn-secondary">{t('common', 'cancel')}</button>
               <button
                 onClick={handleCreateTraining}
@@ -1866,17 +1866,17 @@ export default function AdminClientsPage() {
       {/* TRAINING DETAIL MODAL */}
       {trainingDetail && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex-shrink-0">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-lg font-semibold">{trainingDetail.title}</h2>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     {formatDate(trainingDetail.date)}
                     {trainingDetail.duration && <span> — {trainingDetail.duration} min</span>}
                   </p>
                 </div>
-                <button onClick={() => setTrainingDetail(null)} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+                <button onClick={() => setTrainingDetail(null)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -1884,30 +1884,30 @@ export default function AdminClientsPage() {
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div className="flex items-center gap-2">
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                  trainingDetail.status === 'completed' ? 'bg-green-100 text-green-700' :
-                  trainingDetail.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                  'bg-teal-100 text-teal-700'
+                  trainingDetail.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                  trainingDetail.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                  'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
                 }`}>{trainingDetail.status}</span>
                 {trainingDetail.template && (
-                  <span className="text-xs text-gray-500">Template: {trainingDetail.template.name}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Template: {trainingDetail.template.name}</span>
                 )}
               </div>
               {trainingDetail.description && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-1">Description</p>
-                  <p className="text-sm text-gray-700">{trainingDetail.description}</p>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Description</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{trainingDetail.description}</p>
                 </div>
               )}
               {trainingDetail.attendees?.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-2">{t('clients', 'attendees')} ({trainingDetail.attendees.length})</p>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('clients', 'attendees')} ({trainingDetail.attendees.length})</p>
                   <div className="space-y-1">
                     {trainingDetail.attendees.map((a: any) => (
-                      <div key={a.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                      <div key={a.id} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
                         <Avatar photo={null} name={a.name} size="sm" />
                         <div>
                           <p className="text-sm font-medium">{a.name}</p>
-                          <p className="text-xs text-gray-400">{a.email}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">{a.email}</p>
                         </div>
                       </div>
                     ))}
@@ -1916,12 +1916,12 @@ export default function AdminClientsPage() {
               )}
               {trainingDetail.files?.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-2">{t('clients', 'filesSection')} ({trainingDetail.files.length})</p>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('clients', 'filesSection')} ({trainingDetail.files.length})</p>
                   <div className="space-y-1">
                     {trainingDetail.files.map((f: any) => (
-                      <div key={f.id} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-1.5 text-sm">
+                      <div key={f.id} className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg px-3 py-1.5 text-sm">
                         <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                        <span className="text-blue-700 font-medium">{f.name}</span>
+                        <span className="text-blue-700 dark:text-blue-300 font-medium">{f.name}</span>
                       </div>
                     ))}
                   </div>
@@ -1950,12 +1950,12 @@ export default function AdminClientsPage() {
                       setClientTrainings(prev => prev.map(t => t.id === trainingDetail.id ? { ...t, status: 'cancelled' } : t));
                       setTrainingDetail({ ...trainingDetail, status: 'cancelled' });
                     }}
-                    className="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-lg transition-colors"
+                    className="text-xs bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 px-3 py-1.5 rounded-lg transition-colors"
                   >{t('clients', 'deleteTraining')}</button>
                 </div>
               )}
             </div>
-            <div className="p-4 border-t border-gray-100 flex justify-end flex-shrink-0">
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex justify-end flex-shrink-0">
               <button onClick={() => setTrainingDetail(null)} className="btn-secondary text-sm">{t('common', 'close')}</button>
             </div>
           </div>

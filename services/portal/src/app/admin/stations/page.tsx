@@ -37,10 +37,10 @@ const HoldToConfirm = ({ onConfirm, onCancel, label = 'Are you sure?' }: { onCon
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
-      <div className="bg-white rounded-xl shadow-xl p-5 max-w-xs w-full text-center">
-        <p className="text-sm font-medium text-gray-800 mb-4">{label}</p>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-5 max-w-xs w-full text-center">
+        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-4">{label}</p>
         <div className="flex gap-3">
-          <button onClick={onCancel} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition">{t('common', 'no')}</button>
+          <button onClick={onCancel} className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium transition">{t('common', 'no')}</button>
           <button
             onMouseDown={startHold}
             onMouseUp={cancelHold}
@@ -298,7 +298,7 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
   }, [editingStation.id]);
 
   if (items.length === 0) {
-    return <p className="text-sm text-gray-500">{t('stations', 'noMachines')}</p>;
+    return <p className="text-sm text-gray-500 dark:text-gray-400">{t('stations', 'noMachines')}</p>;
   }
 
   /**
@@ -441,7 +441,7 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
           [];
 
         return (
-          <div key={i} className="p-4 border border-gray-200 rounded-lg">
+          <div key={i} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
             {/* Header row with icon + invoice line description */}
             <div className="flex items-start gap-3 mb-3">
               {category === 'accessory' ? (
@@ -452,16 +452,16 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
               <div className="flex-1 min-w-0">
                 <div className="flex items-start gap-4">
                   {item.model && (
-                    <div className="bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wide whitespace-nowrap">{String(item.model)}</div>
+                    <div className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wide whitespace-nowrap">{String(item.model)}</div>
                   )}
-                  <div className="text-sm font-medium text-gray-900 pt-0.5">{String(item.description || '')}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 dark:text-gray-100 pt-0.5">{String(item.description || '')}</div>
                 </div>
                 {!!(item.sourceInvoiceNumber || meta.invoiceNumber) && (
-                  <div className="mt-1 text-xs text-gray-400">Invoice #{String(item.sourceInvoiceNumber || meta.invoiceNumber || '')}</div>
+                  <div className="mt-1 text-xs text-gray-400 dark:text-gray-500">Invoice #{String(item.sourceInvoiceNumber || meta.invoiceNumber || '')}</div>
                 )}
               </div>
               {locked && (
-                <span className="text-[10px] font-medium text-green-700 bg-green-50 border border-green-100 rounded-full px-2 py-0.5 flex-shrink-0" title={t('stations', 'machineCreatedLockHint') || 'Machine created — serial and taxonomy are locked. A super-admin will be needed to replace the serial.'}>
+                <span className="text-[10px] font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 border border-green-100 dark:border-green-800 rounded-full px-2 py-0.5 flex-shrink-0" title={t('stations', 'machineCreatedLockHint') || 'Machine created — serial and taxonomy are locked. A super-admin will be needed to replace the serial.'}>
                   {t('stations', 'machineCreatedLabel') || 'Machine created'}
                 </span>
               )}
@@ -470,7 +470,7 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
             {/* Category */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">{t('stations', 'category') || 'Category'}</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('stations', 'category') || 'Category'}</label>
                 <select
                   value={category}
                   disabled={locked}
@@ -479,7 +479,7 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
                     // Changing category usually invalidates model — clear it.
                     saveTaxonomyField(i, { category: next, model: '' , subcategory: next === 'robot' ? null : null });
                   }}
-                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 dark:bg-gray-700 dark:text-gray-200 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
                 >
                   <option value="robot">{t('stations', 'categoryRobot') || 'Robot'}</option>
                   <option value="accessory">{t('stations', 'categoryAccessory') || 'Accessory'}</option>
@@ -489,7 +489,7 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
               {/* Subcategory — only for Accessory */}
               {category === 'accessory' ? (
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('stations', 'subcategory') || 'Subcategory'}</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('stations', 'subcategory') || 'Subcategory'}</label>
                   <select
                     value={subcategory || ''}
                     disabled={locked}
@@ -497,7 +497,7 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
                       const next = (e.target.value || null) as MachineSubcategory;
                       saveTaxonomyField(i, { subcategory: next, model: '' });
                     }}
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 dark:bg-gray-700 dark:text-gray-200 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
                   >
                     <option value="">{t('stations', 'selectSubcategory') || 'Select…'}</option>
                     {ACCESSORY_SUBCATEGORY_VALUES.map((v) => {
@@ -515,13 +515,13 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
 
               {/* Model */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">{t('stations', 'modelLabel') || 'Model'}</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('stations', 'modelLabel') || 'Model'}</label>
                 {modelOptions.length > 0 ? (
                   <select
                     value={model}
                     disabled={locked}
                     onChange={(e) => saveTaxonomyField(i, { model: e.target.value })}
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 dark:bg-gray-700 dark:text-gray-200 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
                   >
                     <option value="">{t('stations', 'selectModel') || 'Select model…'}</option>
                     {modelOptions.map((m) => {
@@ -544,7 +544,7 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
                     disabled={locked}
                     onChange={(e) => saveTaxonomyField(i, { model: e.target.value })}
                     placeholder={t('stations', 'modelPlaceholder') || 'Model'}
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 dark:bg-gray-700 dark:text-gray-200 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
                   />
                 )}
               </div>
@@ -552,7 +552,7 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
 
             {/* Serial Number with Hold-to-Save — locked once Machine row exists */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">{t('stations', 'serialNumber')}</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('stations', 'serialNumber')}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -560,7 +560,7 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
                   disabled={locked || rowSaving[i]}
                   onChange={(e) => setSerialInputs(prev => ({ ...prev, [i]: e.target.value }))}
                   placeholder={t('stations', 'enterSerial')}
-                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 dark:bg-gray-700 dark:text-gray-200 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
                 />
                 {!locked && (
                   <HoldToSaveButton onSave={() => { saveSerial(i); }} />
@@ -570,8 +570,8 @@ const MachineItems = ({ editingStation, setEditingStation, handleUpdateStation }
                 <div className="mt-1 text-xs text-green-600 flex items-center gap-1">
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                   {md.serialNumber}
-                  <span className="ml-2 text-gray-400">·</span>
-                  <span className="text-gray-500">{t('stations', 'serialLockedHint') || 'Serial locked — super-admin only'}</span>
+                  <span className="ml-2 text-gray-400 dark:text-gray-500">·</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t('stations', 'serialLockedHint') || 'Serial locked — super-admin only'}</span>
                 </div>
               )}
               {!locked && md.serialNumber && (
@@ -1031,10 +1031,10 @@ export default function AdminStationsPage() {
 
       {/* Error banner */}
       {error && (
-        <div className="fixed top-4 left-4 right-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 z-50">
+        <div className="fixed top-4 left-4 right-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-start gap-3 z-50">
           <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
           <div className="flex-1">
-            <p className="text-sm font-medium text-red-900">{error}</p>
+            <p className="text-sm font-medium text-red-900 dark:text-red-300">{error}</p>
           </div>
           <button
             onClick={() => setError(null)}
@@ -1045,24 +1045,24 @@ export default function AdminStationsPage() {
         </div>
       )}
 
-      <div className="flex h-[calc(100vh-12rem)] bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+      <div className="flex h-[calc(100vh-12rem)] bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
       {/* Left Panel: Station List */}
-      <div className="w-80 border-r border-gray-200 bg-white flex flex-col">
+      <div className="w-80 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col">
         {/* Search */}
-        <div className="border-b border-gray-200 p-4">
+        <div className="border-b border-gray-200 dark:border-gray-700 p-4">
           <div className="relative">
-            <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             <input
               type="text"
               placeholder={t('stations', 'searchStations')}
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200"
             />
             {searchFilter && (
               <button
                 onClick={() => setSearchFilter('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
@@ -1074,43 +1074,43 @@ export default function AdminStationsPage() {
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center h-32">
-              <svg className="w-5 h-5 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              <svg className="w-5 h-5 text-gray-400 dark:text-gray-500 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </div>
           ) : filteredStations.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">
+            <div className="p-4 text-center text-gray-500 dark:text-gray-400">
               <p className="text-sm">{searchFilter ? t('stations', 'noStationsMatch') : t('stations', 'noStationsYet')}</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredStations.map((station) => (
                 <button
                   key={station.id}
                   onClick={() => setSelectedStationId(station.id)}
-                  className={`w-full text-left p-4 hover:bg-gray-50 transition border-l-4 ${
+                  className={`w-full text-left p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition border-l-4 ${
                     selectedStationId === station.id
-                      ? 'border-l-blue-600 bg-blue-50'
+                      ? 'border-l-blue-600 bg-blue-50 dark:bg-blue-900/30'
                       : 'border-l-transparent'
                   }`}
                 >
-                  <div className="font-semibold text-gray-900 text-sm truncate">
+                  <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">
                     {station.title}
                   </div>
-                  <div className="text-xs text-gray-600 mt-1">
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                     {station.client.displayName}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {getMachineCount(station)}
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <span
                       className={`text-xs px-2 py-1 rounded-full font-medium ${
                         station.status === 'completed'
-                          ? 'bg-green-100 text-green-800'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                           : station.status === 'archived'
-                            ? 'bg-gray-100 text-gray-800'
+                            ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                             : station.status === 'testing'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-blue-100 text-blue-800'
+                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                       }`}
                     >
                       {station.status}
@@ -1128,13 +1128,13 @@ export default function AdminStationsPage() {
         {selectedStation && editingStation ? (
           <div className="p-6 max-w-4xl">
             {/* Station Info Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">{t('stations', 'stationInfo')}</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">{t('stations', 'stationInfo')}</h2>
 
               <div className="space-y-4">
                 {/* Title */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {t('stations', 'stationNameLabel')}
                   </label>
                   <input
@@ -1147,13 +1147,13 @@ export default function AdminStationsPage() {
                     onBlur={() =>
                       handleUpdateStation({ title: editingStation.title })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200"
                   />
                 </div>
 
                 {/* Status */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {t('stations', 'statusLabel')}
                   </label>
                   <select
@@ -1168,7 +1168,7 @@ export default function AdminStationsPage() {
                         status: e.target.value as Station['status'],
                       });
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200"
                   >
                     <option value="not_configured">{t('stations', 'notConfigured')}</option>
                     <option value="waiting_pairing">{t('stations', 'waitingPairing')}</option>
@@ -1179,17 +1179,17 @@ export default function AdminStationsPage() {
 
                 {/* Client */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {t('stations', 'clientLabel')}
                   </label>
-                  <div className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                  <div className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300">
                     {editingStation.client.displayName}
                   </div>
                 </div>
 
                 {/* Description */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {t('stations', 'descriptionLabel')}
                   </label>
                   <textarea
@@ -1205,7 +1205,7 @@ export default function AdminStationsPage() {
                       handleUpdateStation({ notes: editingStation.notes })
                     }
                     placeholder={`${t('stations', 'descriptionLabel')}...`}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200"
                     rows={3}
                   />
                 </div>
@@ -1222,7 +1222,7 @@ export default function AdminStationsPage() {
                     return (
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <label className="block text-sm font-medium text-gray-700">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                             {invoices.length > 1 ? t('stations', 'linkedInvoices') : t('stations', 'linkInvoice')}
                           </label>
                           <button
@@ -1239,13 +1239,13 @@ export default function AdminStationsPage() {
                         {invoices.length > 0 ? (
                           <div className="space-y-1">
                             {invoices.map((inv, idx) => (
-                              <div key={idx} className="text-sm bg-blue-50 rounded-lg px-3 py-2 text-blue-700 font-medium">
+                              <div key={idx} className="text-sm bg-blue-50 dark:bg-blue-900/30 rounded-lg px-3 py-2 text-blue-700 dark:text-blue-300 font-medium">
                                 Invoice #{inv.number}
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-xs text-gray-400 italic">
+                          <p className="text-xs text-gray-400 dark:text-gray-500 italic">
                             {t('stations', 'noInvoicesAvailable')}
                           </p>
                         )}
@@ -1351,13 +1351,13 @@ export default function AdminStationsPage() {
               const disabled = locked;
 
               return (
-                <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-bold text-gray-900">
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                       {t('stations', 'addressSection') || 'Station address'}
                     </h2>
                     {/* Lock guardrail — must be unchecked to edit. */}
-                    <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
+                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={locked}
@@ -1367,7 +1367,7 @@ export default function AdminStationsPage() {
                           setEditingStation(updated);
                           handleUpdateStation({ addressLocked: next });
                         }}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                       />
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -1382,7 +1382,7 @@ export default function AdminStationsPage() {
                   <div className="flex gap-4 mb-4">
                     <label
                       className={`flex items-start gap-2 cursor-pointer flex-1 p-3 rounded-lg border ${
-                        mode === 'business' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                        mode === 'business' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700'
                       } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
                       <input
@@ -1394,10 +1394,10 @@ export default function AdminStationsPage() {
                         className="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500"
                       />
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {t('stations', 'addressUseBusiness') || 'Use business address (QuickBooks)'}
                         </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                           {businessAddress
                             ? [businessAddress, businessCity, businessProvince, businessPostal].filter(Boolean).join(', ')
                             : t('stations', 'addressNoBusiness') || 'No address on file for this client'}
@@ -1406,7 +1406,7 @@ export default function AdminStationsPage() {
                     </label>
                     <label
                       className={`flex items-start gap-2 cursor-pointer flex-1 p-3 rounded-lg border ${
-                        mode === 'custom' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                        mode === 'custom' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700'
                       } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
                       <input
@@ -1418,10 +1418,10 @@ export default function AdminStationsPage() {
                         className="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500"
                       />
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {t('stations', 'addressUseCustom') || 'Custom install address'}
                         </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                           {t('stations', 'addressUseCustomHint') ||
                             'Use a different address than the business one.'}
                         </div>
@@ -1433,7 +1433,7 @@ export default function AdminStationsPage() {
                   {mode === 'custom' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                       <div className="sm:col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           {t('stations', 'addressLine') || 'Street address'}
                         </label>
                         <AddressAutocomplete
@@ -1465,15 +1465,15 @@ export default function AdminStationsPage() {
                               country: updated.country,
                             });
                           }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200 disabled:bg-gray-50 disabled:text-gray-500 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
                         />
-                        <p className="text-[10px] text-gray-400 mt-1">
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
                           {t('stations', 'addressAutocompleteHint') ||
                             'Start typing — pick a suggestion to auto-fill city, province and postal code.'}
                         </p>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           {t('stations', 'addressCity') || 'City'}
                         </label>
                         <input
@@ -1482,11 +1482,11 @@ export default function AdminStationsPage() {
                           value={editingStation.city || ''}
                           onChange={(e) => setEditingStation({ ...editingStation, city: e.target.value })}
                           onBlur={() => handleUpdateStation({ city: editingStation.city || null })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200 disabled:bg-gray-50 disabled:text-gray-500 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           {t('stations', 'addressProvince') || 'Province / State'}
                         </label>
                         <input
@@ -1495,11 +1495,11 @@ export default function AdminStationsPage() {
                           value={editingStation.province || ''}
                           onChange={(e) => setEditingStation({ ...editingStation, province: e.target.value })}
                           onBlur={() => handleUpdateStation({ province: editingStation.province || null })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200 disabled:bg-gray-50 disabled:text-gray-500 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           {t('stations', 'addressPostal') || 'Postal / ZIP code'}
                         </label>
                         <input
@@ -1508,11 +1508,11 @@ export default function AdminStationsPage() {
                           value={editingStation.postalCode || ''}
                           onChange={(e) => setEditingStation({ ...editingStation, postalCode: e.target.value })}
                           onBlur={() => handleUpdateStation({ postalCode: editingStation.postalCode || null })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200 disabled:bg-gray-50 disabled:text-gray-500 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                           {t('stations', 'addressCountry') || 'Country'}
                         </label>
                         <input
@@ -1521,7 +1521,7 @@ export default function AdminStationsPage() {
                           value={editingStation.country || ''}
                           onChange={(e) => setEditingStation({ ...editingStation, country: e.target.value })}
                           onBlur={() => handleUpdateStation({ country: editingStation.country || null })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200 disabled:bg-gray-50 disabled:text-gray-500 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
                         />
                       </div>
                     </div>
@@ -1532,7 +1532,7 @@ export default function AdminStationsPage() {
                   {fullAddress ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">
+                        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                           {t('stations', 'addressStreetView') || 'Street view'}
                         </div>
                         <StreetView
@@ -1544,10 +1544,10 @@ export default function AdminStationsPage() {
                         />
                       </div>
                       <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">
+                        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                           {t('stations', 'addressMap') || 'Map'}
                         </div>
-                        <div className="h-48 rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                        <div className="h-48 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                           {mapSrc ? (
                             <iframe
                               src={mapSrc}
@@ -1558,7 +1558,7 @@ export default function AdminStationsPage() {
                               allowFullScreen
                             />
                           ) : (
-                            <div className="flex items-center justify-center h-full text-xs text-gray-400 p-4 text-center">
+                            <div className="flex items-center justify-center h-full text-xs text-gray-400 dark:text-gray-500 p-4 text-center">
                               {t('stations', 'addressMapUnavailable') || 'Map not available'}
                             </div>
                           )}
@@ -1566,7 +1566,7 @@ export default function AdminStationsPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="text-xs text-gray-400 italic">
+                    <div className="text-xs text-gray-400 dark:text-gray-500 italic">
                       {t('stations', 'addressEmpty') ||
                         'No address to preview yet. Pick a mode and fill in the fields above.'}
                     </div>
@@ -1576,25 +1576,25 @@ export default function AdminStationsPage() {
             })()}
 
             {/* Station PC Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-900">{t('stations', 'stationPCSection')}</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('stations', 'stationPCSection')}</h2>
                 <a
                   href="/admin/station-pcs"
                   title={t('stations', 'stationPCOpenList')}
-                  className="text-xs px-3 py-1 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition whitespace-nowrap"
+                  className="text-xs px-3 py-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition whitespace-nowrap"
                 >
                   {t('stations', 'stationPCManage')}
                 </a>
               </div>
 
               {editingStation.stationPC ? (
-                <div className="flex items-center justify-between gap-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                <div className="flex items-center justify-between gap-4 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900">
                   <div className="min-w-0">
-                    <div className="font-medium text-gray-900 truncate">
+                    <div className="font-medium text-gray-900 dark:text-gray-100 truncate">
                       {editingStation.stationPC.nickname || editingStation.stationPC.hostname || editingStation.stationPC.serial}
                     </div>
-                    <div className="text-xs text-gray-500 truncate">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       SN {editingStation.stationPC.serial}
                       {editingStation.stationPC.macAddress ? ` · ${editingStation.stationPC.macAddress}` : ''}
                     </div>
@@ -1602,20 +1602,20 @@ export default function AdminStationsPage() {
                   <span
                     className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
                       editingStation.stationPC.status === 'online'
-                        ? 'bg-green-100 text-green-700'
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                         : editingStation.stationPC.status === 'offline'
-                        ? 'bg-gray-200 text-gray-700'
+                        ? 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                         : editingStation.stationPC.status === 'retired'
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-amber-100 text-amber-700'
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                     }`}
                   >
                     {t('stationPcs', `status${editingStation.stationPC.status.charAt(0).toUpperCase() + editingStation.stationPC.status.slice(1)}`)}
                   </span>
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-4 p-3 border border-dashed border-gray-300 rounded-lg">
-                  <p className="text-sm text-gray-500 italic">{t('stations', 'stationPCNone')}</p>
+                <div className="flex items-center justify-between gap-4 p-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">{t('stations', 'stationPCNone')}</p>
                   <a
                     href="/admin/station-pcs"
                     className="text-xs px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition whitespace-nowrap"
@@ -1627,8 +1627,8 @@ export default function AdminStationsPage() {
             </div>
 
             {/* Machines Section (from invoice items) */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">{t('stations', 'machinesSection')}</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">{t('stations', 'machinesSection')}</h2>
 
               <MachineItems editingStation={editingStation} setEditingStation={setEditingStation} handleUpdateStation={handleUpdateStation} />
 
@@ -1646,30 +1646,30 @@ export default function AdminStationsPage() {
                 );
                 if (uniqueInvoiceMachines.length === 0) return null;
                 return (
-                  <div className="mt-6 pt-6 border-t border-gray-100">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                  <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                       {t('stations', 'invoiceAnchoredMachines') || 'On linked invoices'}
                     </h3>
                     <div className="space-y-2">
                       {uniqueInvoiceMachines.map((m) => (
                         <div
                           key={m.id}
-                          className="p-3 border border-dashed border-gray-300 rounded-lg bg-gray-50 text-sm"
+                          className="p-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-sm"
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <span className="font-medium text-gray-900">
+                              <span className="font-medium text-gray-900 dark:text-gray-100">
                                 {m.model}
                               </span>
-                              <span className="ml-2 text-xs text-gray-500">
+                              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                                 SN {m.serialNumber}
                               </span>
                             </div>
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-gray-400 dark:text-gray-500">
                               Invoice #{(m as { invoiceNumber?: string }).invoiceNumber || '—'}
                             </span>
                           </div>
-                          <div className="mt-1 text-xs text-gray-500">
+                          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                             {m.type} · {m.status}
                           </div>
                         </div>
@@ -1681,29 +1681,29 @@ export default function AdminStationsPage() {
             </div>
 
             {/* Robot Status Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
                 {t('stations', 'robotStatus')}
               </h2>
 
               {editingStation.robotPrograms.length === 0 ? (
-                <p className="text-sm text-gray-500">{t('stations', 'noRobotStatus')}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('stations', 'noRobotStatus')}</p>
               ) : (
                 <div className="space-y-2">
                   {editingStation.robotPrograms.map((program) => (
                     <div
                       key={program.id}
-                      className="p-3 border border-gray-200 rounded-lg"
+                      className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
                     >
-                      <div className="font-medium text-gray-900 text-sm">
+                      <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
                         {program.name}
                       </div>
                       <div className="flex items-center gap-2 mt-2">
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
                           {program.status}
                         </span>
                         {program.machineId && (
-                          <span className="text-xs text-gray-600">
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
                             Machine: {program.machineId}
                           </span>
                         )}
@@ -1715,29 +1715,29 @@ export default function AdminStationsPage() {
             </div>
 
             {/* Laser Status Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
                 {t('stations', 'laserStatus')}
               </h2>
 
               {editingStation.laserPresets.length === 0 ? (
-                <p className="text-sm text-gray-500">{t('stations', 'noLaserStatus')}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('stations', 'noLaserStatus')}</p>
               ) : (
                 <div className="space-y-2">
                   {editingStation.laserPresets.map((preset) => (
                     <div
                       key={preset.id}
-                      className="p-3 border border-gray-200 rounded-lg"
+                      className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
                     >
-                      <div className="font-medium text-gray-900 text-sm">
+                      <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
                         {preset.name}
                       </div>
                       <div className="flex items-center gap-2 mt-2">
-                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
                           {preset.status}
                         </span>
                         {preset.machineId && (
-                          <span className="text-xs text-gray-600">
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
                             Machine: {preset.machineId}
                           </span>
                         )}
@@ -1762,7 +1762,7 @@ export default function AdminStationsPage() {
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <p className="text-gray-500">{t('stations', 'selectStation')}</p>
+              <p className="text-gray-500 dark:text-gray-400">{t('stations', 'selectStation')}</p>
             </div>
           </div>
         )}
@@ -1771,12 +1771,12 @@ export default function AdminStationsPage() {
       {/* New Station Modal */}
       {showNewStationModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">{t('stations', 'newStation')}</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('stations', 'newStation')}</h2>
               <button
                 onClick={() => setShowNewStationModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
@@ -1785,7 +1785,7 @@ export default function AdminStationsPage() {
             <div className="space-y-4 mb-6">
               {/* Client */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('stations', 'clientLabel')} *
                 </label>
                 <select
@@ -1793,7 +1793,7 @@ export default function AdminStationsPage() {
                   onChange={(e) =>
                     setNewStationForm({ ...newStationForm, clientId: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200"
                 >
                   <option value="">{t('stations', 'selectClient')}</option>
                   {clients.map((client) => (
@@ -1806,7 +1806,7 @@ export default function AdminStationsPage() {
 
               {/* Title */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('stations', 'titleRequired')}
                 </label>
                 <input
@@ -1816,13 +1816,13 @@ export default function AdminStationsPage() {
                     setNewStationForm({ ...newStationForm, title: e.target.value })
                   }
                   placeholder="e.g., Production Run"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200"
                 />
               </div>
 
               {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('stations', 'notes')}
                 </label>
                 <textarea
@@ -1831,7 +1831,7 @@ export default function AdminStationsPage() {
                     setNewStationForm({ ...newStationForm, notes: e.target.value })
                   }
                   placeholder={`${t('common', 'optional')} ${t('stations', 'notes').toLowerCase()}`}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200"
                   rows={3}
                 />
               </div>
@@ -1840,7 +1840,7 @@ export default function AdminStationsPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowNewStationModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium"
               >
                 {t('common', 'cancel')}
               </button>
@@ -1867,12 +1867,12 @@ export default function AdminStationsPage() {
       {/* Add Machine Modal */}
       {showAddMachineModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">{t('stations', 'addMachine')}</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('stations', 'addMachine')}</h2>
               <button
                 onClick={() => setShowAddMachineModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
@@ -1880,7 +1880,7 @@ export default function AdminStationsPage() {
 
             <div className="max-h-96 overflow-y-auto mb-6">
               {getAvailableMachines().length === 0 ? (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   {t('stations', 'noMachinesAvailable')}
                 </p>
               ) : (
@@ -1891,7 +1891,7 @@ export default function AdminStationsPage() {
                       onClick={() => {
                         handleAddMachine(machine.id);
                       }}
-                      className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition"
+                      className="w-full text-left p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-300 transition"
                     >
                       <div className="flex items-center gap-2">
                         {machine.type === 'robot' ? (
@@ -1900,10 +1900,10 @@ export default function AdminStationsPage() {
                           <svg className="w-5 h-5 text-yellow-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-gray-900 text-sm">
+                          <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
                             {machine.serialNumber}
                           </div>
-                          <div className="text-xs text-gray-600">
+                          <div className="text-xs text-gray-600 dark:text-gray-400">
                             {machine.model}
                           </div>
                         </div>
@@ -1916,7 +1916,7 @@ export default function AdminStationsPage() {
 
             <button
               onClick={() => setShowAddMachineModal(false)}
-              className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium"
             >
               {t('common', 'close')}
             </button>
@@ -1927,9 +1927,9 @@ export default function AdminStationsPage() {
       {/* Link Invoice Modal — 2 stages: invoice picker → line-item picker */}
       {showLinkInvoiceModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                 {pickerInvoiceId
                   ? t('stations', 'selectLineItems')
                   : t('stations', 'linkInvoice')}
@@ -1940,7 +1940,7 @@ export default function AdminStationsPage() {
                   setPickerInvoiceId(null);
                   setPickerSelections({});
                 }}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
@@ -1951,7 +1951,7 @@ export default function AdminStationsPage() {
               <>
                 <div className="max-h-96 overflow-y-auto mb-6">
                   {getAvailableInvoices().length === 0 ? (
-                    <p className="text-sm text-gray-500">{t('stations', 'noInvoicesAvailable')}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('stations', 'noInvoicesAvailable')}</p>
                   ) : (
                     <div className="space-y-2">
                       {getAvailableInvoices().map((invoice) => {
@@ -1959,18 +1959,18 @@ export default function AdminStationsPage() {
                         return (
                           <div
                             key={invoice.id}
-                            className="flex items-center gap-2 p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition"
+                            className="flex items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-300 dark:hover:border-blue-700 transition"
                           >
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900 text-sm">
+                              <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
                                 Invoice #{invoice.invoiceNumber}
                               </div>
-                              <div className="text-xs text-gray-600">
+                              <div className="text-xs text-gray-600 dark:text-gray-400">
                                 {invoice.invoiceType}
                                 {itemCount > 0 && ` · ${itemCount} line${itemCount === 1 ? '' : 's'}`}
                               </div>
                               {invoice.amount !== null && (
-                                <div className="text-sm font-semibold text-gray-900 mt-1">
+                                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-1">
                                   ${invoice.amount.toFixed(2)}
                                 </div>
                               )}
@@ -1986,7 +1986,7 @@ export default function AdminStationsPage() {
                               )}
                               <button
                                 onClick={() => handleLinkInvoice(invoice.id)}
-                                className="px-3 py-1 text-xs border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition whitespace-nowrap"
+                                className="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition whitespace-nowrap"
                               >
                                 {t('stations', 'linkAll') || 'Link all'}
                               </button>
@@ -2000,7 +2000,7 @@ export default function AdminStationsPage() {
 
                 <button
                   onClick={() => setShowLinkInvoiceModal(false)}
-                  className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium"
                 >
                   {t('common', 'close')}
                 </button>
@@ -2013,17 +2013,17 @@ export default function AdminStationsPage() {
               if (!inv) return null;
               return (
                 <>
-                  <div className="mb-3 text-xs text-gray-500">
+                  <div className="mb-3 text-xs text-gray-500 dark:text-gray-400">
                     Invoice #{inv.invoiceNumber}
                   </div>
-                  <div className="max-h-96 overflow-y-auto mb-4 space-y-2 border border-gray-200 rounded-lg p-2">
+                  <div className="max-h-96 overflow-y-auto mb-4 space-y-2 border border-gray-200 dark:border-gray-700 rounded-lg p-2">
                     {(inv.items || []).map((it, idx) => {
                       const qty = pickerSelections[idx] ?? 0;
                       const checked = qty > 0;
                       return (
                         <div
                           key={idx}
-                          className={`flex items-start gap-3 p-2 rounded-md ${checked ? 'bg-blue-50' : 'bg-white'}`}
+                          className={`flex items-start gap-3 p-2 rounded-md ${checked ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-white dark:bg-gray-800'}`}
                         >
                           <input
                             type="checkbox"
@@ -2037,10 +2037,10 @@ export default function AdminStationsPage() {
                             className="mt-1"
                           />
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 truncate">
+                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                               {it.description || it.model || '(no description)'}
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
                               {it.model ? `${it.model} · ` : ''}
                               ${it.amount.toFixed(2)} total · ${it.rate.toFixed(2)}/unit
                             </div>
@@ -2058,9 +2058,9 @@ export default function AdminStationsPage() {
                               );
                               setPickerSelections((prev) => ({ ...prev, [idx]: v }));
                             }}
-                            className="w-16 px-2 py-1 text-sm border border-gray-300 rounded-md"
+                            className="w-16 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-gray-200"
                           />
-                          <span className="text-xs text-gray-400 mt-2">/ {it.quantity}</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500 mt-2">/ {it.quantity}</span>
                         </div>
                       );
                     })}
@@ -2072,7 +2072,7 @@ export default function AdminStationsPage() {
                         setPickerInvoiceId(null);
                         setPickerSelections({});
                       }}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium"
                     >
                       {t('common', 'back') || '← Back'}
                     </button>

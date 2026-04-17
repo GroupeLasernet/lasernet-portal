@@ -80,10 +80,10 @@ export default function LoginPage() {
         </div>
 
         {/* Login Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 -mt-8">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 -mt-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 {t('login', 'emailAddress')}
               </label>
               <input
@@ -98,7 +98,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 {t('login', 'password')}
               </label>
               <input
@@ -129,7 +129,7 @@ export default function LoginPage() {
             <div className="text-center">
               <Link
                 href="/forgot-password"
-                className="text-sm text-brand-600 hover:text-brand-700"
+                className="text-sm text-brand-600 dark:text-brand-400 hover:text-brand-700"
               >
                 {t('login', 'forgotPassword')}
               </Link>
@@ -137,49 +137,49 @@ export default function LoginPage() {
           </form>
 
           {/* Language Selector */}
-          <div className="mt-5 pt-5 border-t border-gray-100 flex items-center justify-center gap-3">
-            <span className="text-xs text-gray-400">{t('login', 'language')} :</span>
+          <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-700 flex items-center justify-center gap-3">
+            <span className="text-xs text-gray-400 dark:text-gray-500">{t('login', 'language')} :</span>
             <button
               onClick={() => setLang('fr')}
-              className={`text-sm px-3 py-1 rounded-lg transition-colors ${lang === 'fr' ? 'bg-brand-600 text-white font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              className={`text-sm px-3 py-1 rounded-lg transition-colors ${lang === 'fr' ? 'bg-brand-600 text-white font-medium' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
             >
               Français
             </button>
             <button
               onClick={() => setLang('en')}
-              className={`text-sm px-3 py-1 rounded-lg transition-colors ${lang === 'en' ? 'bg-brand-600 text-white font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              className={`text-sm px-3 py-1 rounded-lg transition-colors ${lang === 'en' ? 'bg-brand-600 text-white font-medium' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
             >
               English
             </button>
           </div>
 
           {/* Demo Credentials */}
-          <div className="mt-5 pt-5 border-t border-gray-100">
-            <p className="text-xs text-gray-500 text-center mb-3">{t('login', 'demoAccounts')}</p>
-            <div className="space-y-2 text-xs text-gray-600">
+          <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-700">
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-3">{t('login', 'demoAccounts')}</p>
+            <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
               <button
                 type="button"
                 onClick={() => { setEmail('admin@lasernet.ca'); setPassword('admin123'); }}
-                className="w-full flex justify-between bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors cursor-pointer"
+                className="w-full flex justify-between bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors cursor-pointer"
               >
                 <span><strong>Admin:</strong> admin@lasernet.ca</span>
-                <span className="text-gray-400">admin123</span>
+                <span className="text-gray-400 dark:text-gray-500">admin123</span>
               </button>
               <button
                 type="button"
                 onClick={() => { setEmail('sales@lasernet.ca'); setPassword('sales123'); }}
-                className="w-full flex justify-between bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors cursor-pointer"
+                className="w-full flex justify-between bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors cursor-pointer"
               >
                 <span><strong className="text-emerald-600">Sales:</strong> sales@lasernet.ca</span>
-                <span className="text-gray-400">sales123</span>
+                <span className="text-gray-400 dark:text-gray-500">sales123</span>
               </button>
               <button
                 type="button"
                 onClick={() => { setEmail('client@lasernet.ca'); setPassword('client123'); }}
-                className="w-full flex justify-between bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors cursor-pointer"
+                className="w-full flex justify-between bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors cursor-pointer"
               >
                 <span><strong className="text-sky-600">Client:</strong> client@lasernet.ca</span>
-                <span className="text-gray-400">client123</span>
+                <span className="text-gray-400 dark:text-gray-500">client123</span>
               </button>
             </div>
           </div>
