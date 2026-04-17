@@ -227,7 +227,7 @@ Read from `services/robot/.env` via `load_dotenv()` in `config.py`:
 4. ROBOT PC (Admin): `Restart-Service ElfinRobot` and/or `nssm restart RelfarBridge`.
 5. Portal: Vercel auto-deploys from GitHub main on push.
 
-## 13. Current high-level status (2026-04-16)
+## 13. Current high-level status (2026-04-16, updated after codebase audit)
 
 **Recently shipped (since 2026-04-14):**
 - Three-entity domain model live in production: `Station` ↔ `StationPC` (1:1) ↔ `Machine` (M:N via `StationMachine`). `/admin/station-pcs` CRUD + sidebar nav + assignment audit trail (`StationPCAssignment`).
@@ -254,6 +254,17 @@ Read from `services/robot/.env` via `load_dotenv()` in `config.py`:
   - `GET /api/quickbooks/accounts` — returns QB Chart of Accounts.
   - `POST /api/quickbooks/inventory` — creates items in QB.
   - `POST /api/visit-groups/cleanup-needs` — one-time cleanup to remove duplicate `VisitNeed` entries.
+
+**Recently shipped (since 2026-04-16):**
+- **Dark/light theme toggle:** `ThemeContext.tsx` provider wraps the app; toggle button (sun/moon icon) in top-right corner of DashboardShell. Tailwind `darkMode: 'class'` enabled; `<html>` gets `dark` class. Preference persisted in localStorage (`lasernet.theme`). Dark mode applied to ALL pages: 14 admin pages, 5 auth pages, 5 portal client pages, kiosk (already dark), and all shared components (Sidebar, PageHeader, QuickBooksStatus, HoldButton). Global CSS classes (`.card`, `.input-field`, `.sidebar-link`, `.btn-secondary`) all have `dark:` variants.
+- **People tab** added to Onboarding group in sidebar (`/admin/people`). Placeholder page — will become a unified directory of visitors, leads, employees, and contacts. Translation key `people` (FR: "Personnes", EN: "People").
+
+**Codebase audit (2026-04-16):**
+- Full audit completed: 0 unused files, 0 dead imports, 0 unused npm dependencies, 0 orphaned API routes. All 73 API routes, 8 components, 13 lib modules actively referenced.
+- **Fixed:** `escapeHtml()` was duplicated in 3 files (lib/email.ts, api/invite, api/reset-password). Consolidated — now exported from `lib/email.ts`, other two import it.
+- **Flagged:** Two `requireAdmin()` implementations coexist: `lib/requireAdmin.ts` (takes NextRequest, 8 callers) and `lib/auth.ts` (reads cookies() internally, 12 callers). Both work; consolidation deferred to avoid touching 20 routes.
+- **Code quality:** 79 `: any` usages (gradual fix), 88 console statements (acceptable for now), no error boundaries (add when convenient), 14 files over 500 lines (split incrementally via component extraction), kiosk has inline translations (85 lines, should move to translations.ts).
+- **Quarantine:** `_quarantine/relfar-scan-artifacts/` (6 files) safe to archive/delete. `relfar-reverse-engineering/` (20 scripts) and `branding-assets/` (6 files) kept.
 
 **Not yet built / blocked:**
 - Portal `/api/sync/push` + `/api/sync/pull` — NOT BUILT, sync disabled.

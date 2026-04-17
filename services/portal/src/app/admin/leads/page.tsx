@@ -360,8 +360,14 @@ export default function AdminLeadsPage() {
         setNewProjectName('');
         setShowNewProject(false);
         loadTabData('projects', selectedId);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        console.error('Create project failed:', res.status, err);
+        alert(`Error: ${err.error || res.statusText}`);
       }
-    } catch { /* */ }
+    } catch (e) {
+      console.error('Create project exception:', e);
+    }
     setProjectSaving(false);
   };
 

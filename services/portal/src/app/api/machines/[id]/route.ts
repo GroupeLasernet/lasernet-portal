@@ -4,10 +4,10 @@ import prisma from '@/lib/prisma';
 // GET /api/machines/[id] — Get a single machine with full history
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
 
     const machine = await prisma.machine.findUnique({
       where: { id },
@@ -51,10 +51,10 @@ export async function GET(
 // PATCH /api/machines/[id] — Update machine details or perform lifecycle events
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const body = await request.json();
 
     const machine = await prisma.machine.findUnique({
@@ -206,10 +206,10 @@ export async function PATCH(
 // DELETE /api/machines/[id] — Decommission a machine (soft delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
 
     const machine = await prisma.machine.findUnique({ where: { id } });
     if (!machine) {

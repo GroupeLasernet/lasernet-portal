@@ -9,12 +9,12 @@ import prisma from '@/lib/prisma';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const auth = await requireAdmin();
   if ('error' in auth) return auth.error;
 
-  const { id } = await params;
+  const { id } = params;
 
   let body: any;
   try {
@@ -48,15 +48,10 @@ export async function PATCH(
       data: { visitGroupId: targetGroupId },
     });
 
-    // Clean up: if the old group now has zero visits, delete it
-    if (visit.visitGroupId && visit.visitGroupId !== targetGroupId) {
-      const remainingVisits = await prisma.visit.count({
-        where: { visitGroupId: visit.visitGroupId },
-      });
-      if (remainingVisits === 0) {
-        await prisma.visitGroup.delete({ where: { id: visit.visitGroupId } });
-      }
-    }
+    // NOTE: We intentionally do NOT auto-delete empty groups here.
+    // The old code deleted the source group when it hit zero visitors,
+    // which prevented dragging people back. Empty groups now stay visible
+    // until the admin explicitly ends/closes them.
 
     return NextResponse.json({ success: true, visit: updated });
   } catch (error) {

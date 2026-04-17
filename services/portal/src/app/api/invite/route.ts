@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
 import prisma from '@/lib/prisma';
 import { t as translate, Language } from '@/lib/translations';
+import { escapeHtml } from '@/lib/email';
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'lasernet-secret-change-this-in-production'
@@ -179,13 +180,3 @@ async function sendInvitationEmail(
   }
 }
 
-function escapeHtml(text: string): string {
-  const map: { [key: string]: string } = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;',
-  };
-  return text.replace(/[&<>"']/g, (m) => map[m]);
-}

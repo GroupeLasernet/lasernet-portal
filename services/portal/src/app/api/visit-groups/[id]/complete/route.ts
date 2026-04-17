@@ -10,12 +10,12 @@ import prisma from '@/lib/prisma';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const auth = await requireAdmin();
   if ('error' in auth) return auth.error;
 
-  const { id } = await params;
+  const { id } = params;
 
   try {
     // Fetch the full visit group

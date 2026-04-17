@@ -546,6 +546,7 @@ model TrainingEvent {
 
   attendees   TrainingAttendee[]
   files       TrainingFile[]
+  visitGroups VisitGroup[]       // auto-created visit groups for this training day
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -628,6 +629,10 @@ model VisitGroup {
   completedAt     DateTime?
   summarySentAt   DateTime?  // when summary was emailed to main contact
 
+  // Training link — when auto-created from a TrainingEvent
+  trainingEventId String?
+  trainingEvent   TrainingEvent? @relation(fields: [trainingEventId], references: [id], onDelete: SetNull)
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -639,6 +644,7 @@ model VisitGroup {
   @@index([status])
   @@index([managedClientId])
   @@index([localBusinessId])
+  @@index([trainingEventId])
 }
 
 // ============================================================
@@ -748,6 +754,7 @@ model Lead {
   visits          Visit[]
   messages        LeadMessage[]
   activities      LeadActivity[]
+  projects        LeadProject[]
 
   @@index([managedClientId])
   @@index([localBusinessId])
@@ -852,4 +859,71 @@ model LeadActivity {
   createdAt       DateTime @default(now())
 
   @@index([leadId])
+}
+
+// ============================================================
+// PROJECTS & QUOTES — Sales pipeline under Leads
+// Each Lead has ≥1 LeadProject. Each project can have multiple
+// quotes. Each quote has line items that can be individually
+// accepted / removed.
+// ============================================================
+
+model LeadProject {
+  id              String   @id @default(cuid())
+  leadId          String
+  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  name            String   // e.g. "Laser cleaning system — warehouse"
+  status          String   @default("active") // "active" | "won" | "lost" | "on_hold"
+  notes           String?  @db.Text
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  quotes          Quote[]
+
+  @@index([leadId])
+}
+
+model Quote {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         LeadProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  quoteNumber     String?          // human-readable quote reference (e.g. "Q-2026-042")
+  status          String   @default("draft") // "draft" | "sent" | "accepted" | "rejected" | "expired"
+  notes           String?  @db.Text
+
+  // Set when this quote was duplicated from another
+  parentQuoteId   String?
+
+  sentAt          DateTime?
+  acceptedAt      DateTime?
+  rejectedAt      DateTime?
+  expiresAt       DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  items           QuoteItem[]
+
+  @@index([projectId])
+}
+
+model QuoteItem {
+  id              String   @id @default(cuid())
+  quoteId         String
+  quote           Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  description     String             // line item description
+  quantity        Float    @default(1)
+  unitPrice       Float    @default(0)
+  unit            String?            // "each" | "hour" | "month" | etc.
+  notes           String?  @db.Text
+  sortOrder       Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([quoteId])
 }

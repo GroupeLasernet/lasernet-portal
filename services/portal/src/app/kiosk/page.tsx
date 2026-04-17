@@ -45,6 +45,13 @@ const t = {
     previousVisitor: 'Visiteur pr\u00e9c\u00e9dent',
     alreadyHere: 'D\u00e9j\u00e0 en visite',
     selectPurpose: 'Choisir la raison',
+    meetingWith: 'Rendez-vous avec',
+    selectAdmin: 'Choisir un membre',
+    others: 'Autres',
+    welcomeName: 'Bienvenue,',
+    expectedVisitors: 'Visiteurs attendus',
+    selectYourName: 'S\u00e9lectionnez votre nom',
+    completeInfo: 'Compl\u00e9ter vos informations',
   },
   en: {
     welcome: 'Welcome to Atelier DSM',
@@ -87,6 +94,13 @@ const t = {
     previousVisitor: 'Previous visitor',
     alreadyHere: 'Already visiting',
     selectPurpose: 'Select reason',
+    meetingWith: 'Meeting with',
+    selectAdmin: 'Select a team member',
+    others: 'Others',
+    welcomeName: 'Welcome,',
+    expectedVisitors: 'Expected visitors',
+    selectYourName: 'Select your name',
+    completeInfo: 'Complete your information',
   },
 } as const
 
@@ -151,6 +165,17 @@ export default function KioskPage() {
   const [purpose, setPurpose] = useState('')
   const [photo, setPhoto] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [meetingWithId, setMeetingWithId] = useState('') // admin user id or '' or 'other'
+
+  /* ---- admin list for "meeting with" dropdown ---- */
+  interface AdminUser { id: string; name: string }
+  const [admins, setAdmins] = useState<AdminUser[]>([])
+
+  /* ---- expected meetings (from training events) ---- */
+  interface ExpectedMeeting { groupId: string; displayName: string; visitors: { id: string; name: string; email: string | null; phone: string | null; leadId: string }[] }
+  const [expectedMeetings, setExpectedMeetings] = useState<ExpectedMeeting[]>([])
+  const [welcomeVisitor, setWelcomeVisitor] = useState<{ name: string } | null>(null)
+  const welcomeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /* ---- name search / autocomplete ---- */
   const [suggestions, setSuggestions] = useState<LeadSuggestion[]>([])
@@ -174,11 +199,16 @@ export default function KioskPage() {
   /* Focus name field once when entering the form screen */
   useEffect(() => {
     if (screen === 'form') {
-      // Small delay to ensure the input is mounted
       const timer = setTimeout(() => nameInputRef.current?.focus(), 100)
       return () => clearTimeout(timer)
     }
   }, [screen])
+
+  /* Fetch admin list + expected meetings (training-generated visit groups) */
+  useEffect(() => {
+    fetch('/api/kiosk/admins').then(r => r.json()).then(d => setAdmins(d.admins || [])).catch(() => {})
+    fetch('/api/kiosk/expected-meetings').then(r => r.json()).then(d => setExpectedMeetings(d.meetings || [])).catch(() => {})
+  }, [])
 
   const searchLeads = useCallback(async (query: string) => {
     if (query.trim().length < 2) {
@@ -436,6 +466,7 @@ export default function KioskPage() {
           company: company.trim() || null,
           purpose: purpose || null,
           photo: photo || null,
+          receivedById: meetingWithId && meetingWithId !== 'other' ? meetingWithId : null,
           ...(selectedBusiness ? { companyId: selectedBusiness.id, companyType: selectedBusiness.type } : {}),
         }),
       })
@@ -484,6 +515,70 @@ export default function KioskPage() {
           >
             {l.register}
           </button>
+
+          {/* Expected meetings — pre-registered visitors from training events */}
+          {expectedMeetings.length > 0 && (
+            <div className="mt-12 w-full max-w-2xl">
+              <h2 className="text-lg font-semibold text-white/60 mb-4">{l.expectedVisitors}</h2>
+              <div className="space-y-3">
+                {expectedMeetings.map(meeting => (
+                  <div key={meeting.groupId} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <p className="text-sm font-medium text-white/70 mb-3">{meeting.displayName}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {meeting.visitors.map(v => (
+                        <button
+                          key={v.id}
+                          onClick={async () => {
+                            // Check if all info is present
+                            if (v.name && v.email && v.phone) {
+                              // Quick check-in: all info present → welcome screen
+                              try {
+                                await fetch('/api/kiosk/register', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    name: v.name,
+                                    email: v.email,
+                                    phone: v.phone,
+                                    visitGroupId: meeting.groupId,
+                                  }),
+                                })
+                              } catch { /* proceed anyway */ }
+                              setWelcomeVisitor({ name: v.name })
+                              if (welcomeTimeoutRef.current) clearTimeout(welcomeTimeoutRef.current)
+                              welcomeTimeoutRef.current = setTimeout(() => setWelcomeVisitor(null), 5000)
+                            } else {
+                              // Missing info → go to form with pre-filled data
+                              setName(v.name || '')
+                              setEmail(v.email || '')
+                              setPhone(v.phone || '')
+                              setScreen('form')
+                            }
+                          }}
+                          className="px-4 py-2.5 bg-white/10 hover:bg-brand-600/30 border border-white/15 hover:border-brand-500/50 rounded-xl text-sm text-white transition-all"
+                        >
+                          {v.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Welcome flash (auto-dismiss after 5s) */}
+          {welcomeVisitor && (
+            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-950/95">
+              <h1 className="text-5xl font-bold text-white mb-4">{l.welcomeName} {welcomeVisitor.name}!</h1>
+              <button
+                onClick={() => { setWelcomeVisitor(null); if (welcomeTimeoutRef.current) clearTimeout(welcomeTimeoutRef.current); }}
+                className="mt-8 bg-brand-600 hover:bg-brand-500 text-white text-xl font-semibold px-12 py-4 rounded-2xl transition-all"
+              >
+                {l.next}
+              </button>
+            </div>
+          )}
         </div>
         {/* staff login link */}
         <div className="pb-8 text-center">
@@ -811,6 +906,23 @@ export default function KioskPage() {
                 </option>
               ))}
             </select>
+
+            {/* Meeting with (admin dropdown) */}
+            {admins.length > 0 && (
+              <select
+                value={meetingWithId}
+                onChange={(e) => setMeetingWithId(e.target.value)}
+                className="bg-white/10 border border-white/20 rounded-xl text-lg py-4 px-6 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-brand-600 transition-shadow"
+              >
+                <option value="" disabled className="bg-gray-900">
+                  {l.meetingWith}
+                </option>
+                {admins.map(a => (
+                  <option key={a.id} value={a.id} className="bg-gray-900">{a.name}</option>
+                ))}
+                <option value="other" className="bg-gray-900">{l.others}</option>
+              </select>
+            )}
 
             {/* Camera / Selfie */}
             <div className="rounded-xl border border-white/20 overflow-hidden bg-black/40">

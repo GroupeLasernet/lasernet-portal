@@ -5,8 +5,8 @@ import prisma from '@/lib/prisma';
 const db = prisma as any;
 
 // GET /api/training/events/:id
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
   try {
     const event = await db.trainingEvent.findUnique({
       where: { id },
@@ -20,8 +20,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 }
 
 // PATCH /api/training/events/:id
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
   try {
     const body = await request.json();
     const { title, description, date, status, templateId, duration, managedClientId } = body;
@@ -45,8 +45,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 // DELETE /api/training/events/:id
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
   try {
     await db.trainingEvent.delete({ where: { id } });
     return NextResponse.json({ success: true });

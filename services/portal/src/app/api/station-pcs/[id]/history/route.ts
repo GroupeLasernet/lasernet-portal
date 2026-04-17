@@ -6,10 +6,10 @@ import prisma from '@/lib/prisma';
 // was deployed before, who moved it, and why.
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
 
     const pc = await prisma.stationPC.findUnique({ where: { id } });
     if (!pc) {

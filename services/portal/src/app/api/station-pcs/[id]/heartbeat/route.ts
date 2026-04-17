@@ -23,10 +23,10 @@ import { verifyStationSignature, extractClientIp } from '@/lib/stationAuth';
 // versions + IP when reviewing) but are never auto-promoted to `online`.
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const body = await request.json();
     const {
       robotVersion,

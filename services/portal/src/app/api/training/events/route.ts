@@ -54,6 +54,54 @@ export async function POST(request: NextRequest) {
       include: { attendees: true, template: true, files: true, managedClient: { select: { id: true, displayName: true, companyName: true } } },
     });
 
+    // Auto-create a VisitGroup for the training day so attendees show up
+    // on the kiosk's "expected visitors" panel and in live-visits.
+    if (attendees && attendees.length > 0) {
+      try {
+        // Find or create leads for each attendee, then create visits
+        const visitGroup = await prisma.visitGroup.create({
+          data: {
+            displayName: title,
+            managedClientId: managedClientId || null,
+            trainingEventId: event.id,
+            status: 'active',
+          },
+        });
+
+        for (const a of attendees as { contactId: string; name: string; email: string }[]) {
+          // Find existing lead by email or create one
+          let lead = a.email
+            ? await prisma.lead.findFirst({ where: { email: a.email.toLowerCase().trim() } })
+            : null;
+
+          if (!lead) {
+            lead = await prisma.lead.create({
+              data: {
+                name: a.name,
+                email: a.email?.toLowerCase().trim() || null,
+                source: 'referral',
+                stage: 'new',
+                managedClientId: managedClientId || null,
+              },
+            });
+          }
+
+          await prisma.visit.create({
+            data: {
+              leadId: lead.id,
+              visitorName: a.name,
+              visitorEmail: a.email?.toLowerCase().trim() || null,
+              purpose: 'meeting',
+              visitGroupId: visitGroup.id,
+              visitedAt: new Date(date),
+            },
+          });
+        }
+      } catch (visitErr) {
+        console.error('Failed to auto-create visit group for training:', visitErr);
+      }
+    }
+
     // Send email notification to attendees (non-blocking)
     if (attendees && attendees.length > 0) {
       const gmailUser = process.env.GMAIL_USER;

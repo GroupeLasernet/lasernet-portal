@@ -5,8 +5,8 @@ import prisma from '@/lib/prisma';
 const db = prisma as any;
 
 // GET /api/training/templates/:id
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
   try {
     const template = await db.trainingTemplate.findUnique({
       where: { id },
@@ -20,8 +20,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 }
 
 // PATCH /api/training/templates/:id
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
   try {
     const body = await request.json();
     const { name, description } = body;
@@ -40,8 +40,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 // DELETE /api/training/templates/:id
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
   try {
     await db.trainingTemplate.delete({ where: { id } });
     return NextResponse.json({ success: true });

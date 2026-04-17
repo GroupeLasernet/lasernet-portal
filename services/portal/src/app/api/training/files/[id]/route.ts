@@ -5,8 +5,8 @@ import prisma from '@/lib/prisma';
 const db = prisma as any;
 
 // GET /api/training/files/:id — get file with data (for download)
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
   try {
     const file = await db.trainingFile.findUnique({ where: { id } });
     if (!file) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -17,8 +17,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 }
 
 // DELETE /api/training/files/:id
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
   try {
     await db.trainingFile.delete({ where: { id } });
     return NextResponse.json({ success: true });

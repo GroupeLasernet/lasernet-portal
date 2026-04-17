@@ -5,10 +5,10 @@ import { getActorFromRequest } from '@/lib/actor';
 // GET /api/stations/[id] — Get single station with all relations
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
 
     const station = await prisma.station.findUnique({
       where: { id },
@@ -153,10 +153,10 @@ export const dynamic = 'force-dynamic';
 // PATCH /api/stations/[id] — Update station details or manage machines
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const body = await request.json();
 
     const station = await prisma.station.findUnique({ where: { id } });
@@ -315,10 +315,10 @@ export async function PATCH(
 // so the PC's history shows where it used to live and who unplugged it.
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
 
     const station = await prisma.station.findUnique({
       where: { id },

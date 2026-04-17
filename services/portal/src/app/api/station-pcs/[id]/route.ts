@@ -5,10 +5,10 @@ import { getActorFromRequest } from '@/lib/actor';
 // GET /api/station-pcs/[id]
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const pc = await prisma.stationPC.findUnique({
       where: { id },
       include: {
@@ -30,10 +30,10 @@ export async function GET(
 // Also: { assignToStationId: string | null } — attaches/detaches this PC to a Station.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const body = await request.json();
 
     const existing = await prisma.stationPC.findUnique({ where: { id } });
@@ -266,10 +266,10 @@ export async function PATCH(
 // Query: ?hard=1 forces hard delete. Default soft-retires (status=retired).
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const hard = request.nextUrl.searchParams.get('hard') === '1';
 
     const existing = await prisma.stationPC.findUnique({ where: { id } });

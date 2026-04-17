@@ -5,8 +5,8 @@ import prisma from '@/lib/prisma';
 const db = prisma as any;
 
 // POST /api/training/events/:id/attendees — add attendees to an event
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
   try {
     const body = await request.json();
     const { attendees } = body;
@@ -31,8 +31,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 }
 
 // DELETE /api/training/events/:id/attendees — remove an attendee
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
   try {
     const { searchParams } = new URL(request.url);
     const contactId = searchParams.get('contactId');
