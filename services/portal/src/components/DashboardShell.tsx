@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from './Sidebar';
+import Sidebar, { type SidebarLink } from './Sidebar';
 
 interface DashboardShellProps {
   children: React.ReactNode;
   requiredRole: 'admin' | 'client';
-  links: { labelKey: string; href: string; icon: React.ReactNode }[];
-  bottomLinks?: { labelKey: string; href: string; icon: React.ReactNode }[];
+  links: SidebarLink[];
+  bottomLinks?: SidebarLink[];
 }
 
 export default function DashboardShell({ children, requiredRole, links, bottomLinks }: DashboardShellProps) {

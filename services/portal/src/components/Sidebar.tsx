@@ -6,10 +6,11 @@ import { useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import QuickBooksStatus from '@/components/QuickBooksStatus';
 
-interface SidebarLink {
+export interface SidebarLink {
   labelKey: string; // translation key in 'nav' section
   href: string;
   icon: React.ReactNode;
+  children?: SidebarLink[]; // expandable sub-links
 }
 
 interface SidebarProps {
@@ -26,6 +27,28 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
   const [loggingOut, setLoggingOut] = useState(false);
   const { t } = useLanguage();
 
+  // Track which expandable groups are open
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
+    // Auto-expand if any child is active
+    const initial = new Set<string>();
+    for (const link of links) {
+      if (link.children) {
+        const isChildActive = link.children.some(c => pathname === c.href || pathname.startsWith(c.href + '/'));
+        if (isChildActive) initial.add(link.labelKey);
+      }
+    }
+    return initial;
+  });
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   const handleLogout = async () => {
     setLoggingOut(true);
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -33,6 +56,76 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
   };
 
   const portalLabel = userRole === 'admin' ? t('nav', 'adminPortal') : t('nav', 'clientPortal');
+
+  const renderLink = (link: SidebarLink) => {
+    const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+
+    // Expandable group
+    if (link.children && link.children.length > 0) {
+      const isExpanded = expandedGroups.has(link.labelKey);
+      const isChildActive = link.children.some(c => pathname === c.href || pathname.startsWith(c.href + '/'));
+
+      return (
+        <div key={link.labelKey}>
+          <button
+            onClick={() => toggleGroup(link.labelKey)}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+              isChildActive
+                ? 'text-brand-700 bg-brand-50'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            {link.icon}
+            <span className="flex-1 text-left">{t('nav', link.labelKey)}</span>
+            <svg
+              className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {isExpanded && (
+            <div className="ml-4 pl-3 border-l border-gray-100 mt-0.5 mb-1 space-y-0.5">
+              {link.children.map(child => {
+                const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
+                return (
+                  <Link
+                    key={child.href}
+                    href={child.href}
+                    onClick={onLinkClick}
+                    className={`flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${
+                      childActive
+                        ? 'text-brand-700 bg-brand-50 font-medium'
+                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                    }`}
+                  >
+                    {child.icon}
+                    <span>{t('nav', child.labelKey)}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Regular link
+    return (
+      <Link
+        key={link.href}
+        href={link.href}
+        onClick={onLinkClick}
+        className={isActive ? 'sidebar-link-active' : 'sidebar-link'}
+      >
+        {link.icon}
+        <span>{t('nav', link.labelKey)}</span>
+      </Link>
+    );
+  };
 
   return (
     <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
@@ -50,20 +143,7 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
 
       {/* Navigation Links */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {links.map((link) => {
-          const isActive = pathname === link.href;
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={onLinkClick}
-              className={isActive ? 'sidebar-link-active' : 'sidebar-link'}
-            >
-              {link.icon}
-              <span>{t('nav', link.labelKey)}</span>
-            </Link>
-          );
-        })}
+        {links.map(renderLink)}
       </nav>
 
       {/* Bottom Navigation Links */}

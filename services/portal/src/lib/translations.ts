@@ -69,6 +69,8 @@ const translations = {
     leads: { fr: 'Leads', en: 'Leads' },
     liveVisits: { fr: 'Visites', en: 'Visits' },
     businesses: { fr: 'Entreprises', en: 'Businesses' },
+    onboarding: { fr: 'Onboarding', en: 'Onboarding' },
+    quotes: { fr: 'Soumissions', en: 'Quotes' },
     inventory: { fr: 'Inventaire', en: 'Inventory' },
     signOut: { fr: 'Déconnexion', en: 'Sign Out' },
     signingOut: { fr: 'Déconnexion...', en: 'Signing out...' },
