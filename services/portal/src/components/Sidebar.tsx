@@ -71,8 +71,8 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
             onClick={() => toggleGroup(link.labelKey)}
             className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
               isChildActive
-                ? 'text-brand-700 bg-brand-50'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                ? 'text-brand-700 bg-brand-50 dark:text-brand-300 dark:bg-brand-900/30'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700/50'
             }`}
           >
             {link.icon}
@@ -88,7 +88,7 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
           </button>
 
           {isExpanded && (
-            <div className="ml-4 pl-3 border-l border-gray-100 mt-0.5 mb-1 space-y-0.5">
+            <div className="ml-4 pl-3 border-l border-gray-100 dark:border-gray-700 mt-0.5 mb-1 space-y-0.5">
               {link.children.map(child => {
                 const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
                 return (
@@ -98,8 +98,8 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
                     onClick={onLinkClick}
                     className={`flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${
                       childActive
-                        ? 'text-brand-700 bg-brand-50 font-medium'
-                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                        ? 'text-brand-700 bg-brand-50 font-medium dark:text-brand-300 dark:bg-brand-900/30'
+                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/50'
                     }`}
                   >
                     {child.icon}
@@ -128,9 +128,9 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
+    <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen flex flex-col transition-colors">
       {/* Brand Header */}
-      <div className="p-4 border-b border-gray-100">
+      <div className="p-4 border-b border-gray-100 dark:border-gray-700">
         <div className="flex flex-col items-center justify-center">
           <img
             src="/prisma-logo.svg"
@@ -138,7 +138,7 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
             className="w-full h-auto max-h-[120px] object-contain"
           />
         </div>
-        <p className="text-xs text-center text-gray-500 mt-1">{portalLabel}</p>
+        <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-1">{portalLabel}</p>
       </div>
 
       {/* Navigation Links */}
@@ -149,7 +149,7 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
       {/* Bottom Navigation Links */}
       {bottomLinks && bottomLinks.length > 0 && (
         <div className="px-4 pb-2 space-y-1">
-          <div className="border-t border-gray-100 pt-3">
+          <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
             {bottomLinks.map((link) => {
               const isActive = pathname === link.href;
               return (
@@ -176,22 +176,22 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
       )}
 
       {/* User Info & Logout */}
-      <div className="p-4 border-t border-gray-100">
+      <div className="p-4 border-t border-gray-100 dark:border-gray-700">
         <div className="flex items-center gap-3 mb-3 px-2">
-          <div className="w-8 h-8 bg-brand-100 rounded-full flex items-center justify-center">
-            <span className="text-sm font-medium text-brand-700">
+          <div className="w-8 h-8 bg-brand-100 dark:bg-brand-900/40 rounded-full flex items-center justify-center">
+            <span className="text-sm font-medium text-brand-700 dark:text-brand-300">
               {userName.split(' ').map(n => n[0]).join('')}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{userName}</p>
-            <p className="text-xs text-gray-500">{userRole}</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{userName}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{userRole}</p>
           </div>
         </div>
         <button
           onClick={handleLogout}
           disabled={loggingOut}
-          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/20 rounded-lg transition-colors"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

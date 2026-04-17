@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar, { type SidebarLink } from './Sidebar';
+import { useTheme } from '@/lib/ThemeContext';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -15,6 +16,7 @@ export default function DashboardShell({ children, requiredRole, links, bottomLi
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   const router = useRouter();
 
   useEffect(() => {
@@ -25,7 +27,6 @@ export default function DashboardShell({ children, requiredRole, links, bottomLi
       })
       .then((data) => {
         if (data.user.role !== requiredRole) {
-          // Wrong role, redirect to correct area
           router.push(data.user.role === 'admin' ? '/admin' : '/portal');
           return;
         }
@@ -39,17 +40,17 @@ export default function DashboardShell({ children, requiredRole, links, bottomLi
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-3 text-sm text-gray-500">Loading...</p>
+          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex bg-gray-50 dark:bg-gray-900 transition-colors">
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
@@ -75,22 +76,45 @@ export default function DashboardShell({ children, requiredRole, links, bottomLi
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile top bar with hamburger */}
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200">
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          {/* Left: hamburger (mobile only) + logo */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+              aria-label="Open menu"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <img
+              src="/prisma-logo.svg"
+              alt="Prisma"
+              className="h-8 object-contain md:hidden"
+            />
+          </div>
+
+          {/* Right: theme toggle */}
           <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
-            aria-label="Open menu"
+            onClick={toggleTheme}
+            className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            {theme === 'dark' ? (
+              /* Sun icon */
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            ) : (
+              /* Moon icon */
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
           </button>
-          <img
-            src="/prisma-logo.svg"
-            alt="Prisma"
-            className="h-8 object-contain"
-          />
         </div>
 
         <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-auto">

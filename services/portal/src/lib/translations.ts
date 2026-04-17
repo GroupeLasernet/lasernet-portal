@@ -72,6 +72,7 @@ const translations = {
     onboarding: { fr: 'Onboarding', en: 'Onboarding' },
     quotes: { fr: 'Soumissions', en: 'Quotes' },
     inventory: { fr: 'Inventaire', en: 'Inventory' },
+    people: { fr: 'Personnes', en: 'People' },
     signOut: { fr: 'Déconnexion', en: 'Sign Out' },
     signingOut: { fr: 'Déconnexion...', en: 'Signing out...' },
     adminPortal: { fr: 'Portail Admin', en: 'Admin Portal' },
