@@ -711,13 +711,21 @@ model Lead {
   name            String
   email           String?
   phone           String?
+  phone2          String?    // secondary phone
   company         String?
+  otherContacts   String?  @db.Text // free-text: other people to reach
   photo           String?  @db.Text // selfie from kiosk (base64 data URL)
 
   // Pipeline
   stage           String   @default("new")
   // Stages: new → qualified → demo_scheduled → demo_done → quote_sent → negotiation → won | lost
   source          String   // walk_in, inbound_call, outbound_call, referral, web
+
+  // Sales context
+  callbackReason  String?  @db.Text // why we need to call this person back
+  objective       String?  @db.Text // what the client wants to achieve
+  budget          Float?             // average budget
+  productsOfInterest String? @db.Text // JSON array of QB item IDs/names
 
   // Assignment
   assignedToId    String?
@@ -745,6 +753,7 @@ model Lead {
   @@index([localBusinessId])
   @@index([assignedToId])
   @@index([stage])
+  @@index([nextFollowUpAt])
 }
 
 // A phone call — inbound or outbound — linked to a lead.

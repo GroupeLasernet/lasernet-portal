@@ -58,7 +58,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { name, email, phone, company, source, stage, assignedToId, managedClientId, notes, estimatedValue } = body;
+  const {
+    name, email, phone, phone2, company, otherContacts,
+    source, stage, assignedToId, managedClientId, notes, estimatedValue,
+    callbackReason, objective, budget, productsOfInterest, nextFollowUpAt,
+  } = body;
 
   if (!name || !source) {
     return NextResponse.json({ error: 'name and source are required' }, { status: 400 });
@@ -70,13 +74,20 @@ export async function POST(request: NextRequest) {
         name,
         email: email || null,
         phone: phone || null,
+        phone2: phone2 || null,
         company: company || null,
+        otherContacts: otherContacts || null,
         source,
         stage: stage || 'new',
         assignedToId: assignedToId || null,
         managedClientId: managedClientId || null,
         notes: notes || null,
         estimatedValue: estimatedValue ? parseFloat(estimatedValue) : null,
+        callbackReason: callbackReason || null,
+        objective: objective || null,
+        budget: budget ? parseFloat(budget) : null,
+        productsOfInterest: productsOfInterest || null,
+        nextFollowUpAt: nextFollowUpAt ? new Date(nextFollowUpAt) : null,
       },
       include: {
         assignedTo: { select: { id: true, name: true, email: true } },

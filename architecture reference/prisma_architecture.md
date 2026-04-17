@@ -35,7 +35,7 @@ Single active monorepo. Three services under `services/`:
 
 | Service | Tech | Purpose | Port | Persistence |
 |---|---|---|---|---|
-| `services/portal` | Next.js 14 + TS + Tailwind + Prisma ORM | Web portal — admin, clients, stations, invoices, QuickBooks | deployed on Vercel | Neon Postgres |
+| `services/portal` | Next.js 14 + TS + Tailwind + Prisma ORM | Web portal — admin, clients, stations, invoices, CRM/onboarding, QuickBooks | deployed on Vercel | Neon Postgres |
 | `services/robot` | Python + FastAPI ("Elfin Cobot Studio") | Local controller for the Elfin cobot | 8080 | SQLite |
 | `services/relfar` | Python + Flask ("Relfar laser bridge") | Local controller for Relfar V4 laser cleaner | 5000 | SQLite (violates DB rule — refactor backlogged) |
 
@@ -96,9 +96,25 @@ Prisma/                                  (monorepo root)
 │   └── branding-assets/                 ← Prisma logo PNG/SVG variants
 └── services/
     ├── portal/                          (Next.js, deployed to Vercel)
-    │   ├── src/app/                     ← pages + API routes
+    │   ├── src/app/
+    │   │   └── admin/                   ← admin pages
+    │   │       ├── leads/               ← CRM leads (table + calendar + kanban + detail panel)
+    │   │       ├── live-visits/         ← kiosk live-visit tracking
+    │   │       ├── businesses/          ← entreprises
+    │   │       ├── quotes/              ← QB quotes/estimates (placeholder)
+    │   │       ├── clients/
+    │   │       ├── stations/
+    │   │       ├── station-pcs/
+    │   │       ├── machines/
+    │   │       ├── training/
+    │   │       ├── inventory/           ← QB inventory browser + add stock
+    │   │       ├── tickets/
+    │   │       ├── files/
+    │   │       └── settings/
     │   ├── src/components/
+    │   │   └── admin/Sidebar.tsx        ← expandable groups (children property)
     │   ├── src/lib/
+    │   │   └── quickbooks.ts            ← QB API helpers incl. createQBEntity()
     │   ├── prisma/                      ← ORM schema + migrations
     │   └── package.json
     ├── robot/                           (Python FastAPI)
@@ -211,7 +227,7 @@ Read from `services/robot/.env` via `load_dotenv()` in `config.py`:
 4. ROBOT PC (Admin): `Restart-Service ElfinRobot` and/or `nssm restart RelfarBridge`.
 5. Portal: Vercel auto-deploys from GitHub main on push.
 
-## 13. Current high-level status (2026-04-15)
+## 13. Current high-level status (2026-04-16)
 
 **Recently shipped (since 2026-04-14):**
 - Three-entity domain model live in production: `Station` ↔ `StationPC` (1:1) ↔ `Machine` (M:N via `StationMachine`). `/admin/station-pcs` CRUD + sidebar nav + assignment audit trail (`StationPCAssignment`).
@@ -225,6 +241,19 @@ Read from `services/robot/.env` via `load_dotenv()` in `config.py`:
 - Robot wrist buttons wired client-side; speed multiplier 6x; jog accel boost. **Hardware Free Mode + Waypoint buttons are confirmed working at the controller/pendant level (2026-04-14)** — Prisma still doesn't poll end-flange DI from the SDK, so the wrist buttons don't yet trigger Prisma-side actions.
 - Robot licensing + HMAC signing live (`v1|serial|mode|expiresAt|killSwitch|signedAt`); soft-pass while `LICENSE_STRICT=false`.
 - Relfar SQLite persistence + dual-homed RDWelder AP deployment pattern.
+
+**Recently shipped (since 2026-04-15):**
+- **Admin sidebar restructured:** expandable "Onboarding" group (Leads, Live Visits, Businesses, Quotes); Clients promoted to own top-level item between Onboarding and Stations; new "Inventory" tab between Training and Tickets. `Sidebar.tsx` now supports expandable groups via `children` property.
+- **Lead model enhanced:** new fields `phone2`, `otherContacts`, `callbackReason`, `objective`, `budget`, `productsOfInterest` (JSON text of QB item selections). New DB index on `nextFollowUpAt`.
+- **Leads page rebuilt** (`/admin/leads`): table view (sticky client name column, reason of call, inventory type, phone, business, email, objective, budget), right-side sliding detail panel (~500px, all fields editable, QB inventory multi-select for products of interest, quotes placeholder), 60-day calendar view (leads by `nextFollowUpAt`), pipeline kanban view preserved. New lead modal updated with all new fields.
+- **Inventory page** (`/admin/inventory`): dedicated QB inventory browser + Add Stock form (same as settings but as its own admin page).
+- **Quotes page** (`/admin/quotes`): placeholder page for QuickBooks quotes/estimates management.
+- **QB connection improvements:** separated try/catch for status vs data fetches (status no longer lost if a query fails); error messages propagated from QB API to UI (not just generic "Failed to fetch"); "Connect QuickBooks" button appears on token expiry / not-connected states; new `createQBEntity()` function in `quickbooks.ts` for POST requests.
+- **Live visits improvements:** fullscreen toggle for dark visit container; needs display redesigned (title 14px white, notes inline gray 11px after colon); drag-and-drop fix (`effectAllowed`/`dropEffect` matching); needs note fix (PATCH instead of POST for notes on existing needs); kiosk dedup (prevents duplicate visits when visitor already checked in with active visit).
+- **New API endpoints:**
+  - `GET /api/quickbooks/accounts` — returns QB Chart of Accounts.
+  - `POST /api/quickbooks/inventory` — creates items in QB.
+  - `POST /api/visit-groups/cleanup-needs` — one-time cleanup to remove duplicate `VisitNeed` entries.
 
 **Not yet built / blocked:**
 - Portal `/api/sync/push` + `/api/sync/pull` — NOT BUILT, sync disabled.

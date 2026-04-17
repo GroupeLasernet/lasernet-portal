@@ -64,7 +64,12 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { name, email, phone, company, stage, assignedToId, managedClientId, notes, estimatedValue, nextFollowUpAt, lostReason } = body;
+  const {
+    name, email, phone, phone2, company, otherContacts,
+    stage, assignedToId, managedClientId, notes,
+    estimatedValue, nextFollowUpAt, lostReason,
+    callbackReason, objective, budget, productsOfInterest,
+  } = body;
 
   try {
     // Get current lead for activity logging
@@ -77,7 +82,9 @@ export async function PATCH(
     if (name !== undefined) data.name = name;
     if (email !== undefined) data.email = email || null;
     if (phone !== undefined) data.phone = phone || null;
+    if (phone2 !== undefined) data.phone2 = phone2 || null;
     if (company !== undefined) data.company = company || null;
+    if (otherContacts !== undefined) data.otherContacts = otherContacts || null;
     if (stage !== undefined) data.stage = stage;
     if (assignedToId !== undefined) data.assignedToId = assignedToId || null;
     if (managedClientId !== undefined) data.managedClientId = managedClientId || null;
@@ -85,6 +92,10 @@ export async function PATCH(
     if (estimatedValue !== undefined) data.estimatedValue = estimatedValue ? parseFloat(estimatedValue) : null;
     if (nextFollowUpAt !== undefined) data.nextFollowUpAt = nextFollowUpAt ? new Date(nextFollowUpAt) : null;
     if (lostReason !== undefined) data.lostReason = lostReason || null;
+    if (callbackReason !== undefined) data.callbackReason = callbackReason || null;
+    if (objective !== undefined) data.objective = objective || null;
+    if (budget !== undefined) data.budget = budget !== null && budget !== '' ? parseFloat(budget) : null;
+    if (productsOfInterest !== undefined) data.productsOfInterest = productsOfInterest || null;
 
     // Handle won/lost timestamps
     if (stage === 'won' && !current.wonAt) data.wonAt = new Date();
