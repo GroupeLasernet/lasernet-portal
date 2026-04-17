@@ -891,7 +891,7 @@ model Quote {
   project         LeadProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   quoteNumber     String?          // human-readable quote reference (e.g. "Q-2026-042")
-  status          String   @default("draft") // "draft" | "sent" | "accepted" | "rejected" | "expired"
+  status          String   @default("pending") // "pending" | "accepted" | "refused"
   notes           String?  @db.Text
 
   // Set when this quote was duplicated from another

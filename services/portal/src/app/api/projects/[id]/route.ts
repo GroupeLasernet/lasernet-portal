@@ -41,6 +41,14 @@ export async function PATCH(
     if (body.status !== undefined) data.status = body.status;
     if (body.notes !== undefined) data.notes = body.notes || null;
 
+    // When refusing a project, mark all its quotes as "refused"
+    if (body.refuseAllQuotes) {
+      await prisma.quote.updateMany({
+        where: { projectId: id },
+        data: { status: 'refused' },
+      });
+    }
+
     const project = await prisma.leadProject.update({
       where: { id },
       data,

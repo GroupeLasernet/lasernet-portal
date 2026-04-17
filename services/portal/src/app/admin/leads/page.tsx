@@ -413,9 +413,14 @@ export default function AdminLeadsPage() {
     setProjectSaving(false);
   };
 
-  const handleDeleteProject = async (projectId: string) => {
+  const handleRefuseProject = async (projectId: string) => {
+    if (!confirm(t('leads', 'refuseProjectConfirm'))) return;
     try {
-      await fetch(`/api/projects/${projectId}`, { method: 'DELETE' });
+      await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'lost', refuseAllQuotes: true }),
+      });
       if (selectedId) loadTabData('projects', selectedId);
     } catch { /* */ }
   };
@@ -997,7 +1002,11 @@ export default function AdminLeadsPage() {
                                   </span>
                                   <span className="text-xs text-gray-400">{proj.quotes.length} {t('leads', proj.quotes.length === 1 ? 'quote' : 'quotes')}</span>
                                 </div>
-                                <button onClick={e => { e.stopPropagation(); handleDeleteProject(proj.id); }} className="text-xs text-red-400 hover:text-red-600" title={t('leads', 'delete')}>✕</button>
+                                {proj.status !== 'lost' && (
+                                  <button onClick={e => { e.stopPropagation(); handleRefuseProject(proj.id); }} className="text-xs text-red-400 hover:text-red-600 px-2 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition" title={t('leads', 'refuseProject')}>
+                                    {t('leads', 'refuseProject')}
+                                  </button>
+                                )}
                               </button>
 
                               {/* Expanded: quotes inside project */}
@@ -1045,9 +1054,8 @@ export default function AdminLeadsPage() {
                                             <span className="text-sm text-gray-800 dark:text-gray-200">{q.quoteNumber || t('leads', 'untitledQuote')}</span>
                                             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                                               q.status === 'accepted' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                                              q.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                                              q.status === 'sent' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
-                                              'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                                              q.status === 'refused' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                                              'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                                             }`}>
                                               {t('leads', `quoteStatus_${q.status}`)}
                                             </span>
