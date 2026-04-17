@@ -32,6 +32,7 @@ interface Lead {
   productsOfInterest: string | null;
   createdAt: string;
   updatedAt: string;
+  projects: { id: string; name: string; status: string; quotes: { id: string; quoteNumber: string | null; status: string }[] }[];
   _count: { calls: number; visits: number; messages: number };
 }
 
@@ -606,13 +607,33 @@ export default function AdminLeadsPage() {
                   onClick={() => setSelectedId(lead.id)}
                   className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition ${selectedId === lead.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
                 >
-                  <td className="sticky left-0 z-10 bg-white dark:bg-gray-800 px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                  <td className="sticky left-0 z-10 bg-white dark:bg-gray-800 px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
                     <div className="flex items-center gap-2">
-                      <span>{lead.name}</span>
+                      <span className="whitespace-nowrap">{lead.name}</span>
                       <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STAGE_COLORS[lead.stage]}`}>
                         {t('leads', `stage_${lead.stage}`)}
                       </span>
                     </div>
+                    {lead.projects && lead.projects.length > 0 && (
+                      <div className="mt-1.5 space-y-1">
+                        {lead.projects.map(proj => (
+                          <div key={proj.id} className="flex items-center gap-1.5 text-[11px]">
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                              proj.status === 'won' ? 'bg-green-500' :
+                              proj.status === 'lost' ? 'bg-red-400' :
+                              proj.status === 'on_hold' ? 'bg-yellow-400' :
+                              'bg-blue-400'
+                            }`} />
+                            <span className="text-gray-500 dark:text-gray-400 truncate max-w-[180px]">{proj.name}</span>
+                            {proj.quotes.length > 0 && (
+                              <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">
+                                ({proj.quotes.length} {t('leads', proj.quotes.length === 1 ? 'quote' : 'quotes')})
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[200px] truncate">{lead.callbackReason || '-'}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[200px] truncate">{products.length > 0 ? products.join(', ') : '-'}</td>

@@ -35,6 +35,10 @@ export async function GET(request: NextRequest) {
       include: {
         assignedTo: { select: { id: true, name: true, email: true } },
         managedClient: { select: { id: true, displayName: true, companyName: true } },
+        projects: {
+          select: { id: true, name: true, status: true, quotes: { select: { id: true, quoteNumber: true, status: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
         _count: { select: { calls: true, visits: true, messages: true } },
       },
       orderBy: { updatedAt: 'desc' },
