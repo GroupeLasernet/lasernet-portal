@@ -334,7 +334,7 @@ function MeetingBubbles({
         for (let j = i + 1; j < ts.length; j++) {
           const b = ts[j];
           const overlapX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
-          const overlapY = Math.min(a.y + a.h, b.x + b.h) - Math.max(a.y, b.y);
+          const overlapY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
           if (overlapX > 0 && overlapY > 0) {
             // Push apart on the axis with least overlap
             const acx = a.x + a.w / 2, acy = a.y + a.h / 2;
