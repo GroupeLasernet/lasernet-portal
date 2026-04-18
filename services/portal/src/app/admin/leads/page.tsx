@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import PageHeader from '@/components/PageHeader';
 
@@ -204,6 +204,36 @@ export default function AdminLeadsPage() {
   const [stageFilter, setStageFilter] = useState<LeadStage | 'all'>('all');
   const [sourceFilter, setSourceFilter] = useState<LeadSource | 'all'>('all');
   const [viewMode, setViewMode] = useState<'list' | 'pipeline' | 'calendar'>('list');
+
+  // ── Resizable columns ──
+  const COL_KEYS = ['status', 'businessName', 'clientName', 'reasonOfCall', 'inventoryType', 'phone', 'email', 'objective', 'avgBudget'] as const;
+  const COL_DEFAULTS: Record<string, number> = { status: 50, businessName: 160, clientName: 220, reasonOfCall: 180, inventoryType: 180, phone: 120, email: 160, objective: 180, avgBudget: 110 };
+  const [colWidths, setColWidths] = useState<Record<string, number>>(COL_DEFAULTS);
+  const resizingCol = useRef<string | null>(null);
+  const resizeStartX = useRef(0);
+  const resizeStartW = useRef(0);
+
+  const onResizeStart = useCallback((colKey: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingCol.current = colKey;
+    resizeStartX.current = e.clientX;
+    resizeStartW.current = colWidths[colKey] ?? COL_DEFAULTS[colKey];
+
+    const onMove = (ev: MouseEvent) => {
+      if (!resizingCol.current) return;
+      const diff = ev.clientX - resizeStartX.current;
+      const newW = Math.max(40, resizeStartW.current + diff);
+      setColWidths(prev => ({ ...prev, [resizingCol.current!]: newW }));
+    };
+    const onUp = () => {
+      resizingCol.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [colWidths]);
 
   // ── Detail panel form state ──
   const [detailForm, setDetailForm] = useState({
@@ -585,63 +615,79 @@ export default function AdminLeadsPage() {
     }
     return (
       <div className="overflow-x-auto border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800">
-        <table className="min-w-full text-sm">
+        <table className="text-sm" style={{ tableLayout: 'fixed', width: Object.values(colWidths).reduce((s, w) => s + w, 0) }}>
           <thead>
             <tr className="border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <th className="sticky left-0 z-10 bg-gray-50 dark:bg-gray-900 px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'clientName')}</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'reasonOfCall')}</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'inventoryType')}</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'phone')}</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'businessName')}</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'email')}</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'objective')}</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">{t('leads', 'avgBudget')}</th>
+              {[
+                { key: 'status', label: t('leads', 'status'), align: 'center' },
+                { key: 'businessName', label: t('leads', 'businessName'), align: 'left' },
+                { key: 'clientName', label: t('leads', 'clientName'), align: 'left' },
+                { key: 'reasonOfCall', label: t('leads', 'reasonOfCall'), align: 'left' },
+                { key: 'inventoryType', label: t('leads', 'inventoryType'), align: 'left' },
+                { key: 'phone', label: t('leads', 'phone'), align: 'left' },
+                { key: 'email', label: t('leads', 'email'), align: 'left' },
+                { key: 'objective', label: t('leads', 'objective'), align: 'left' },
+                { key: 'avgBudget', label: t('leads', 'avgBudget'), align: 'right' },
+              ].map(col => (
+                <th
+                  key={col.key}
+                  style={{ width: colWidths[col.key], minWidth: 40, position: 'relative' }}
+                  className={`px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap select-none ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
+                >
+                  {col.label}
+                  {/* Resize handle */}
+                  <span
+                    onMouseDown={e => onResizeStart(col.key, e)}
+                    className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand-400/40 transition-colors"
+                  />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-gray-700">
             {filtered.map(lead => {
               const products = parseProducts(lead.productsOfInterest);
+              const activeProjects = lead.projects?.filter(p => p.status === 'active') ?? [];
               return (
                 <tr
                   key={lead.id}
                   onClick={() => setSelectedId(lead.id)}
                   className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition ${selectedId === lead.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
                 >
-                  <td className="sticky left-0 z-10 bg-white dark:bg-gray-800 px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                  {/* Status — gray dot placeholder */}
+                  <td style={{ width: colWidths.status }} className="px-4 py-3 text-center">
+                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+                  </td>
+                  {/* Business Name */}
+                  <td style={{ width: colWidths.businessName }} className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{lead.company || '-'}</td>
+                  {/* Client Name + active projects */}
+                  <td style={{ width: colWidths.clientName }} className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
                     <div className="flex items-center gap-2">
-                      <span className="whitespace-nowrap">{lead.name}</span>
-                      <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STAGE_COLORS[lead.stage]}`}>
+                      <span className="whitespace-nowrap truncate">{lead.name}</span>
+                      <span className={`flex-shrink-0 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STAGE_COLORS[lead.stage]}`}>
                         {t('leads', `stage_${lead.stage}`)}
                       </span>
                     </div>
-                    {lead.projects && lead.projects.length > 0 && (
-                      <div className="mt-1.5 space-y-1">
-                        {lead.projects.map(proj => (
+                    {activeProjects.length > 0 && (
+                      <div className="mt-1 space-y-0.5">
+                        {activeProjects.map(proj => (
                           <div key={proj.id} className="flex items-center gap-1.5 text-[11px]">
-                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                              proj.status === 'won' ? 'bg-green-500' :
-                              proj.status === 'lost' ? 'bg-red-400' :
-                              proj.status === 'on_hold' ? 'bg-yellow-400' :
-                              'bg-blue-400'
-                            }`} />
-                            <span className="text-gray-500 dark:text-gray-400 truncate max-w-[180px]">{proj.name}</span>
+                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-400" />
+                            <span className="text-gray-500 dark:text-gray-400 truncate">{proj.name}</span>
                             {proj.quotes.length > 0 && (
-                              <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">
-                                ({proj.quotes.length} {t('leads', proj.quotes.length === 1 ? 'quote' : 'quotes')})
-                              </span>
+                              <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">({proj.quotes.length})</span>
                             )}
                           </div>
                         ))}
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[200px] truncate">{lead.callbackReason || '-'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[200px] truncate">{products.length > 0 ? products.join(', ') : '-'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{lead.phone || '-'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{lead.company || '-'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{lead.email || '-'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[200px] truncate">{lead.objective || '-'}</td>
-                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                  <td style={{ width: colWidths.reasonOfCall }} className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{lead.callbackReason || '-'}</td>
+                  <td style={{ width: colWidths.inventoryType }} className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{products.length > 0 ? products.join(', ') : '-'}</td>
+                  <td style={{ width: colWidths.phone }} className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap truncate">{lead.phone || '-'}</td>
+                  <td style={{ width: colWidths.email }} className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{lead.email || '-'}</td>
+                  <td style={{ width: colWidths.objective }} className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{lead.objective || '-'}</td>
+                  <td style={{ width: colWidths.avgBudget }} className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 whitespace-nowrap">
                     {lead.budget != null ? `$${lead.budget.toLocaleString()}` : '-'}
                   </td>
                 </tr>

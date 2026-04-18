@@ -801,6 +801,7 @@ const translations = {
     refuseProjectConfirm: { fr: 'Refuser ce projet ? Toutes les soumissions seront marquées comme refusées.', en: 'Refuse this project? All quotes will be marked as refused.' },
     delete: { fr: 'Supprimer', en: 'Delete' },
     // Table headers
+    status: { fr: 'Statut', en: 'Status' },
     clientName: { fr: 'Nom du client', en: 'Client Name' },
     reasonOfCall: { fr: 'Raison de l\'appel', en: 'Reason of Call' },
     inventoryType: { fr: 'Type d\'inventaire suggéré', en: 'Inventory Type Suggested' },
