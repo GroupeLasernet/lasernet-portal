@@ -225,273 +225,6 @@ function dateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-// ── Meeting Tiles — physics-based floating rectangular cards ────────────────
-
-interface TileState {
-  id: string;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  w: number;
-  h: number;
-}
-
-const TILE_W = 160;
-const TILE_H = 100;
-
-function MeetingBubbles({
-  meetings,
-  dragOverMeeting,
-  setDragOverMeeting,
-  handleDropOnMeeting,
-  handleCompleteMeeting,
-  handleDeleteMeeting,
-  handleRemoveAttendee,
-  handleAddAttendee,
-  mainContactLeadId,
-  t,
-}: {
-  meetings: ProjectMeeting[];
-  dragOverMeeting: string | null;
-  setDragOverMeeting: (id: string | null) => void;
-  handleDropOnMeeting: (id: string) => void;
-  handleCompleteMeeting: (id: string) => void;
-  handleDeleteMeeting: (id: string) => void;
-  handleRemoveAttendee: (meetingId: string, attendeeId: string) => void;
-  handleAddAttendee: (meetingId: string, lead: LeadSearchResult) => void;
-  mainContactLeadId: string | null;
-  t: (section: string, key: string) => string;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const tilesRef = useRef<TileState[]>([]);
-  const animFrameRef = useRef<number>(0);
-  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
-  const [expandedTile, setExpandedTile] = useState<string | null>(null);
-  const dragTileRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
-
-  // Initialize / sync tile state when meetings change
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const W = container.clientWidth;
-    const H = container.clientHeight;
-
-    const existing = new Map(tilesRef.current.map(t => [t.id, t]));
-    const next: TileState[] = meetings.map((mtg, i) => {
-      const prev = existing.get(mtg.id);
-      if (prev) return prev;
-      // Place in a grid-ish pattern initially
-      const cols = Math.max(2, Math.floor(W / (TILE_W + 16)));
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      return {
-        id: mtg.id,
-        x: Math.min(W - TILE_W, 8 + col * (TILE_W + 12)),
-        y: Math.min(H - TILE_H, 8 + row * (TILE_H + 12)),
-        vx: (Math.random() - 0.5) * 0.8,
-        vy: (Math.random() - 0.5) * 0.8,
-        w: TILE_W,
-        h: TILE_H,
-      };
-    });
-    tilesRef.current = next;
-  }, [meetings]);
-
-  // Physics loop
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let running = true;
-    const DAMPING = 0.985;
-
-    const tick = () => {
-      if (!running) return;
-      const W = container.clientWidth;
-      const H = container.clientHeight;
-      const ts = tilesRef.current;
-
-      for (let i = 0; i < ts.length; i++) {
-        const a = ts[i];
-        if (dragTileRef.current?.id === a.id) continue;
-
-        // Gentle drift
-        a.vx += (Math.random() - 0.5) * 0.04;
-        a.vy += (Math.random() - 0.5) * 0.04;
-        a.vx *= DAMPING;
-        a.vy *= DAMPING;
-        a.x += a.vx;
-        a.y += a.vy;
-
-        // Wall bounds
-        if (a.x < 0) { a.x = 0; a.vx = Math.abs(a.vx) * 0.5; }
-        if (a.x + a.w > W) { a.x = W - a.w; a.vx = -Math.abs(a.vx) * 0.5; }
-        if (a.y < 0) { a.y = 0; a.vy = Math.abs(a.vy) * 0.5; }
-        if (a.y + a.h > H) { a.y = H - a.h; a.vy = -Math.abs(a.vy) * 0.5; }
-
-        // Tile-tile AABB collision
-        for (let j = i + 1; j < ts.length; j++) {
-          const b = ts[j];
-          const overlapX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
-          const overlapY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-          if (overlapX > 0 && overlapY > 0) {
-            // Push apart on the axis with least overlap
-            const acx = a.x + a.w / 2, acy = a.y + a.h / 2;
-            const bcx = b.x + b.w / 2, bcy = b.y + b.h / 2;
-            const dx = bcx - acx;
-            const dy = bcy - acy;
-            if (Math.abs(dx) > Math.abs(dy)) {
-              const push = overlapX / 2 + 2;
-              if (dx > 0) { a.x -= push; b.x += push; } else { a.x += push; b.x -= push; }
-              a.vx *= -0.3; b.vx *= -0.3;
-            } else {
-              const push = overlapY / 2 + 2;
-              if (dy > 0) { a.y -= push; b.y += push; } else { a.y += push; b.y -= push; }
-              a.vy *= -0.3; b.vy *= -0.3;
-            }
-          }
-        }
-      }
-
-      const pos: Record<string, { x: number; y: number }> = {};
-      for (const t of ts) pos[t.id] = { x: t.x, y: t.y };
-      setPositions(pos);
-      animFrameRef.current = requestAnimationFrame(tick);
-    };
-
-    animFrameRef.current = requestAnimationFrame(tick);
-    return () => { running = false; cancelAnimationFrame(animFrameRef.current); };
-  }, [meetings.length]);
-
-  // Mouse drag
-  const onTileMouseDown = useCallback((e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const container = containerRef.current;
-    const tile = tilesRef.current.find(x => x.id === id);
-    if (!tile || !container) return;
-    const rect = container.getBoundingClientRect();
-    dragTileRef.current = { id, offsetX: e.clientX - rect.left - tile.x, offsetY: e.clientY - rect.top - tile.y };
-    const onMove = (ev: MouseEvent) => {
-      if (!dragTileRef.current || !containerRef.current) return;
-      const r = containerRef.current.getBoundingClientRect();
-      const t = tilesRef.current.find(x => x.id === dragTileRef.current!.id);
-      if (!t) return;
-      t.x = ev.clientX - r.left - dragTileRef.current.offsetX;
-      t.y = ev.clientY - r.top - dragTileRef.current.offsetY;
-      t.vx = 0;
-      t.vy = 0;
-    };
-    const onUp = () => {
-      dragTileRef.current = null;
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, []);
-
-  const statusBg = (s: string) =>
-    s === 'completed' ? 'bg-green-500' : s === 'cancelled' ? 'bg-red-400' : 'bg-brand-500';
-  const statusBorder = (s: string) =>
-    s === 'completed' ? 'border-green-400' : s === 'cancelled' ? 'border-red-400' : 'border-brand-400';
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative w-full overflow-hidden"
-      style={{ minHeight: 340 }}
-    >
-      {meetings.map(mtg => {
-        const pos = positions[mtg.id];
-        if (!pos) return null;
-        const isOver = dragOverMeeting === mtg.id;
-        const isExpanded = expandedTile === mtg.id;
-
-        return (
-          <div
-            key={mtg.id}
-            className={`absolute select-none ${isExpanded ? 'z-30' : 'z-10'}`}
-            style={{ left: pos.x, top: pos.y, width: TILE_W, height: TILE_H }}
-            onDragOver={e => { e.preventDefault(); setDragOverMeeting(mtg.id); }}
-            onDragLeave={() => setDragOverMeeting(null)}
-            onDrop={e => { e.preventDefault(); handleDropOnMeeting(mtg.id); }}
-          >
-            {/* Rectangular tile */}
-            <div
-              className={`w-full h-full rounded-xl border-2 ${statusBorder(mtg.status)} bg-white dark:bg-gray-800 cursor-grab active:cursor-grabbing
-                flex flex-col justify-between p-2.5 shadow-md transition-all duration-150
-                ${isOver ? 'ring-2 ring-brand-400 scale-105 shadow-lg shadow-brand-200/40' : 'hover:shadow-lg'}
-              `}
-              onMouseDown={e => onTileMouseDown(e, mtg.id)}
-              onClick={() => setExpandedTile(isExpanded ? null : mtg.id)}
-            >
-              {/* Top: status dot + title */}
-              <div className="flex items-start gap-1.5">
-                <span className={`w-2 h-2 rounded-full mt-0.5 flex-shrink-0 ${statusBg(mtg.status)}`} />
-                <span className="text-[11px] font-semibold text-gray-900 dark:text-gray-100 leading-tight line-clamp-2">{mtg.title}</span>
-              </div>
-              {/* Bottom: date + attendees count */}
-              <div className="flex items-center justify-between text-[9px] text-gray-400 dark:text-gray-500">
-                <span>
-                  {new Date(mtg.scheduledAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  {' '}
-                  {new Date(mtg.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-                <span className="flex items-center gap-0.5">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  {mtg.attendees.length}
-                </span>
-              </div>
-            </div>
-
-            {/* Expanded detail card */}
-            {isExpanded && (
-              <div
-                className={`absolute top-full left-0 mt-1 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border ${statusBorder(mtg.status)} dark:border-gray-600 p-3 z-40`}
-                onClick={e => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">{mtg.title}</span>
-                  <div className="flex gap-1">
-                    {mtg.status === 'scheduled' && (
-                      <button onClick={() => handleCompleteMeeting(mtg.id)} className="text-[10px] text-green-600 hover:text-green-700" title={t('leads', 'completeMeeting')}>✓</button>
-                    )}
-                    <button onClick={() => handleDeleteMeeting(mtg.id)} className="text-[10px] text-red-400 hover:text-red-600" title={t('leads', 'deleteMeeting')}>✕</button>
-                  </div>
-                </div>
-                <div className="text-[10px] text-gray-500 dark:text-gray-400 space-y-0.5 mb-2">
-                  <p>{new Date(mtg.scheduledAt).toLocaleDateString()} {new Date(mtg.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {mtg.durationMinutes}min</p>
-                  {mtg.location && <p>{mtg.location}</p>}
-                  {mtg.notes && <p className="italic">{mtg.notes}</p>}
-                </div>
-                <p className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase mb-1">{t('leads', 'attendees')} ({mtg.attendees.length})</p>
-                {mtg.attendees.length === 0 ? (
-                  <p className="text-[10px] text-gray-400 italic">{t('leads', 'noAttendees')}</p>
-                ) : (
-                  <div className="space-y-1 max-h-24 overflow-y-auto">
-                    {mtg.attendees.map(att => {
-                      const isMain = att.leadId && att.leadId === mainContactLeadId;
-                      return (
-                        <div key={att.id} className="flex items-center justify-between gap-1">
-                          <span className="text-[11px] text-gray-700 dark:text-gray-300 truncate">{att.lead?.name || att.name || '?'}</span>
-                          {isMain && <span className="text-[8px] font-bold bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 px-1.5 py-0.5 rounded-full flex-shrink-0">{t('leads', 'mainContact')}</span>}
-                          <button onClick={() => handleRemoveAttendee(mtg.id, att.id)} className="text-[10px] text-red-400 hover:text-red-600 flex-shrink-0">✕</button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function AdminLeadsPage() {
@@ -1563,10 +1296,10 @@ export default function AdminLeadsPage() {
               {activeTab === 'visits' && (
                 <div className="space-y-4">
 
-                  {/* ── Meetings Section — split layout ── */}
+                  {/* ── Meetings Section ── */}
                   {editMode === 'project' && selectedProjectId && (
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
                         <h4 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'meetings')}</h4>
                         <button
                           onClick={() => setShowMeetingForm(!showMeetingForm)}
@@ -1578,7 +1311,7 @@ export default function AdminLeadsPage() {
 
                       {/* New meeting form */}
                       {showMeetingForm && (
-                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700 mb-3">
+                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700">
                           <div>
                             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'meetingTitle')}</label>
                             <input type="text" value={meetingForm.title} onChange={e => setMeetingForm({ ...meetingForm, title: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'meetingTitlePlaceholder')} />
@@ -1616,79 +1349,126 @@ export default function AdminLeadsPage() {
                         </div>
                       )}
 
-                      {/* Split layout: left = people list, right = meeting bubbles */}
-                      <div className="flex" style={{ minHeight: 360 }}>
-                        {/* ── Left: unassigned people + search ── */}
-                        <div className="w-48 flex-shrink-0 border-r dark:border-gray-600 pr-3 flex flex-col">
-                          <div className="relative mb-2">
-                            <input
-                              type="text"
-                              value={attendeeSearch}
-                              onChange={e => setAttendeeSearch(e.target.value)}
-                              className={`${INPUT_CLS} text-xs`}
-                              placeholder={t('leads', 'searchAttendee')}
-                            />
-                            {attendeeSearching && <div className="absolute right-2 top-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-600" /></div>}
-                          </div>
-                          <div className="flex-1 overflow-y-auto space-y-1">
-                            {attendeeResults.length > 0 ? (
-                              attendeeResults.map(lead => {
-                                const alreadyInAny = meetings.some(m => m.attendees.some(a => a.leadId === lead.id));
-                                return (
-                                  <div
-                                    key={lead.id}
-                                    draggable={!alreadyInAny}
-                                    onDragStart={() => setDraggedLead(lead)}
-                                    onDragEnd={() => setDraggedLead(null)}
-                                    className={`px-2 py-1.5 rounded-lg text-xs flex items-center gap-2 border dark:border-gray-700 transition ${
-                                      alreadyInAny
-                                        ? 'opacity-40 cursor-not-allowed bg-gray-50 dark:bg-gray-900'
-                                        : 'cursor-grab active:cursor-grabbing bg-white dark:bg-gray-800 hover:border-brand-400 hover:shadow-sm'
-                                    }`}
-                                  >
-                                    <div className="w-6 h-6 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0">
-                                      <span className="text-[9px] font-bold text-brand-700 dark:text-brand-300">{lead.name.charAt(0).toUpperCase()}</span>
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{lead.name}</p>
-                                      {lead.company && <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{lead.company}</p>}
-                                    </div>
-                                    {alreadyInAny && <span className="text-[9px] text-gray-400 ml-auto">✓</span>}
-                                  </div>
-                                );
-                              })
-                            ) : attendeeSearch.length >= 2 && !attendeeSearching ? (
-                              <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center py-4">{t('common', 'noResults')}</p>
-                            ) : (
-                              <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center py-4 px-1">{t('leads', 'searchAttendee')}</p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* ── Right: meeting bubbles canvas ── */}
-                        <div className="flex-1 pl-3 relative">
-                          {meetings.length === 0 && !showMeetingForm ? (
-                            <div className="flex items-center justify-center h-full">
-                              <p className="text-sm text-gray-400 dark:text-gray-500">{t('leads', 'noMeetings')}</p>
+                      {/* Meeting cards */}
+                      {meetings.length === 0 && !showMeetingForm ? (
+                        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">{t('leads', 'noMeetings')}</p>
+                      ) : (
+                        meetings.map(mtg => (
+                          <div
+                            key={mtg.id}
+                            className={`bg-gray-50 dark:bg-gray-900 rounded-lg border dark:border-gray-700 overflow-hidden transition ${
+                              dragOverMeeting === mtg.id ? 'ring-2 ring-brand-500 border-brand-500' : ''
+                            }`}
+                            onDragOver={e => { e.preventDefault(); setDragOverMeeting(mtg.id); }}
+                            onDragLeave={() => setDragOverMeeting(null)}
+                            onDrop={e => { e.preventDefault(); handleDropOnMeeting(mtg.id); }}
+                          >
+                            {/* Meeting header */}
+                            <div className="px-3 py-2 flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+                                  mtg.status === 'completed' ? 'bg-green-500' : mtg.status === 'cancelled' ? 'bg-red-400' : 'bg-blue-500'
+                                }`} />
+                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{mtg.title}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                  mtg.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                  mtg.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                }`}>
+                                  {t('leads', `meetingStatus_${mtg.status}`)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {mtg.status === 'scheduled' && (
+                                  <button onClick={() => handleCompleteMeeting(mtg.id)} className="text-[10px] text-green-600 hover:text-green-700 px-1" title={t('leads', 'completeMeeting')}>✓</button>
+                                )}
+                                <button onClick={() => handleDeleteMeeting(mtg.id)} className="text-[10px] text-red-400 hover:text-red-600 px-1" title={t('leads', 'deleteMeeting')}>✕</button>
+                              </div>
                             </div>
-                          ) : (
-                            <MeetingBubbles
-                              meetings={meetings}
-                              dragOverMeeting={dragOverMeeting}
-                              setDragOverMeeting={setDragOverMeeting}
-                              handleDropOnMeeting={handleDropOnMeeting}
-                              handleCompleteMeeting={handleCompleteMeeting}
-                              handleDeleteMeeting={handleDeleteMeeting}
-                              handleRemoveAttendee={handleRemoveAttendee}
-                              handleAddAttendee={handleAddAttendee}
-                              mainContactLeadId={selectedId}
-                              t={t}
-                            />
-                          )}
-                        </div>
-                      </div>
 
-                      <hr className="border-gray-200 dark:border-gray-700 mt-4" />
+                            {/* Meeting details */}
+                            <div className="px-3 pb-2 flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
+                              <span>{new Date(mtg.scheduledAt).toLocaleDateString()} {new Date(mtg.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span>{mtg.durationMinutes} min</span>
+                              {mtg.location && <span>{mtg.location}</span>}
+                            </div>
+
+                            {/* Attendees */}
+                            <div className="px-3 pb-2 space-y-1">
+                              <p className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase">{t('leads', 'attendees')} ({mtg.attendees.length})</p>
+                              {mtg.attendees.length === 0 ? (
+                                <p className="text-[11px] text-gray-400 dark:text-gray-500 italic">{t('leads', 'noAttendees')}</p>
+                              ) : (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {mtg.attendees.map(att => {
+                                    const isMain = att.leadId && att.leadId === selectedId;
+                                    return (
+                                      <span key={att.id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] ${isMain ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-1 ring-green-400' : 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'}`}>
+                                        {att.lead?.name || att.name || '?'}
+                                        {isMain && <span className="text-[8px] font-bold ml-0.5">{t('leads', 'mainContact')}</span>}
+                                        <button onClick={() => handleRemoveAttendee(mtg.id, att.id)} className="text-brand-400 hover:text-brand-600">
+                                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                        </button>
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {/* Add attendee inline */}
+                              {addingAttendeeToMeeting === mtg.id ? (
+                                <div className="mt-1">
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      value={attendeeSearch}
+                                      onChange={e => setAttendeeSearch(e.target.value)}
+                                      className={`${INPUT_CLS} text-xs`}
+                                      placeholder={t('leads', 'searchAttendee')}
+                                      autoFocus
+                                    />
+                                    {attendeeSearching && <div className="absolute right-2 top-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-600" /></div>}
+                                  </div>
+                                  {attendeeResults.length > 0 && (
+                                    <div className="mt-1 border dark:border-gray-600 rounded-lg max-h-32 overflow-y-auto bg-white dark:bg-gray-800">
+                                      {attendeeResults.map(lead => {
+                                        const alreadyAdded = mtg.attendees.some(a => a.leadId === lead.id);
+                                        return (
+                                          <button
+                                            key={lead.id}
+                                            disabled={alreadyAdded}
+                                            onClick={() => { handleAddAttendee(mtg.id, lead); setAttendeeSearch(''); setAttendeeResults([]); }}
+                                            draggable
+                                            onDragStart={() => setDraggedLead(lead)}
+                                            onDragEnd={() => setDraggedLead(null)}
+                                            className={`w-full px-2 py-1.5 text-left text-xs flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition ${alreadyAdded ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                                          >
+                                            <span className="font-medium text-gray-800 dark:text-gray-200">{lead.name}</span>
+                                            {lead.company && <span className="text-gray-400 dark:text-gray-500">{lead.company}</span>}
+                                            {alreadyAdded && <span className="text-[10px] text-gray-400 ml-auto">✓</span>}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                  <button onClick={() => { setAddingAttendeeToMeeting(null); setAttendeeSearch(''); setAttendeeResults([]); }} className="mt-1 text-[11px] text-gray-400 hover:text-gray-600">{t('leads', 'cancel')}</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setAddingAttendeeToMeeting(mtg.id)}
+                                  className="text-[11px] text-brand-600 hover:text-brand-700 font-medium mt-1"
+                                >
+                                  + {t('leads', 'addAttendee')}
+                                </button>
+                              )}
+                            </div>
+
+                            {mtg.notes && <div className="px-3 pb-2"><p className="text-[11px] text-gray-500 dark:text-gray-400">{mtg.notes}</p></div>}
+                          </div>
+                        ))
+                      )}
+
+                      <hr className="border-gray-200 dark:border-gray-700" />
                     </div>
                   )}
 
