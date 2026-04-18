@@ -124,6 +124,39 @@ interface LeadActivity {
   actor: { id: string; name: string } | null;
 }
 
+interface MeetingAttendee {
+  id: string;
+  meetingId: string;
+  leadId: string | null;
+  name: string | null;
+  email: string | null;
+  status: string;
+  lead: { id: string; name: string; email: string | null; phone: string | null; company: string | null; photo: string | null } | null;
+}
+
+interface ProjectMeeting {
+  id: string;
+  projectId: string;
+  title: string;
+  scheduledAt: string;
+  durationMinutes: number;
+  location: string | null;
+  notes: string | null;
+  status: string;
+  createdAt: string;
+  attendees: MeetingAttendee[];
+  createdBy: { id: string; name: string } | null;
+}
+
+interface LeadSearchResult {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  photo: string | null;
+}
+
 interface TeamMember {
   id: string;
   name: string;
@@ -288,6 +321,18 @@ export default function AdminLeadsPage() {
   const [showVisitForm, setShowVisitForm] = useState(false);
   const [visitForm, setVisitForm] = useState({ visitorName: '', purpose: '', notes: '' });
   const [visitSaving, setVisitSaving] = useState(false);
+
+  // ── Meetings ──
+  const [meetings, setMeetings] = useState<ProjectMeeting[]>([]);
+  const [showMeetingForm, setShowMeetingForm] = useState(false);
+  const [meetingForm, setMeetingForm] = useState({ title: '', scheduledAt: '', durationMinutes: '60', location: '', notes: '' });
+  const [meetingSaving, setMeetingSaving] = useState(false);
+  const [attendeeSearch, setAttendeeSearch] = useState('');
+  const [attendeeResults, setAttendeeResults] = useState<LeadSearchResult[]>([]);
+  const [attendeeSearching, setAttendeeSearching] = useState(false);
+  const [addingAttendeeToMeeting, setAddingAttendeeToMeeting] = useState<string | null>(null); // meetingId currently adding to
+  const [draggedLead, setDraggedLead] = useState<LeadSearchResult | null>(null);
+  const [dragOverMeeting, setDragOverMeeting] = useState<string | null>(null);
 
   // ── Send message ──
   const [messageBody, setMessageBody] = useState('');
@@ -670,6 +715,107 @@ export default function AdminLeadsPage() {
       fetchLeads();
     } catch { /* silently fail */ }
     setVisitSaving(false);
+  };
+
+  // ── Meetings ──
+  const loadMeetings = useCallback(async (projectId: string) => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/meetings`);
+      const data = await res.json();
+      setMeetings(data.meetings ?? []);
+    } catch { setMeetings([]); }
+  }, []);
+
+  // Load meetings when project is selected
+  useEffect(() => {
+    if (selectedProjectId && editMode === 'project') {
+      loadMeetings(selectedProjectId);
+    } else {
+      setMeetings([]);
+    }
+  }, [selectedProjectId, editMode, loadMeetings]);
+
+  const handleCreateMeeting = async () => {
+    if (!selectedProjectId || !meetingForm.title.trim() || !meetingForm.scheduledAt) return;
+    setMeetingSaving(true);
+    try {
+      await fetch(`/api/projects/${selectedProjectId}/meetings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: meetingForm.title.trim(),
+          scheduledAt: meetingForm.scheduledAt,
+          durationMinutes: parseInt(meetingForm.durationMinutes, 10) || 60,
+          location: meetingForm.location || null,
+          notes: meetingForm.notes || null,
+        }),
+      });
+      setShowMeetingForm(false);
+      setMeetingForm({ title: '', scheduledAt: '', durationMinutes: '60', location: '', notes: '' });
+      loadMeetings(selectedProjectId);
+    } catch { /* silently fail */ }
+    setMeetingSaving(false);
+  };
+
+  const handleAddAttendee = async (meetingId: string, lead: LeadSearchResult) => {
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/attendees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id }),
+      });
+      if (res.ok && selectedProjectId) {
+        loadMeetings(selectedProjectId);
+      }
+    } catch { /* silently fail */ }
+  };
+
+  const handleRemoveAttendee = async (meetingId: string, attendeeId: string) => {
+    try {
+      await fetch(`/api/meetings/${meetingId}/attendees?attendeeId=${attendeeId}`, { method: 'DELETE' });
+      if (selectedProjectId) loadMeetings(selectedProjectId);
+    } catch { /* silently fail */ }
+  };
+
+  const handleDeleteMeeting = async (meetingId: string) => {
+    try {
+      await fetch(`/api/meetings/${meetingId}`, { method: 'DELETE' });
+      if (selectedProjectId) loadMeetings(selectedProjectId);
+    } catch { /* silently fail */ }
+  };
+
+  const handleCompleteMeeting = async (meetingId: string) => {
+    try {
+      await fetch(`/api/meetings/${meetingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' }),
+      });
+      if (selectedProjectId) loadMeetings(selectedProjectId);
+    } catch { /* silently fail */ }
+  };
+
+  // Search leads for attendee assignment
+  useEffect(() => {
+    if (attendeeSearch.length < 2) { setAttendeeResults([]); return; }
+    const timeout = setTimeout(async () => {
+      setAttendeeSearching(true);
+      try {
+        const res = await fetch(`/api/leads/search?q=${encodeURIComponent(attendeeSearch)}`);
+        const data = await res.json();
+        setAttendeeResults(data.leads ?? []);
+      } catch { setAttendeeResults([]); }
+      setAttendeeSearching(false);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [attendeeSearch]);
+
+  // Drag & drop handler
+  const handleDropOnMeeting = async (meetingId: string) => {
+    if (!draggedLead) return;
+    await handleAddAttendee(meetingId, draggedLead);
+    setDraggedLead(null);
+    setDragOverMeeting(null);
   };
 
   // ── Send message ──
@@ -1125,52 +1271,229 @@ export default function AdminLeadsPage() {
 
               {/* ── Visits Tab ── */}
               {activeTab === 'visits' && (
-                <div className="space-y-3">
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => setShowVisitForm(!showVisitForm)}
-                      className="text-sm font-medium text-brand-600 hover:text-brand-700 transition"
-                    >
-                      {showVisitForm ? t('leads', 'cancel') : t('leads', 'logVisit')}
-                    </button>
-                  </div>
+                <div className="space-y-4">
 
-                  {showVisitForm && (
-                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'visitorName')}</label>
-                        <input type="text" value={visitForm.visitorName} onChange={e => setVisitForm({ ...visitForm, visitorName: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'visitorNamePlaceholder')} />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'visitPurpose')}</label>
-                        <input type="text" value={visitForm.purpose} onChange={e => setVisitForm({ ...visitForm, purpose: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'visitPurposePlaceholder')} />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
-                        <textarea value={visitForm.notes} onChange={e => setVisitForm({ ...visitForm, notes: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
-                      </div>
-                      <div className="flex justify-end">
-                        <button onClick={handleLogVisit} disabled={visitSaving || !visitForm.visitorName.trim()} className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50">
-                          {visitSaving ? t('leads', 'saving') : t('leads', 'logVisit')}
+                  {/* ── Meetings Section ── */}
+                  {editMode === 'project' && selectedProjectId && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'meetings')}</h4>
+                        <button
+                          onClick={() => setShowMeetingForm(!showMeetingForm)}
+                          className="text-sm font-medium text-brand-600 hover:text-brand-700 transition"
+                        >
+                          {showMeetingForm ? t('leads', 'cancel') : `+ ${t('leads', 'newMeeting')}`}
                         </button>
                       </div>
+
+                      {/* New meeting form */}
+                      {showMeetingForm && (
+                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'meetingTitle')}</label>
+                            <input type="text" value={meetingForm.title} onChange={e => setMeetingForm({ ...meetingForm, title: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'meetingTitlePlaceholder')} />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'meetingDate')}</label>
+                              <input type="datetime-local" value={meetingForm.scheduledAt} onChange={e => setMeetingForm({ ...meetingForm, scheduledAt: e.target.value })} className={INPUT_CLS} />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'meetingDuration')}</label>
+                              <select value={meetingForm.durationMinutes} onChange={e => setMeetingForm({ ...meetingForm, durationMinutes: e.target.value })} className={INPUT_CLS}>
+                                <option value="15">15 min</option>
+                                <option value="30">30 min</option>
+                                <option value="45">45 min</option>
+                                <option value="60">1h</option>
+                                <option value="90">1h30</option>
+                                <option value="120">2h</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'meetingLocation')}</label>
+                            <input type="text" value={meetingForm.location} onChange={e => setMeetingForm({ ...meetingForm, location: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'meetingLocationPlaceholder')} />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
+                            <textarea value={meetingForm.notes} onChange={e => setMeetingForm({ ...meetingForm, notes: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
+                          </div>
+                          <div className="flex justify-end">
+                            <button onClick={handleCreateMeeting} disabled={meetingSaving || !meetingForm.title.trim() || !meetingForm.scheduledAt} className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50">
+                              {meetingSaving ? t('leads', 'saving') : t('leads', 'createMeeting')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Meeting cards */}
+                      {meetings.length === 0 && !showMeetingForm ? (
+                        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">{t('leads', 'noMeetings')}</p>
+                      ) : (
+                        meetings.map(mtg => (
+                          <div
+                            key={mtg.id}
+                            className={`bg-gray-50 dark:bg-gray-900 rounded-lg border dark:border-gray-700 overflow-hidden transition ${
+                              dragOverMeeting === mtg.id ? 'ring-2 ring-brand-500 border-brand-500' : ''
+                            }`}
+                            onDragOver={e => { e.preventDefault(); setDragOverMeeting(mtg.id); }}
+                            onDragLeave={() => setDragOverMeeting(null)}
+                            onDrop={e => { e.preventDefault(); handleDropOnMeeting(mtg.id); }}
+                          >
+                            {/* Meeting header */}
+                            <div className="px-3 py-2 flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+                                  mtg.status === 'completed' ? 'bg-green-500' : mtg.status === 'cancelled' ? 'bg-red-400' : 'bg-blue-500'
+                                }`} />
+                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{mtg.title}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                  mtg.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                  mtg.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                }`}>
+                                  {t('leads', `meetingStatus_${mtg.status}`)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {mtg.status === 'scheduled' && (
+                                  <button onClick={() => handleCompleteMeeting(mtg.id)} className="text-[10px] text-green-600 hover:text-green-700 px-1" title={t('leads', 'completeMeeting')}>✓</button>
+                                )}
+                                <button onClick={() => handleDeleteMeeting(mtg.id)} className="text-[10px] text-red-400 hover:text-red-600 px-1" title={t('leads', 'deleteMeeting')}>✕</button>
+                              </div>
+                            </div>
+
+                            {/* Meeting details */}
+                            <div className="px-3 pb-2 flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
+                              <span>{new Date(mtg.scheduledAt).toLocaleDateString()} {new Date(mtg.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span>{mtg.durationMinutes} min</span>
+                              {mtg.location && <span>{mtg.location}</span>}
+                            </div>
+
+                            {/* Attendees */}
+                            <div className="px-3 pb-2 space-y-1">
+                              <p className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase">{t('leads', 'attendees')} ({mtg.attendees.length})</p>
+                              {mtg.attendees.length === 0 ? (
+                                <p className="text-[11px] text-gray-400 dark:text-gray-500 italic">{t('leads', 'noAttendees')}</p>
+                              ) : (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {mtg.attendees.map(att => (
+                                    <span key={att.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300">
+                                      {att.lead?.name || att.name || '?'}
+                                      <button onClick={() => handleRemoveAttendee(mtg.id, att.id)} className="text-brand-400 hover:text-brand-600">
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                      </button>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Add attendee inline */}
+                              {addingAttendeeToMeeting === mtg.id ? (
+                                <div className="mt-1">
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      value={attendeeSearch}
+                                      onChange={e => setAttendeeSearch(e.target.value)}
+                                      className={`${INPUT_CLS} text-xs`}
+                                      placeholder={t('leads', 'searchAttendee')}
+                                      autoFocus
+                                    />
+                                    {attendeeSearching && <div className="absolute right-2 top-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-600" /></div>}
+                                  </div>
+                                  {attendeeResults.length > 0 && (
+                                    <div className="mt-1 border dark:border-gray-600 rounded-lg max-h-32 overflow-y-auto bg-white dark:bg-gray-800">
+                                      {attendeeResults.map(lead => {
+                                        const alreadyAdded = mtg.attendees.some(a => a.leadId === lead.id);
+                                        return (
+                                          <button
+                                            key={lead.id}
+                                            disabled={alreadyAdded}
+                                            onClick={() => { handleAddAttendee(mtg.id, lead); setAttendeeSearch(''); setAttendeeResults([]); }}
+                                            draggable
+                                            onDragStart={() => setDraggedLead(lead)}
+                                            onDragEnd={() => setDraggedLead(null)}
+                                            className={`w-full px-2 py-1.5 text-left text-xs flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition ${alreadyAdded ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                                          >
+                                            <span className="font-medium text-gray-800 dark:text-gray-200">{lead.name}</span>
+                                            {lead.company && <span className="text-gray-400 dark:text-gray-500">{lead.company}</span>}
+                                            {alreadyAdded && <span className="text-[10px] text-gray-400 ml-auto">✓</span>}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                  <button onClick={() => { setAddingAttendeeToMeeting(null); setAttendeeSearch(''); setAttendeeResults([]); }} className="mt-1 text-[11px] text-gray-400 hover:text-gray-600">{t('leads', 'cancel')}</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setAddingAttendeeToMeeting(mtg.id)}
+                                  className="text-[11px] text-brand-600 hover:text-brand-700 font-medium mt-1"
+                                >
+                                  + {t('leads', 'addAttendee')}
+                                </button>
+                              )}
+                            </div>
+
+                            {mtg.notes && <div className="px-3 pb-2"><p className="text-[11px] text-gray-500 dark:text-gray-400">{mtg.notes}</p></div>}
+                          </div>
+                        ))
+                      )}
+
+                      <hr className="border-gray-200 dark:border-gray-700" />
                     </div>
                   )}
 
-                  {visits.length === 0 ? (
-                    <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noVisits')}</p>
-                  ) : (
-                    visits.map(visit => (
-                      <div key={visit.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{visit.visitorName}</p>
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(visit.visitedAt)}</span>
+                  {/* ── Walk-in Visits Section ── */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'walkInVisits')}</h4>
+                      <button
+                        onClick={() => setShowVisitForm(!showVisitForm)}
+                        className="text-sm font-medium text-brand-600 hover:text-brand-700 transition"
+                      >
+                        {showVisitForm ? t('leads', 'cancel') : t('leads', 'logVisit')}
+                      </button>
+                    </div>
+
+                    {showVisitForm && (
+                      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'visitorName')}</label>
+                          <input type="text" value={visitForm.visitorName} onChange={e => setVisitForm({ ...visitForm, visitorName: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'visitorNamePlaceholder')} />
                         </div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">{visit.purpose}</p>
-                        {visit.notes && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{visit.notes}</p>}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'visitPurpose')}</label>
+                          <input type="text" value={visitForm.purpose} onChange={e => setVisitForm({ ...visitForm, purpose: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'visitPurposePlaceholder')} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
+                          <textarea value={visitForm.notes} onChange={e => setVisitForm({ ...visitForm, notes: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
+                        </div>
+                        <div className="flex justify-end">
+                          <button onClick={handleLogVisit} disabled={visitSaving || !visitForm.visitorName.trim()} className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50">
+                            {visitSaving ? t('leads', 'saving') : t('leads', 'logVisit')}
+                          </button>
+                        </div>
                       </div>
-                    ))
-                  )}
+                    )}
+
+                    {visits.length === 0 ? (
+                      <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">{t('leads', 'noVisits')}</p>
+                    ) : (
+                      visits.map(visit => (
+                        <div key={visit.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{visit.visitorName}</p>
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(visit.visitedAt)}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">{visit.purpose}</p>
+                          {visit.notes && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{visit.notes}</p>}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
 

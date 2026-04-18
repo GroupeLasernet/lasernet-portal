@@ -42,6 +42,7 @@ model User {
   sentMessages    LeadMessage[]   @relation("MessageSender")
   leadActivities  LeadActivity[]  @relation("ActivityActor")
   improvements    Improvement[]   @relation("ImprovementCreator")
+  createdMeetings ProjectMeeting[] @relation("MeetingCreator")
 }
 
 // ============================================================
@@ -756,6 +757,7 @@ model Lead {
   messages        LeadMessage[]
   activities      LeadActivity[]
   projects        LeadProject[]
+  meetingAttendances MeetingAttendee[]
 
   @@index([managedClientId])
   @@index([localBusinessId])
@@ -888,7 +890,60 @@ model LeadProject {
   updatedAt           DateTime @updatedAt
 
   quotes              Quote[]
+  meetings            ProjectMeeting[]
 
+  @@index([leadId])
+}
+
+// ============================================================
+// PROJECT MEETINGS — Scheduled meetings linked to a project
+// ============================================================
+model ProjectMeeting {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         LeadProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title           String
+  scheduledAt     DateTime
+  durationMinutes Int      @default(60)
+  location        String?          // e.g. "Office", "Zoom", address
+  notes           String?  @db.Text
+  status          String   @default("scheduled") // "scheduled" | "completed" | "cancelled"
+
+  createdById     String?
+  createdBy       User?    @relation("MeetingCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  attendees       MeetingAttendee[]
+
+  @@index([projectId])
+  @@index([scheduledAt])
+}
+
+// ============================================================
+// MEETING ATTENDEES — People invited to a project meeting
+// ============================================================
+model MeetingAttendee {
+  id              String   @id @default(cuid())
+  meetingId       String
+  meeting         ProjectMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  // Link to a lead (contact)
+  leadId          String?
+  lead            Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  // Or free-text name (for external people not in the system)
+  name            String?
+  email           String?
+
+  status          String   @default("invited") // "invited" | "confirmed" | "declined" | "attended"
+
+  createdAt       DateTime @default(now())
+
+  @@unique([meetingId, leadId])
+  @@index([meetingId])
   @@index([leadId])
 }
 
