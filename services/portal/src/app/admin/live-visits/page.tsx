@@ -73,8 +73,19 @@ export default function VisitsPage() {
   const [peopleSearching, setPeopleSearching] = useState(false);
   const draggedPersonRef = useRef<{ id: string; name: string; email: string | null; company: string | null } | null>(null);
 
-  // Hover-expand for grid view
+  // Hover-expand for grid view (with 500ms delay)
   const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
+  const hoverGridTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleGridMouseEnter = useCallback((groupId: string) => {
+    if (hoverGridTimerRef.current) clearTimeout(hoverGridTimerRef.current);
+    hoverGridTimerRef.current = setTimeout(() => setHoveredGroupId(groupId), 500);
+  }, []);
+
+  const handleGridMouseLeave = useCallback(() => {
+    if (hoverGridTimerRef.current) { clearTimeout(hoverGridTimerRef.current); hoverGridTimerRef.current = null; }
+    setHoveredGroupId(null);
+  }, []);
 
   // Business linking per group
   const [linkingGroupId, setLinkingGroupId] = useState<string | null>(null);
@@ -291,6 +302,20 @@ export default function VisitsPage() {
 
   // ── Split groups by status ──
   const activeGroups = useMemo(() => visitGroups.filter(vg => vg.status === 'active'), [visitGroups]);
+
+  // Unassigned visitors: solo groups (1 visitor, no business, no custom name)
+  // These are walk-ins who didn't pick a meeting — they show in the left panel
+  const unassignedVisitors = useMemo(() => {
+    return activeGroups
+      .filter(vg => vg.visitors.length === 1 && !vg.managedClient && !vg.localBusiness && !vg.displayName)
+      .map(vg => ({ ...vg.visitors[0], groupId: vg.id, startedAt: vg.startedAt }));
+  }, [activeGroups]);
+
+  // Groups that are NOT solo/unassigned (show in the right grid)
+  const assignedGroups = useMemo(() => {
+    const unassignedIds = new Set(unassignedVisitors.map(v => v.groupId));
+    return activeGroups.filter(vg => !unassignedIds.has(vg.id));
+  }, [activeGroups, unassignedVisitors]);
   const followUpGroups = useMemo(() =>
     visitGroups.filter(vg => vg.status === 'completed' && vg.expectedFollowUpAt),
     [visitGroups],
@@ -753,8 +778,39 @@ export default function VisitsPage() {
         <div className={`p-6 ${isFullscreen ? 'flex-1 overflow-y-auto' : ''}`} style={{ minHeight: isFullscreen ? undefined : '75vh' }}>
           <div className="flex h-full" style={{ minHeight: isFullscreen ? undefined : 'calc(75vh - 48px)' }}>
 
-            {/* ── Left: people search panel ── */}
-            <div className="w-44 flex-shrink-0 flex flex-col">
+            {/* ── Left: unassigned visitors + people search ── */}
+            <div className="w-48 flex-shrink-0 flex flex-col">
+
+              {/* Unassigned visitors (walk-ins who didn't pick a group) */}
+              {unassignedVisitors.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">{t('liveVisits', 'unassigned')} ({unassignedVisitors.length})</p>
+                  <div className="space-y-1">
+                    {unassignedVisitors.map(visitor => (
+                      <div
+                        key={visitor.id}
+                        draggable
+                        onDragStart={() => {
+                          draggedVisitIdRef.current = visitor.id;
+                          draggedSourceGroupRef.current = visitor.groupId;
+                        }}
+                        onDragEnd={() => { draggedVisitIdRef.current = null; draggedSourceGroupRef.current = null; }}
+                        className="px-2 py-1.5 rounded-lg text-xs flex items-center gap-2 border border-amber-500/30 bg-amber-500/5 cursor-grab active:cursor-grabbing hover:border-amber-400/50 hover:bg-amber-500/10 transition"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[9px] font-bold text-amber-300">{visitor.name.charAt(0).toUpperCase()}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-white/80 truncate">{visitor.name}</p>
+                          {visitor.company && <p className="text-[10px] text-white/30 truncate">{visitor.company}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Search for more people */}
               <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">{t('liveVisits', 'addPerson')}</p>
               <div className="relative mb-2">
                 <input
@@ -795,9 +851,9 @@ export default function VisitsPage() {
                   })
                 ) : peopleSearch.length >= 2 && !peopleSearching ? (
                   <p className="text-[11px] text-white/30 text-center py-4">{t('common', 'noResults')}</p>
-                ) : (
+                ) : !unassignedVisitors.length ? (
                   <p className="text-[11px] text-white/20 text-center py-6 px-1 leading-relaxed">{t('liveVisits', 'searchPeople')}</p>
-                )}
+                ) : null}
               </div>
             </div>
 
@@ -806,7 +862,7 @@ export default function VisitsPage() {
 
             {/* ── Right: visit groups grid ── */}
             <div className="flex-1 min-w-0 overflow-y-auto">
-          {activeGroups.length === 0 ? (
+          {assignedGroups.length === 0 && unassignedVisitors.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
                 <svg className="w-10 h-10 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -817,7 +873,7 @@ export default function VisitsPage() {
             </div>
           ) : (
             <div className="flex flex-wrap gap-4 items-start content-start">
-              {activeGroups.map(vg => {
+              {assignedGroups.map(vg => {
                 const bizName = getBusinessName(vg);
                 const bizType = getBusinessType(vg);
                 const linked = isLinked(vg);
@@ -842,8 +898,8 @@ export default function VisitsPage() {
                       order: isHov ? -1 : 0,
                     }}
                     onClick={() => handleContainerClick(vg.id)}
-                    onMouseEnter={() => { handleContainerMouseEnter(vg.id); setHoveredGroupId(vg.id); }}
-                    onMouseLeave={() => { handleContainerMouseLeave(); setHoveredGroupId(null); }}
+                    onMouseEnter={() => { handleContainerMouseEnter(vg.id); handleGridMouseEnter(vg.id); }}
+                    onMouseLeave={() => { handleContainerMouseLeave(); handleGridMouseLeave(); }}
                     onDragOver={(e) => { handleDragOver(e, vg.id); }}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => {

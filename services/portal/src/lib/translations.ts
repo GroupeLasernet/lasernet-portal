@@ -997,6 +997,7 @@ const translations = {
     newGroup: { fr: 'Nouveau groupe', en: 'New Group' },
     addPerson: { fr: 'Ajouter une personne', en: 'Add Person' },
     searchPeople: { fr: 'Rechercher une personne...', en: 'Search people...' },
+    unassigned: { fr: 'Non assignés', en: 'Unassigned' },
     searchBusiness: { fr: 'Rechercher une entreprise...', en: 'Search business...' },
     businessName: { fr: 'Nom de l\'entreprise', en: 'Business name' },
     address: { fr: 'Adresse', en: 'Address' },
