@@ -203,6 +203,8 @@ export default function AdminLeadsPage() {
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [qbItems, setQbItems] = useState<QBItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState<'contact' | 'project'>('contact');
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   // ── List filters ──
   const [search, setSearch] = useState('');
@@ -211,8 +213,8 @@ export default function AdminLeadsPage() {
   const [viewMode, setViewMode] = useState<'list' | 'pipeline' | 'calendar'>('list');
 
   // ── Resizable columns ──
-  const COL_KEYS = ['status', 'businessName', 'clientName', 'reasonOfCall', 'suggestedProducts', 'phone', 'email', 'objective', 'avgBudget'] as const;
-  const COL_DEFAULTS: Record<string, number> = { status: 4, businessName: 13, clientName: 18, reasonOfCall: 13, suggestedProducts: 13, phone: 10, email: 13, objective: 10, avgBudget: 6 };
+  const COL_KEYS = ['status', 'businessName', 'clientName', 'quotes', 'reasonOfCall', 'suggestedProducts', 'phone', 'email', 'objective', 'avgBudget'] as const;
+  const COL_DEFAULTS: Record<string, number> = { status: 4, businessName: 12, clientName: 16, quotes: 6, reasonOfCall: 12, suggestedProducts: 12, phone: 9, email: 12, objective: 9, avgBudget: 6 };
   const [colWidths, setColWidths] = useState<Record<string, number>>(COL_DEFAULTS);
   const resizingCol = useRef<string | null>(null);
   const resizeStartX = useRef(0);
@@ -253,6 +255,9 @@ export default function AdminLeadsPage() {
     productsOfInterest: [] as string[],
   });
   const [saving, setSaving] = useState(false);
+  const [projectForm, setProjectForm] = useState({
+    name: '', callbackReason: '', suggestedProducts: '', objective: '', budget: '', notes: '',
+  });
 
   // ── Detail tabs ──
   const [activeTab, setActiveTab] = useState<'projects' | 'activity' | 'calls' | 'visits' | 'messages'>('projects');
@@ -365,6 +370,26 @@ export default function AdminLeadsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
+
+  // ── Populate projectForm when selectedProjectId changes ──
+  useEffect(() => {
+    if (selectedProjectId && selectedLead) {
+      const proj = selectedLead.projects?.find(p => p.id === selectedProjectId);
+      if (proj) {
+        setProjectForm({
+          name: proj.name || '',
+          callbackReason: proj.callbackReason || '',
+          suggestedProducts: proj.suggestedProducts || '',
+          objective: proj.objective || '',
+          budget: proj.budget != null ? String(proj.budget) : '',
+          notes: '',
+        });
+        // Also load full project data for quotes
+        loadTabData('projects', selectedLead.id);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProjectId]);
 
   // ── Load tab data ──
   const loadTabData = async (tab: string, leadId: string) => {
@@ -504,8 +529,8 @@ export default function AdminLeadsPage() {
     return map;
   }, [filtered]);
 
-  // ── Save lead detail ──
-  const handleSave = async () => {
+  // ── Save contact-level fields ──
+  const handleSaveContact = async () => {
     if (!selectedLead) return;
     setSaving(true);
     try {
@@ -519,22 +544,58 @@ export default function AdminLeadsPage() {
           phone2: detailForm.phone2 || null,
           company: detailForm.company || null,
           otherContacts: detailForm.otherContacts || null,
-          callbackReason: detailForm.callbackReason || null,
-          objective: detailForm.objective || null,
-          budget: detailForm.budget ? parseFloat(detailForm.budget) : null,
           source: detailForm.source,
-          stage: detailForm.stage,
-          assignedToId: detailForm.assignedToId || null,
-          estimatedValue: detailForm.estimatedValue ? parseFloat(detailForm.estimatedValue) : null,
-          nextFollowUpAt: detailForm.nextFollowUpAt || null,
-          notes: detailForm.notes || null,
-          productsOfInterest: detailForm.productsOfInterest.length > 0
-            ? JSON.stringify(detailForm.productsOfInterest) : null,
         }),
       });
       await fetchLeads();
     } catch { /* silently fail */ }
     setSaving(false);
+  };
+
+  // ── Save project-level fields ──
+  const handleSaveProject = async () => {
+    if (!selectedLead || !selectedProjectId) return;
+    setSaving(true);
+    try {
+      // PATCH project-level fields
+      await fetch(`/api/projects/${selectedProjectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: projectForm.name || undefined,
+          callbackReason: projectForm.callbackReason || null,
+          suggestedProducts: projectForm.suggestedProducts || null,
+          objective: projectForm.objective || null,
+          budget: projectForm.budget ? parseFloat(projectForm.budget) : null,
+          notes: projectForm.notes || null,
+        }),
+      });
+      // PATCH lead-level fields edited from project context
+      await fetch(`/api/leads/${selectedLead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stage: detailForm.stage,
+          assignedToId: detailForm.assignedToId || null,
+          estimatedValue: detailForm.estimatedValue ? parseFloat(detailForm.estimatedValue) : null,
+          nextFollowUpAt: detailForm.nextFollowUpAt || null,
+          productsOfInterest: detailForm.productsOfInterest.length > 0
+            ? JSON.stringify(detailForm.productsOfInterest) : null,
+        }),
+      });
+      await fetchLeads();
+      if (selectedLead) loadTabData('projects', selectedLead.id);
+    } catch { /* silently fail */ }
+    setSaving(false);
+  };
+
+  // ── Legacy handleSave (kept for backward compat) ──
+  const handleSave = async () => {
+    if (editMode === 'project') {
+      await handleSaveProject();
+    } else {
+      await handleSaveContact();
+    }
   };
 
   // ── Create new lead ──
@@ -622,6 +683,19 @@ export default function AdminLeadsPage() {
     if (filtered.length === 0) {
       return <div className="text-center text-gray-400 dark:text-gray-500 py-16 text-sm">{t('leads', 'noLeads')}</div>;
     }
+
+    const openContact = (leadId: string) => {
+      setSelectedId(leadId);
+      setEditMode('contact');
+      setSelectedProjectId(null);
+    };
+
+    const openProject = (leadId: string, projectId: string) => {
+      setSelectedId(leadId);
+      setEditMode('project');
+      setSelectedProjectId(projectId);
+    };
+
     return (
       <div className="border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden">
         <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
@@ -631,6 +705,7 @@ export default function AdminLeadsPage() {
                 { key: 'status', label: t('leads', 'status'), align: 'center' },
                 { key: 'businessName', label: t('leads', 'businessName'), align: 'left' },
                 { key: 'clientName', label: t('leads', 'clientName'), align: 'left' },
+                { key: 'quotes', label: t('leads', 'quotes'), align: 'center' },
                 { key: 'reasonOfCall', label: t('leads', 'reasonOfCall'), align: 'left' },
                 { key: 'suggestedProducts', label: t('leads', 'suggestedProducts'), align: 'left' },
                 { key: 'phone', label: t('leads', 'phone'), align: 'left' },
@@ -656,78 +731,96 @@ export default function AdminLeadsPage() {
           <tbody className="divide-y dark:divide-gray-700">
             {filtered.map(lead => {
               const activeProjects = lead.projects?.filter(p => p.status === 'active') ?? [];
-              const rowCount = Math.max(1, activeProjects.length);
-              const rowCls = `cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition ${selectedId === lead.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`;
+              const totalQuotes = activeProjects.reduce((sum, p) => sum + p.quotes.length, 0);
+              const rowCls = `cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition`;
+              const selectedCls = selectedId === lead.id ? 'bg-brand-50 dark:bg-brand-900/30' : '';
 
-              // Helper to get project-specific or lead-level fallback
-              const projReason = (idx: number) => activeProjects[idx]?.callbackReason || (idx === 0 ? lead.callbackReason || '-' : '-');
-              const projProducts = (idx: number) => {
-                const raw = activeProjects[idx]?.suggestedProducts || (idx === 0 ? lead.productsOfInterest : null);
-                const arr = parseProducts(raw);
-                return arr.length > 0 ? arr.join(', ') : '-';
-              };
-              const projObjective = (idx: number) => activeProjects[idx]?.objective || (idx === 0 ? lead.objective || '-' : '-');
-              const projBudget = (idx: number) => {
-                const b = activeProjects[idx]?.budget ?? (idx === 0 ? lead.budget : null);
-                return b != null ? `$${b.toLocaleString()}` : '-';
-              };
-
-              return Array.from({ length: rowCount }).map((_, rowIdx) => (
+              // ── Row 1: Contact row ──
+              const contactRow = (
                 <tr
-                  key={`${lead.id}-${rowIdx}`}
-                  onClick={() => setSelectedId(lead.id)}
-                  className={`${rowCls} ${rowIdx > 0 ? 'border-t border-dashed border-gray-200 dark:border-gray-700' : ''}`}
+                  key={`${lead.id}-contact`}
+                  onClick={() => openContact(lead.id)}
+                  className={`${rowCls} ${selectedCls}`}
                 >
-                  {/* ── Shared columns: only on first row with rowSpan ── */}
-                  {rowIdx === 0 && (
-                    <>
-                      <td className="px-4 py-3 text-center overflow-hidden" rowSpan={rowCount}>
-                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden" rowSpan={rowCount}>
-                        <span className="block truncate">{lead.company || '-'}</span>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 overflow-hidden" rowSpan={rowCount}>
-                        <div className="flex items-center gap-2">
-                          <span className="truncate">{lead.name}</span>
-                          <span className={`flex-shrink-0 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STAGE_COLORS[lead.stage]}`}>
-                            {t('leads', `stage_${lead.stage}`)}
-                          </span>
-                        </div>
-                        {activeProjects.length > 0 && (
-                          <div className="mt-1 space-y-0.5">
-                            {activeProjects.map(proj => (
-                              <div key={proj.id} className="flex items-center gap-1.5 text-[11px]">
-                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-400" />
-                                <span className="text-gray-500 dark:text-gray-400 truncate">{proj.name}</span>
-                                {proj.quotes.length > 0 && (
-                                  <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">({proj.quotes.length})</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                    </>
-                  )}
-
-                  {/* ── Project-specific columns: one per row ── */}
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden"><span className="block truncate">{projReason(rowIdx)}</span></td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden"><span className="block truncate">{projProducts(rowIdx)}</span></td>
-
-                  {/* ── Shared columns continued: phone + email ── */}
-                  {rowIdx === 0 && (
-                    <>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden" rowSpan={rowCount}><span className="block truncate">{lead.phone || '-'}</span></td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden" rowSpan={rowCount}><span className="block truncate">{lead.email || '-'}</span></td>
-                    </>
-                  )}
-
-                  {/* ── Project-specific columns continued ── */}
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden"><span className="block truncate">{projObjective(rowIdx)}</span></td>
-                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 overflow-hidden"><span className="block truncate">{projBudget(rowIdx)}</span></td>
+                  <td className="px-4 py-3 text-center overflow-hidden">
+                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden">
+                    <span className="block truncate">{lead.company || '-'}</span>
+                  </td>
+                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 overflow-hidden">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate">{lead.name}</span>
+                      <span className={`flex-shrink-0 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STAGE_COLORS[lead.stage]}`}>
+                        {t('leads', `stage_${lead.stage}`)}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400 overflow-hidden">
+                    <span className="block truncate">{totalQuotes > 0 ? totalQuotes : '-'}</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden">
+                    <span className="block truncate">{activeProjects.length === 0 ? (lead.callbackReason || '-') : '-'}</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden">
+                    <span className="block truncate">{activeProjects.length === 0 ? (() => { const arr = parseProducts(lead.productsOfInterest); return arr.length > 0 ? arr.join(', ') : '-'; })() : '-'}</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden">
+                    <span className="block truncate">{lead.phone || '-'}</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden">
+                    <span className="block truncate">{lead.email || '-'}</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden">
+                    <span className="block truncate">{activeProjects.length === 0 ? (lead.objective || '-') : '-'}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 overflow-hidden">
+                    <span className="block truncate">{activeProjects.length === 0 ? (lead.budget != null ? `$${lead.budget.toLocaleString()}` : '-') : '-'}</span>
+                  </td>
                 </tr>
-              ));
+              );
+
+              // ── Row 2+: Project rows ──
+              const projectRows = activeProjects.map(proj => {
+                const prodArr = parseProducts(proj.suggestedProducts);
+                return (
+                  <tr
+                    key={`${lead.id}-proj-${proj.id}`}
+                    onClick={(e) => { e.stopPropagation(); openProject(lead.id, proj.id); }}
+                    className={`${rowCls} ${selectedCls} border-t border-dashed border-gray-200 dark:border-gray-700`}
+                  >
+                    <td className="px-4 py-2 text-center overflow-hidden">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">X</span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-gray-400 overflow-hidden" />
+                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300 overflow-hidden">
+                      <div className="flex items-center gap-1.5 text-[12px]">
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-400" />
+                        <span className="truncate">{proj.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 text-center text-gray-600 dark:text-gray-400 overflow-hidden">
+                      <span className="block truncate">{proj.quotes.length > 0 ? proj.quotes.length : '-'}</span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-gray-400 overflow-hidden">
+                      <span className="block truncate">{proj.callbackReason || '-'}</span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-gray-400 overflow-hidden">
+                      <span className="block truncate">{prodArr.length > 0 ? prodArr.join(', ') : '-'}</span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-gray-400 overflow-hidden" />
+                    <td className="px-4 py-2 text-gray-600 dark:text-gray-400 overflow-hidden" />
+                    <td className="px-4 py-2 text-gray-600 dark:text-gray-400 overflow-hidden">
+                      <span className="block truncate">{proj.objective || '-'}</span>
+                    </td>
+                    <td className="px-4 py-2 text-right text-gray-600 dark:text-gray-400 overflow-hidden">
+                      <span className="block truncate">{proj.budget != null ? `$${proj.budget.toLocaleString()}` : '-'}</span>
+                    </td>
+                  </tr>
+                );
+              });
+
+              return [contactRow, ...projectRows];
             })}
           </tbody>
         </table>
@@ -842,12 +935,600 @@ export default function AdminLeadsPage() {
   const renderDetailPanel = () => {
     if (!selectedLead) return null;
 
+    const currentProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : null;
+
+    // ── Contact edit panel ──
+    const renderContactPanel = () => (
+      <div className="p-5 space-y-5">
+        {/* Editable contact fields */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'contactInfo')}</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'name')}</label>
+              <input type="text" value={detailForm.name} onChange={e => setDetailForm({ ...detailForm, name: e.target.value })} className={INPUT_CLS} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'email')}</label>
+              <input type="email" value={detailForm.email} onChange={e => setDetailForm({ ...detailForm, email: e.target.value })} className={INPUT_CLS} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'company')}</label>
+              <input type="text" value={detailForm.company} onChange={e => setDetailForm({ ...detailForm, company: e.target.value })} className={INPUT_CLS} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'phone')}</label>
+              <input type="tel" value={detailForm.phone} onChange={e => setDetailForm({ ...detailForm, phone: e.target.value })} className={INPUT_CLS} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'phone2')}</label>
+              <input type="tel" value={detailForm.phone2} onChange={e => setDetailForm({ ...detailForm, phone2: e.target.value })} className={INPUT_CLS} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'otherContacts')}</label>
+              <input type="text" value={detailForm.otherContacts} onChange={e => setDetailForm({ ...detailForm, otherContacts: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'otherContactsPlaceholder')} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'source')}</label>
+              <select value={detailForm.source} onChange={e => setDetailForm({ ...detailForm, source: e.target.value as LeadSource })} className={INPUT_CLS}>
+                {SOURCES.map(s => <option key={s} value={s}>{t('leads', `source_${s}`)}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Save contact button */}
+        <div className="flex justify-end pt-2">
+          <button
+            onClick={handleSaveContact}
+            disabled={saving}
+            className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50"
+          >
+            {saving ? t('leads', 'saving') : t('leads', 'save')}
+          </button>
+        </div>
+
+        <hr className="border-gray-100 dark:border-gray-700" />
+
+        {/* Projects section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'projects')}</h3>
+            <button onClick={() => setShowNewProject(true)} className="text-sm font-medium text-brand-600 hover:text-brand-700 transition">
+              + {t('leads', 'newProject')}
+            </button>
+          </div>
+
+          {/* New project form */}
+          {showNewProject && (
+            <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-2">
+              <input
+                className={INPUT_CLS}
+                placeholder={t('leads', 'projectNamePlaceholder')}
+                value={newProjectName}
+                onChange={e => setNewProjectName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCreateProject()}
+              />
+              <div className="flex gap-2">
+                <button onClick={handleCreateProject} disabled={projectSaving || !newProjectName.trim()} className="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50">
+                  {t('leads', 'create')}
+                </button>
+                <button onClick={() => { setShowNewProject(false); setNewProjectName(''); }} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                  {t('leads', 'cancel')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Project list (simplified — name + status badge, clickable) */}
+          {projects.length === 0 && !showNewProject ? (
+            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">{t('leads', 'noProjects')}</p>
+          ) : (
+            <div className="space-y-1">
+              {projects.map(proj => (
+                <button
+                  key={proj.id}
+                  onClick={() => { setEditMode('project'); setSelectedProjectId(proj.id); }}
+                  className="w-full px-3 py-2 flex items-center gap-2 text-left rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition"
+                >
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{proj.name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                    proj.status === 'won' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                    proj.status === 'lost' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                    proj.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                    'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                  }`}>
+                    {t('leads', `projectStatus_${proj.status}`)}
+                  </span>
+                  <span className="text-xs text-gray-400 flex-shrink-0">{proj.quotes.length} {t('leads', proj.quotes.length === 1 ? 'quote' : 'quotes')}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <hr className="border-gray-100 dark:border-gray-700" />
+
+        {/* Tabbed section: Activity, Calls, Visits, Messages */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+          <div className="flex border-b dark:border-gray-700">
+            {(['activity', 'calls', 'visits', 'messages'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-3 text-sm font-medium text-center transition border-b-2 ${
+                  activeTab === tab
+                    ? 'border-brand-600 text-brand-600 dark:text-brand-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                {t('leads', tab)}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-4 min-h-[250px]">
+            {tabLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600" />
+              </div>
+            ) : (
+              <>
+                {/* ── Activity Tab ── */}
+                {activeTab === 'activity' && (
+                  <div className="space-y-3">
+                    {activities.length === 0 ? (
+                      <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noActivity')}</p>
+                    ) : (
+                      <div className="relative pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
+                        {activities.map(act => (
+                          <div key={act.id} className="relative">
+                            <div className={`absolute -left-[21px] w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
+                              act.type === 'stage_change' ? 'bg-brand-600' :
+                              act.type === 'call_logged' ? 'bg-blue-500' :
+                              act.type === 'visit_logged' ? 'bg-orange-500' :
+                              act.type === 'message_sent' ? 'bg-green-500' :
+                              act.type === 'assignment_change' ? 'bg-purple-500' :
+                              'bg-gray-400'
+                            }`} />
+                            <div className="ml-2">
+                              <p className="text-sm text-gray-700 dark:text-gray-300">{act.description}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(act.createdAt)}</span>
+                                {(act.actorName || act.actor?.name) && (
+                                  <span className="text-[10px] text-gray-400 dark:text-gray-500">{act.actorName || act.actor?.name}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Calls Tab ── */}
+                {activeTab === 'calls' && (
+                  <div className="space-y-3">
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => setShowCallForm(!showCallForm)}
+                        className="text-sm font-medium text-brand-600 hover:text-brand-700 transition"
+                      >
+                        {showCallForm ? t('leads', 'cancel') : t('leads', 'logCall')}
+                      </button>
+                    </div>
+
+                    {showCallForm && (
+                      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callType')}</label>
+                            <select value={callForm.type} onChange={e => setCallForm({ ...callForm, type: e.target.value as 'inbound' | 'outbound' })} className={INPUT_CLS}>
+                              <option value="outbound">{t('leads', 'callOutbound')}</option>
+                              <option value="inbound">{t('leads', 'callInbound')}</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'clientType')}</label>
+                            <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() => setCallForm({ ...callForm, clientType: 'new' })}
+                                className={`flex-1 px-3 py-2 text-sm font-medium transition ${
+                                  callForm.clientType === 'new' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
+                                }`}
+                              >
+                                {t('leads', 'clientNew')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCallForm({ ...callForm, clientType: 'existing' })}
+                                className={`flex-1 px-3 py-2 text-sm font-medium transition ${
+                                  callForm.clientType === 'existing' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
+                                }`}
+                              >
+                                {t('leads', 'clientExisting')}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callDuration')}</label>
+                          <input type="number" placeholder={t('leads', 'durationSeconds')} value={callForm.duration} onChange={e => setCallForm({ ...callForm, duration: e.target.value })} className={INPUT_CLS} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callOutcome')}</label>
+                          <input type="text" value={callForm.outcome} onChange={e => setCallForm({ ...callForm, outcome: e.target.value })} className={INPUT_CLS} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
+                          <textarea value={callForm.notes} onChange={e => setCallForm({ ...callForm, notes: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
+                        </div>
+                        <div className="flex justify-end">
+                          <button onClick={handleLogCall} disabled={callSaving} className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50">
+                            {callSaving ? t('leads', 'saving') : t('leads', 'logCall')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {calls.length === 0 ? (
+                      <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noCalls')}</p>
+                    ) : (
+                      calls.map(call => (
+                        <div key={call.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                call.type === 'inbound' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                              }`}>
+                                {t('leads', `call${call.type.charAt(0).toUpperCase() + call.type.slice(1)}`)}
+                              </span>
+                              {(call as any).clientType && (
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                  (call as any).clientType === 'existing' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                                }`}>
+                                  {(call as any).clientType === 'existing' ? t('leads', 'clientExisting') : t('leads', 'clientNew')}
+                                </span>
+                              )}
+                              {call.outcome && <span className="text-xs text-gray-600 dark:text-gray-400">{call.outcome}</span>}
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500">
+                              {call.duration != null && <span>{formatDuration(call.duration)}</span>}
+                              <span>{formatDate(call.calledAt)}</span>
+                            </div>
+                          </div>
+                          {call.notes && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{call.notes}</p>}
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{call.loggedBy?.name || ''}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* ── Visits Tab ── */}
+                {activeTab === 'visits' && (
+                  <div className="space-y-3">
+                    {visits.length === 0 ? (
+                      <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noVisits')}</p>
+                    ) : (
+                      visits.map(visit => (
+                        <div key={visit.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{visit.visitorName}</p>
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(visit.visitedAt)}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">{visit.purpose}</p>
+                          {visit.notes && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{visit.notes}</p>}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* ── Messages Tab ── */}
+                {activeTab === 'messages' && (
+                  <div className="flex flex-col h-[300px]">
+                    <div className="flex-1 overflow-y-auto space-y-3 mb-3">
+                      {messages.length === 0 ? (
+                        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noMessages')}</p>
+                      ) : (
+                        messages.map(msg => (
+                          <div key={msg.id} className="flex gap-2">
+                            <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
+                              <span className="text-[10px] font-bold text-brand-700 dark:text-brand-300">{msg.senderName.charAt(0).toUpperCase()}</span>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-2.5 border dark:border-gray-700 max-w-[80%]">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{msg.senderName}</span>
+                                <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(msg.sentAt)}</span>
+                              </div>
+                              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{msg.content}</p>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                      <div ref={messagesEndRef} />
+                    </div>
+                    <div className="flex gap-2 border-t dark:border-gray-700 pt-3">
+                      <textarea
+                        value={messageBody}
+                        onChange={e => setMessageBody(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                        placeholder={t('leads', 'messagePlaceholder')}
+                        rows={1}
+                        className={`flex-1 ${INPUT_CLS} resize-none`}
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={messageSending || !messageBody.trim()}
+                        className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50"
+                      >
+                        {t('leads', 'send')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+
+    // ── Project edit panel ──
+    const renderProjectPanel = () => (
+      <div className="p-5 space-y-5">
+        {/* Back to contact button */}
+        <button
+          onClick={() => { setEditMode('contact'); setSelectedProjectId(null); }}
+          className="text-sm text-brand-600 hover:text-brand-700 font-medium transition"
+        >
+          &larr; Contact
+        </button>
+
+        {/* Project fields */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'projects')}</h3>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'name')}</label>
+            <input type="text" value={projectForm.name} onChange={e => setProjectForm({ ...projectForm, name: e.target.value })} className={INPUT_CLS} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callbackReason')}</label>
+            <input type="text" value={projectForm.callbackReason} onChange={e => setProjectForm({ ...projectForm, callbackReason: e.target.value })} className={INPUT_CLS} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'suggestedProducts')}</label>
+            <input type="text" value={projectForm.suggestedProducts} onChange={e => setProjectForm({ ...projectForm, suggestedProducts: e.target.value })} className={INPUT_CLS} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'objective')}</label>
+            <textarea value={projectForm.objective} onChange={e => setProjectForm({ ...projectForm, objective: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'budget')}</label>
+              <input type="number" value={projectForm.budget} onChange={e => setProjectForm({ ...projectForm, budget: e.target.value })} placeholder="0.00" className={INPUT_CLS} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'estimatedValue')}</label>
+              <input type="number" value={detailForm.estimatedValue} onChange={e => setDetailForm({ ...detailForm, estimatedValue: e.target.value })} placeholder="0.00" className={INPUT_CLS} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
+            <textarea value={projectForm.notes} onChange={e => setProjectForm({ ...projectForm, notes: e.target.value })} rows={3} className={`${INPUT_CLS} resize-none`} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'nextFollowUp')}</label>
+              <input type="date" value={detailForm.nextFollowUpAt} onChange={e => setDetailForm({ ...detailForm, nextFollowUpAt: e.target.value })} className={INPUT_CLS} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'assignedTo')}</label>
+              <select value={detailForm.assignedToId} onChange={e => setDetailForm({ ...detailForm, assignedToId: e.target.value })} className={INPUT_CLS}>
+                <option value="">{t('leads', 'unassigned')}</option>
+                {team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'stage')}</label>
+              <select value={detailForm.stage} onChange={e => setDetailForm({ ...detailForm, stage: e.target.value as LeadStage })} className={INPUT_CLS}>
+                {STAGES.map(s => <option key={s} value={s}>{t('leads', `stage_${s}`)}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <hr className="border-gray-100 dark:border-gray-700" />
+
+        {/* Products of Interest (QB items checkboxes) */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'productsOfInterest')}</h3>
+          {qbItems.length === 0 ? (
+            <p className="text-xs text-gray-400 dark:text-gray-500">{t('leads', 'noQbInventory')}</p>
+          ) : (
+            <div className="max-h-[160px] overflow-y-auto border dark:border-gray-700 rounded-lg p-2 space-y-1">
+              {qbItems.map(item => (
+                <label key={item.id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={detailForm.productsOfInterest.includes(item.name)}
+                    onChange={() => toggleProduct(item.name)}
+                    className="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{item.name}</span>
+                  {item.type && <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">{item.type}</span>}
+                </label>
+              ))}
+            </div>
+          )}
+          {detailForm.productsOfInterest.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {detailForm.productsOfInterest.map(p => (
+                <span key={p} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300">
+                  {p}
+                  <button onClick={() => toggleProduct(p)} className="text-brand-400 hover:text-brand-600">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <hr className="border-gray-100 dark:border-gray-700" />
+
+        {/* Quotes management */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'quotes')}</h3>
+            {selectedProjectId && (
+              <button onClick={() => { setShowNewQuote(selectedProjectId); setNewQuoteItems([{ description: '', quantity: 1, unitPrice: 0, unit: '' }]); }} className="text-xs font-medium text-brand-600 hover:text-brand-700">
+                + {t('leads', 'newQuote')}
+              </button>
+            )}
+          </div>
+
+          {/* New quote form */}
+          {showNewQuote === selectedProjectId && selectedProjectId && (
+            <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-2">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400">{t('leads', 'quoteItems')}</p>
+              {newQuoteItems.map((item, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <input className={`${INPUT_CLS} flex-1`} placeholder={t('leads', 'itemDescription')} value={item.description} onChange={e => { const a = [...newQuoteItems]; a[idx] = { ...a[idx], description: e.target.value }; setNewQuoteItems(a); }} />
+                  <input className={`${INPUT_CLS} w-16`} type="number" placeholder={t('leads', 'qty')} value={item.quantity} onChange={e => { const a = [...newQuoteItems]; a[idx] = { ...a[idx], quantity: Number(e.target.value) || 1 }; setNewQuoteItems(a); }} />
+                  <input className={`${INPUT_CLS} w-24`} type="number" step="0.01" placeholder={t('leads', 'price')} value={item.unitPrice || ''} onChange={e => { const a = [...newQuoteItems]; a[idx] = { ...a[idx], unitPrice: Number(e.target.value) || 0 }; setNewQuoteItems(a); }} />
+                  {newQuoteItems.length > 1 && <button onClick={() => setNewQuoteItems(newQuoteItems.filter((_, j) => j !== idx))} className="text-red-400 hover:text-red-600 text-xs">✕</button>}
+                </div>
+              ))}
+              <button onClick={() => setNewQuoteItems([...newQuoteItems, { description: '', quantity: 1, unitPrice: 0, unit: '' }])} className="text-xs text-brand-600 hover:text-brand-700">+ {t('leads', 'addItem')}</button>
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => handleCreateQuote(selectedProjectId)} disabled={projectSaving} className="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50">{t('leads', 'create')}</button>
+                <button onClick={() => setShowNewQuote(null)} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">{t('leads', 'cancel')}</button>
+              </div>
+            </div>
+          )}
+
+          {/* Quote list for this project */}
+          {currentProject ? (
+            currentProject.quotes.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-4">{t('leads', 'noQuotes')}</p>
+            ) : (
+              currentProject.quotes.map(q => (
+                <div key={q.id} className="border dark:border-gray-600 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setOpenQuoteId(openQuoteId === q.id ? null : q.id)}
+                    className="w-full px-3 py-2 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/30 transition"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs">{openQuoteId === q.id ? '\u25BC' : '\u25B6'}</span>
+                      <span className="text-sm text-gray-800 dark:text-gray-200">{q.quoteNumber || t('leads', 'untitledQuote')}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                        q.status === 'accepted' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                        q.status === 'refused' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                      }`}>
+                        {t('leads', `quoteStatus_${q.status}`)}
+                      </span>
+                      <span className="text-xs text-gray-400">{q.items.length} {t('leads', q.items.length === 1 ? 'item' : 'items')}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        ${q.items.reduce((sum: number, it: ProjectQuoteItem) => sum + it.quantity * it.unitPrice, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </button>
+
+                  {openQuoteId === q.id && (
+                    <div className="px-3 pb-3 border-t dark:border-gray-600 space-y-2 pt-2">
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => { setDuplicateModal({ quote: q, projectId: currentProject.id }); setDuplicateSelected(new Set(q.items.map((i: ProjectQuoteItem) => i.id))); }}
+                          className="text-xs text-brand-600 hover:text-brand-700"
+                        >
+                          {t('leads', 'duplicateQuote')}
+                        </button>
+                      </div>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-gray-500 dark:text-gray-400 border-b dark:border-gray-600">
+                            <th className="text-left py-1 font-medium">{t('leads', 'itemDescription')}</th>
+                            <th className="text-right py-1 font-medium w-14">{t('leads', 'qty')}</th>
+                            <th className="text-right py-1 font-medium w-20">{t('leads', 'price')}</th>
+                            <th className="text-right py-1 font-medium w-24">{t('leads', 'total')}</th>
+                            <th className="w-8"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {q.items.map((item: ProjectQuoteItem) => (
+                            <tr key={item.id} className="border-b dark:border-gray-700/50">
+                              <td className="py-1.5 text-gray-800 dark:text-gray-200">{item.description}</td>
+                              <td className="py-1.5 text-right text-gray-600 dark:text-gray-400">{item.quantity}</td>
+                              <td className="py-1.5 text-right text-gray-600 dark:text-gray-400">${item.unitPrice.toFixed(2)}</td>
+                              <td className="py-1.5 text-right text-gray-700 dark:text-gray-300">${(item.quantity * item.unitPrice).toFixed(2)}</td>
+                              <td className="py-1.5 text-right">
+                                <button onClick={() => handleDeleteQuoteItem(currentProject.id, q.id, item.id)} className="text-red-400 hover:text-red-600 transition" title={t('leads', 'removeItem')}>✕</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="font-medium">
+                            <td colSpan={3} className="py-1.5 text-right text-gray-600 dark:text-gray-400">{t('leads', 'total')}</td>
+                            <td className="py-1.5 text-right text-gray-900 dark:text-gray-100">${q.items.reduce((s: number, i: ProjectQuoteItem) => s + i.quantity * i.unitPrice, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ))
+            )
+          ) : (
+            <p className="text-xs text-gray-400 text-center py-4">{t('leads', 'noQuotes')}</p>
+          )}
+        </div>
+
+        {/* Refuse project button */}
+        {selectedProjectId && currentProject && currentProject.status !== 'lost' && (
+          <>
+            <hr className="border-gray-100 dark:border-gray-700" />
+            <div className="flex justify-start">
+              <button
+                onClick={() => handleRefuseProject(selectedProjectId)}
+                className="text-xs text-red-500 hover:text-red-700 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+              >
+                {t('leads', 'refuseProject')}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Save project button */}
+        <div className="flex justify-end pt-2">
+          <button
+            onClick={handleSaveProject}
+            disabled={saving}
+            className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50"
+          >
+            {saving ? t('leads', 'saving') : t('leads', 'save')}
+          </button>
+        </div>
+      </div>
+    );
+
     return (
       <>
         {/* Backdrop */}
         <div
           className="fixed inset-0 bg-black/30 z-40"
-          onClick={() => setSelectedId(null)}
+          onClick={() => { setSelectedId(null); setEditMode('contact'); setSelectedProjectId(null); }}
         />
         {/* Panel */}
         <div className="fixed top-0 right-0 h-full w-full max-w-[500px] z-50 bg-white dark:bg-gray-800 shadow-xl border-l dark:border-gray-700 overflow-y-auto">
@@ -862,609 +1543,56 @@ export default function AdminLeadsPage() {
                 </div>
               )}
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 truncate">{selectedLead.name}</h2>
-                {selectedLead.company && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedLead.company}</p>}
+                <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 truncate">
+                  {editMode === 'project' && currentProject ? currentProject.name : selectedLead.name}
+                </h2>
+                {editMode === 'contact' && selectedLead.company && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedLead.company}</p>}
+                {editMode === 'project' && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedLead.name} {selectedLead.company ? `- ${selectedLead.company}` : ''}</p>}
               </div>
             </div>
-            <button onClick={() => setSelectedId(null)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+            <button onClick={() => { setSelectedId(null); setEditMode('contact'); setSelectedProjectId(null); }} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          <div className="p-5 space-y-5">
-            {/* Editable fields */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'contactInfo')}</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'name')}</label>
-                  <input type="text" value={detailForm.name} onChange={e => setDetailForm({ ...detailForm, name: e.target.value })} className={INPUT_CLS} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'email')}</label>
-                  <input type="email" value={detailForm.email} onChange={e => setDetailForm({ ...detailForm, email: e.target.value })} className={INPUT_CLS} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'company')}</label>
-                  <input type="text" value={detailForm.company} onChange={e => setDetailForm({ ...detailForm, company: e.target.value })} className={INPUT_CLS} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'phone')}</label>
-                  <input type="tel" value={detailForm.phone} onChange={e => setDetailForm({ ...detailForm, phone: e.target.value })} className={INPUT_CLS} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'phone2')}</label>
-                  <input type="tel" value={detailForm.phone2} onChange={e => setDetailForm({ ...detailForm, phone2: e.target.value })} className={INPUT_CLS} />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'otherContacts')}</label>
-                  <input type="text" value={detailForm.otherContacts} onChange={e => setDetailForm({ ...detailForm, otherContacts: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'otherContactsPlaceholder')} />
-                </div>
-              </div>
-            </div>
+          {editMode === 'contact' ? renderContactPanel() : renderProjectPanel()}
+        </div>
 
-            <hr className="border-gray-100 dark:border-gray-700" />
-
-            {/* Lead details */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'leadDetails')}</h3>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callbackReason')}</label>
-                <input type="text" value={detailForm.callbackReason} onChange={e => setDetailForm({ ...detailForm, callbackReason: e.target.value })} className={INPUT_CLS} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'objective')}</label>
-                <textarea value={detailForm.objective} onChange={e => setDetailForm({ ...detailForm, objective: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'budget')}</label>
-                  <input type="number" value={detailForm.budget} onChange={e => setDetailForm({ ...detailForm, budget: e.target.value })} placeholder="0.00" className={INPUT_CLS} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'estimatedValue')}</label>
-                  <input type="number" value={detailForm.estimatedValue} onChange={e => setDetailForm({ ...detailForm, estimatedValue: e.target.value })} placeholder="0.00" className={INPUT_CLS} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'stage')}</label>
-                  <select value={detailForm.stage} onChange={e => setDetailForm({ ...detailForm, stage: e.target.value as LeadStage })} className={INPUT_CLS}>
-                    {STAGES.map(s => <option key={s} value={s}>{t('leads', `stage_${s}`)}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'source')}</label>
-                  <select value={detailForm.source} onChange={e => setDetailForm({ ...detailForm, source: e.target.value as LeadSource })} className={INPUT_CLS}>
-                    {SOURCES.map(s => <option key={s} value={s}>{t('leads', `source_${s}`)}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'assignedTo')}</label>
-                  <select value={detailForm.assignedToId} onChange={e => setDetailForm({ ...detailForm, assignedToId: e.target.value })} className={INPUT_CLS}>
-                    <option value="">{t('leads', 'unassigned')}</option>
-                    {team.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'nextFollowUp')}</label>
-                  <input type="date" value={detailForm.nextFollowUpAt} onChange={e => setDetailForm({ ...detailForm, nextFollowUpAt: e.target.value })} className={INPUT_CLS} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
-                <textarea value={detailForm.notes} onChange={e => setDetailForm({ ...detailForm, notes: e.target.value })} rows={3} className={`${INPUT_CLS} resize-none`} />
-              </div>
-            </div>
-
-            <hr className="border-gray-100 dark:border-gray-700" />
-
-            {/* Products of Interest */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'productsOfInterest')}</h3>
-              {qbItems.length === 0 ? (
-                <p className="text-xs text-gray-400 dark:text-gray-500">{t('leads', 'noQbInventory')}</p>
-              ) : (
-                <div className="max-h-[160px] overflow-y-auto border dark:border-gray-700 rounded-lg p-2 space-y-1">
-                  {qbItems.map(item => (
-                    <label key={item.id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={detailForm.productsOfInterest.includes(item.name)}
-                        onChange={() => toggleProduct(item.name)}
-                        className="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{item.name}</span>
-                      {item.type && <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">{item.type}</span>}
-                    </label>
-                  ))}
-                </div>
-              )}
-              {/* Show selected as tags */}
-              {detailForm.productsOfInterest.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {detailForm.productsOfInterest.map(p => (
-                    <span key={p} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300">
-                      {p}
-                      <button onClick={() => toggleProduct(p)} className="text-brand-400 hover:text-brand-600">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <hr className="border-gray-100 dark:border-gray-700" />
-
-            {/* Quotes placeholder */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'quotes')}</h3>
-              <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
-                <svg className="w-8 h-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p className="text-sm font-medium">{t('leads', 'quotesComingSoon')}</p>
-              </div>
-            </div>
-
-            {/* Save button */}
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50"
-              >
-                {saving ? t('leads', 'saving') : t('leads', 'save')}
-              </button>
-            </div>
-
-            <hr className="border-gray-100 dark:border-gray-700" />
-
-            {/* Tabbed section: Projects, Activity, Calls, Visits, Messages */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
-              <div className="flex border-b dark:border-gray-700">
-                {(['projects', 'activity', 'calls', 'visits', 'messages'] as const).map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 py-3 text-sm font-medium text-center transition border-b-2 ${
-                      activeTab === tab
-                        ? 'border-brand-600 text-brand-600 dark:text-brand-400'
-                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    {t('leads', tab)}
-                  </button>
+        {/* Duplicate quote modal */}
+        {duplicateModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('leads', 'duplicateQuote')}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('leads', 'selectItemsToDuplicate')}</p>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {duplicateModal.quote.items.map((item: ProjectQuoteItem) => (
+                  <label key={item.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={duplicateSelected.has(item.id)}
+                      onChange={() => {
+                        const next = new Set(duplicateSelected);
+                        if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                        setDuplicateSelected(next);
+                      }}
+                      className="rounded"
+                    />
+                    <span className="text-gray-800 dark:text-gray-200 flex-1">{item.description}</span>
+                    <span className="text-gray-500 dark:text-gray-400">${(item.quantity * item.unitPrice).toFixed(2)}</span>
+                  </label>
                 ))}
               </div>
-
-              <div className="p-4 min-h-[250px]">
-                {tabLoading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600" />
-                  </div>
-                ) : (
-                  <>
-                    {/* ── Projects Tab ── */}
-                    {activeTab === 'projects' && (
-                      <div className="space-y-3">
-                        {/* New project button */}
-                        <div className="flex justify-end">
-                          <button onClick={() => setShowNewProject(true)} className="text-sm font-medium text-brand-600 hover:text-brand-700 transition">
-                            + {t('leads', 'newProject')}
-                          </button>
-                        </div>
-
-                        {/* New project form */}
-                        {showNewProject && (
-                          <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-2">
-                            <input
-                              className={INPUT_CLS}
-                              placeholder={t('leads', 'projectNamePlaceholder')}
-                              value={newProjectName}
-                              onChange={e => setNewProjectName(e.target.value)}
-                              onKeyDown={e => e.key === 'Enter' && handleCreateProject()}
-                            />
-                            <div className="flex gap-2">
-                              <button onClick={handleCreateProject} disabled={projectSaving || !newProjectName.trim()} className="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50">
-                                {t('leads', 'create')}
-                              </button>
-                              <button onClick={() => { setShowNewProject(false); setNewProjectName(''); }} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">
-                                {t('leads', 'cancel')}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Project list */}
-                        {projects.length === 0 && !showNewProject ? (
-                          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noProjects')}</p>
-                        ) : (
-                          projects.map(proj => (
-                            <div key={proj.id} className="border dark:border-gray-700 rounded-lg overflow-hidden">
-                              {/* Project header */}
-                              <button
-                                onClick={() => { setExpandedProjectId(expandedProjectId === proj.id ? null : proj.id); setOpenQuoteId(null); }}
-                                className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs">{expandedProjectId === proj.id ? '▼' : '▶'}</span>
-                                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{proj.name}</span>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                    proj.status === 'won' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                                    proj.status === 'lost' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                                    proj.status === 'on_hold' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                    'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                                  }`}>
-                                    {t('leads', `projectStatus_${proj.status}`)}
-                                  </span>
-                                  <span className="text-xs text-gray-400">{proj.quotes.length} {t('leads', proj.quotes.length === 1 ? 'quote' : 'quotes')}</span>
-                                </div>
-                                {proj.status !== 'lost' && (
-                                  <button onClick={e => { e.stopPropagation(); handleRefuseProject(proj.id); }} className="text-xs text-red-400 hover:text-red-600 px-2 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition" title={t('leads', 'refuseProject')}>
-                                    {t('leads', 'refuseProject')}
-                                  </button>
-                                )}
-                              </button>
-
-                              {/* Expanded: quotes inside project */}
-                              {expandedProjectId === proj.id && (
-                                <div className="px-4 pb-3 space-y-2 border-t dark:border-gray-700">
-                                  <div className="flex justify-end pt-2">
-                                    <button onClick={() => { setShowNewQuote(proj.id); setNewQuoteItems([{ description: '', quantity: 1, unitPrice: 0, unit: '' }]); }} className="text-xs font-medium text-brand-600 hover:text-brand-700">
-                                      + {t('leads', 'newQuote')}
-                                    </button>
-                                  </div>
-
-                                  {/* New quote form */}
-                                  {showNewQuote === proj.id && (
-                                    <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-2">
-                                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400">{t('leads', 'quoteItems')}</p>
-                                      {newQuoteItems.map((item, idx) => (
-                                        <div key={idx} className="flex gap-2 items-center">
-                                          <input className={`${INPUT_CLS} flex-1`} placeholder={t('leads', 'itemDescription')} value={item.description} onChange={e => { const a = [...newQuoteItems]; a[idx] = { ...a[idx], description: e.target.value }; setNewQuoteItems(a); }} />
-                                          <input className={`${INPUT_CLS} w-16`} type="number" placeholder={t('leads', 'qty')} value={item.quantity} onChange={e => { const a = [...newQuoteItems]; a[idx] = { ...a[idx], quantity: Number(e.target.value) || 1 }; setNewQuoteItems(a); }} />
-                                          <input className={`${INPUT_CLS} w-24`} type="number" step="0.01" placeholder={t('leads', 'price')} value={item.unitPrice || ''} onChange={e => { const a = [...newQuoteItems]; a[idx] = { ...a[idx], unitPrice: Number(e.target.value) || 0 }; setNewQuoteItems(a); }} />
-                                          {newQuoteItems.length > 1 && <button onClick={() => setNewQuoteItems(newQuoteItems.filter((_, j) => j !== idx))} className="text-red-400 hover:text-red-600 text-xs">✕</button>}
-                                        </div>
-                                      ))}
-                                      <button onClick={() => setNewQuoteItems([...newQuoteItems, { description: '', quantity: 1, unitPrice: 0, unit: '' }])} className="text-xs text-brand-600 hover:text-brand-700">+ {t('leads', 'addItem')}</button>
-                                      <div className="flex gap-2 pt-1">
-                                        <button onClick={() => handleCreateQuote(proj.id)} disabled={projectSaving} className="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50">{t('leads', 'create')}</button>
-                                        <button onClick={() => setShowNewQuote(null)} className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">{t('leads', 'cancel')}</button>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Quote list */}
-                                  {proj.quotes.length === 0 ? (
-                                    <p className="text-xs text-gray-400 text-center py-4">{t('leads', 'noQuotes')}</p>
-                                  ) : (
-                                    proj.quotes.map(q => (
-                                      <div key={q.id} className="border dark:border-gray-600 rounded-lg overflow-hidden">
-                                        {/* Quote header */}
-                                        <button
-                                          onClick={() => setOpenQuoteId(openQuoteId === q.id ? null : q.id)}
-                                          className="w-full px-3 py-2 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700/30 transition"
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs">{openQuoteId === q.id ? '▼' : '▶'}</span>
-                                            <span className="text-sm text-gray-800 dark:text-gray-200">{q.quoteNumber || t('leads', 'untitledQuote')}</span>
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                              q.status === 'accepted' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                                              q.status === 'refused' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                                              'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                            }`}>
-                                              {t('leads', `quoteStatus_${q.status}`)}
-                                            </span>
-                                            <span className="text-xs text-gray-400">{q.items.length} {t('leads', q.items.length === 1 ? 'item' : 'items')}</span>
-                                          </div>
-                                          <div className="flex items-center gap-1">
-                                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                                              ${q.items.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </span>
-                                          </div>
-                                        </button>
-
-                                        {/* Expanded: quote items */}
-                                        {openQuoteId === q.id && (
-                                          <div className="px-3 pb-3 border-t dark:border-gray-600 space-y-2 pt-2">
-                                            {/* Actions */}
-                                            <div className="flex gap-2 justify-end">
-                                              <button
-                                                onClick={() => { setDuplicateModal({ quote: q, projectId: proj.id }); setDuplicateSelected(new Set(q.items.map(i => i.id))); }}
-                                                className="text-xs text-brand-600 hover:text-brand-700"
-                                              >
-                                                {t('leads', 'duplicateQuote')}
-                                              </button>
-                                            </div>
-
-                                            {/* Items table */}
-                                            <table className="w-full text-xs">
-                                              <thead>
-                                                <tr className="text-gray-500 dark:text-gray-400 border-b dark:border-gray-600">
-                                                  <th className="text-left py-1 font-medium">{t('leads', 'itemDescription')}</th>
-                                                  <th className="text-right py-1 font-medium w-14">{t('leads', 'qty')}</th>
-                                                  <th className="text-right py-1 font-medium w-20">{t('leads', 'price')}</th>
-                                                  <th className="text-right py-1 font-medium w-24">{t('leads', 'total')}</th>
-                                                  <th className="w-8"></th>
-                                                </tr>
-                                              </thead>
-                                              <tbody>
-                                                {q.items.map(item => (
-                                                  <tr key={item.id} className="border-b dark:border-gray-700/50">
-                                                    <td className="py-1.5 text-gray-800 dark:text-gray-200">{item.description}</td>
-                                                    <td className="py-1.5 text-right text-gray-600 dark:text-gray-400">{item.quantity}</td>
-                                                    <td className="py-1.5 text-right text-gray-600 dark:text-gray-400">${item.unitPrice.toFixed(2)}</td>
-                                                    <td className="py-1.5 text-right text-gray-700 dark:text-gray-300">${(item.quantity * item.unitPrice).toFixed(2)}</td>
-                                                    <td className="py-1.5 text-right">
-                                                      <button onClick={() => handleDeleteQuoteItem(proj.id, q.id, item.id)} className="text-red-400 hover:text-red-600 transition" title={t('leads', 'removeItem')}>✕</button>
-                                                    </td>
-                                                  </tr>
-                                                ))}
-                                              </tbody>
-                                              <tfoot>
-                                                <tr className="font-medium">
-                                                  <td colSpan={3} className="py-1.5 text-right text-gray-600 dark:text-gray-400">{t('leads', 'total')}</td>
-                                                  <td className="py-1.5 text-right text-gray-900 dark:text-gray-100">${q.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                  <td></td>
-                                                </tr>
-                                              </tfoot>
-                                            </table>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ))
-                        )}
-
-                        {/* Duplicate quote modal */}
-                        {duplicateModal && (
-                          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl space-y-4">
-                              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('leads', 'duplicateQuote')}</h3>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">{t('leads', 'selectItemsToDuplicate')}</p>
-                              <div className="space-y-2 max-h-60 overflow-y-auto">
-                                {duplicateModal.quote.items.map(item => (
-                                  <label key={item.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={duplicateSelected.has(item.id)}
-                                      onChange={() => {
-                                        const next = new Set(duplicateSelected);
-                                        if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
-                                        setDuplicateSelected(next);
-                                      }}
-                                      className="rounded"
-                                    />
-                                    <span className="text-gray-800 dark:text-gray-200 flex-1">{item.description}</span>
-                                    <span className="text-gray-500 dark:text-gray-400">${(item.quantity * item.unitPrice).toFixed(2)}</span>
-                                  </label>
-                                ))}
-                              </div>
-                              <div className="flex gap-2 justify-end">
-                                <button onClick={() => { setDuplicateModal(null); setDuplicateSelected(new Set()); }} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">{t('leads', 'cancel')}</button>
-                                <button onClick={handleDuplicateQuote} disabled={projectSaving || duplicateSelected.size === 0} className="px-4 py-2 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50">
-                                  {t('leads', 'duplicate')} ({duplicateSelected.size} {t('leads', duplicateSelected.size === 1 ? 'item' : 'items')})
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* ── Activity Tab ── */}
-                    {activeTab === 'activity' && (
-                      <div className="space-y-3">
-                        {activities.length === 0 ? (
-                          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noActivity')}</p>
-                        ) : (
-                          <div className="relative pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
-                            {activities.map(act => (
-                              <div key={act.id} className="relative">
-                                <div className={`absolute -left-[21px] w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
-                                  act.type === 'stage_change' ? 'bg-brand-600' :
-                                  act.type === 'call_logged' ? 'bg-blue-500' :
-                                  act.type === 'visit_logged' ? 'bg-orange-500' :
-                                  act.type === 'message_sent' ? 'bg-green-500' :
-                                  act.type === 'assignment_change' ? 'bg-purple-500' :
-                                  'bg-gray-400'
-                                }`} />
-                                <div className="ml-2">
-                                  <p className="text-sm text-gray-700 dark:text-gray-300">{act.description}</p>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(act.createdAt)}</span>
-                                    {(act.actorName || act.actor?.name) && (
-                                      <span className="text-[10px] text-gray-400 dark:text-gray-500">{act.actorName || act.actor?.name}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* ── Calls Tab ── */}
-                    {activeTab === 'calls' && (
-                      <div className="space-y-3">
-                        <div className="flex justify-end">
-                          <button
-                            onClick={() => setShowCallForm(!showCallForm)}
-                            className="text-sm font-medium text-brand-600 hover:text-brand-700 transition"
-                          >
-                            {showCallForm ? t('leads', 'cancel') : t('leads', 'logCall')}
-                          </button>
-                        </div>
-
-                        {showCallForm && (
-                          <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700">
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callType')}</label>
-                                <select value={callForm.type} onChange={e => setCallForm({ ...callForm, type: e.target.value as 'inbound' | 'outbound' })} className={INPUT_CLS}>
-                                  <option value="outbound">{t('leads', 'callOutbound')}</option>
-                                  <option value="inbound">{t('leads', 'callInbound')}</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'clientType')}</label>
-                                <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
-                                  <button
-                                    type="button"
-                                    onClick={() => setCallForm({ ...callForm, clientType: 'new' })}
-                                    className={`flex-1 px-3 py-2 text-sm font-medium transition ${
-                                      callForm.clientType === 'new' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
-                                    }`}
-                                  >
-                                    {t('leads', 'clientNew')}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setCallForm({ ...callForm, clientType: 'existing' })}
-                                    className={`flex-1 px-3 py-2 text-sm font-medium transition ${
-                                      callForm.clientType === 'existing' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
-                                    }`}
-                                  >
-                                    {t('leads', 'clientExisting')}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callDuration')}</label>
-                              <input type="number" placeholder={t('leads', 'durationSeconds')} value={callForm.duration} onChange={e => setCallForm({ ...callForm, duration: e.target.value })} className={INPUT_CLS} />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callOutcome')}</label>
-                              <input type="text" value={callForm.outcome} onChange={e => setCallForm({ ...callForm, outcome: e.target.value })} className={INPUT_CLS} />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
-                              <textarea value={callForm.notes} onChange={e => setCallForm({ ...callForm, notes: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
-                            </div>
-                            <div className="flex justify-end">
-                              <button onClick={handleLogCall} disabled={callSaving} className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50">
-                                {callSaving ? t('leads', 'saving') : t('leads', 'logCall')}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {calls.length === 0 ? (
-                          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noCalls')}</p>
-                        ) : (
-                          calls.map(call => (
-                            <div key={call.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
-                              <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-2">
-                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                    call.type === 'inbound' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                  }`}>
-                                    {t('leads', `call${call.type.charAt(0).toUpperCase() + call.type.slice(1)}`)}
-                                  </span>
-                                  {(call as any).clientType && (
-                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                      (call as any).clientType === 'existing' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                                    }`}>
-                                      {(call as any).clientType === 'existing' ? t('leads', 'clientExisting') : t('leads', 'clientNew')}
-                                    </span>
-                                  )}
-                                  {call.outcome && <span className="text-xs text-gray-600 dark:text-gray-400">{call.outcome}</span>}
-                                </div>
-                                <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500">
-                                  {call.duration != null && <span>{formatDuration(call.duration)}</span>}
-                                  <span>{formatDate(call.calledAt)}</span>
-                                </div>
-                              </div>
-                              {call.notes && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{call.notes}</p>}
-                              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{call.loggedBy?.name || ''}</p>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-
-                    {/* ── Visits Tab ── */}
-                    {activeTab === 'visits' && (
-                      <div className="space-y-3">
-                        {visits.length === 0 ? (
-                          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noVisits')}</p>
-                        ) : (
-                          visits.map(visit => (
-                            <div key={visit.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
-                              <div className="flex items-center justify-between mb-1">
-                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{visit.visitorName}</p>
-                                <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(visit.visitedAt)}</span>
-                              </div>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">{visit.purpose}</p>
-                              {visit.notes && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{visit.notes}</p>}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-
-                    {/* ── Messages Tab ── */}
-                    {activeTab === 'messages' && (
-                      <div className="flex flex-col h-[300px]">
-                        <div className="flex-1 overflow-y-auto space-y-3 mb-3">
-                          {messages.length === 0 ? (
-                            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noMessages')}</p>
-                          ) : (
-                            messages.map(msg => (
-                              <div key={msg.id} className="flex gap-2">
-                                <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-[10px] font-bold text-brand-700 dark:text-brand-300">{msg.senderName.charAt(0).toUpperCase()}</span>
-                                </div>
-                                <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-2.5 border dark:border-gray-700 max-w-[80%]">
-                                  <div className="flex items-center gap-2 mb-0.5">
-                                    <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{msg.senderName}</span>
-                                    <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(msg.sentAt)}</span>
-                                  </div>
-                                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{msg.content}</p>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                          <div ref={messagesEndRef} />
-                        </div>
-                        <div className="flex gap-2 border-t dark:border-gray-700 pt-3">
-                          <textarea
-                            value={messageBody}
-                            onChange={e => setMessageBody(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                            placeholder={t('leads', 'messagePlaceholder')}
-                            rows={1}
-                            className={`flex-1 ${INPUT_CLS} resize-none`}
-                          />
-                          <button
-                            onClick={handleSendMessage}
-                            disabled={messageSending || !messageBody.trim()}
-                            className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50"
-                          >
-                            {t('leads', 'send')}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => { setDuplicateModal(null); setDuplicateSelected(new Set()); }} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">{t('leads', 'cancel')}</button>
+                <button onClick={handleDuplicateQuote} disabled={projectSaving || duplicateSelected.size === 0} className="px-4 py-2 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50">
+                  {t('leads', 'duplicate')} ({duplicateSelected.size} {t('leads', duplicateSelected.size === 1 ? 'item' : 'items')})
+                </button>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </>
     );
   };
