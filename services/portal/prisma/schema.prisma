@@ -41,6 +41,7 @@ model User {
   receivedVisits  Visit[]         @relation("VisitReceiver")
   sentMessages    LeadMessage[]   @relation("MessageSender")
   leadActivities  LeadActivity[]  @relation("ActivityActor")
+  improvements    Improvement[]   @relation("ImprovementCreator")
 }
 
 // ============================================================
@@ -926,4 +927,22 @@ model QuoteItem {
   updatedAt       DateTime @updatedAt
 
   @@index([quoteId])
+}
+
+// ============================================================
+// IMPROVEMENTS — Problem-solving & feature tracking
+// ============================================================
+model Improvement {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  priority    String   @default("medium")   // "critical" | "high" | "medium" | "low"
+  status      String   @default("new")      // "new" | "in_progress" | "done" | "dismissed"
+  createdById String
+  createdBy   User     @relation("ImprovementCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([priority])
 }

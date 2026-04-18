@@ -73,6 +73,7 @@ const translations = {
     quotes: { fr: 'Soumissions', en: 'Quotes' },
     inventory: { fr: 'Inventaire', en: 'Inventory' },
     people: { fr: 'Personnes', en: 'People' },
+    improvements: { fr: 'Améliorations', en: 'Improvements' },
     signOut: { fr: 'Déconnexion', en: 'Sign Out' },
     signingOut: { fr: 'Déconnexion...', en: 'Signing out...' },
     adminPortal: { fr: 'Portail Admin', en: 'Admin Portal' },
@@ -981,6 +982,38 @@ const translations = {
     loadingItems: { fr: 'Chargement...', en: 'Loading...' },
     notConnected: { fr: 'QuickBooks non connecté', en: 'QuickBooks not connected' },
     collapse: { fr: 'Réduire', en: 'Collapse' },
+  },
+
+  // ============================================================
+  // IMPROVEMENTS PAGE
+  // ============================================================
+  improvements: {
+    title: { fr: 'Améliorations', en: 'Improvements' },
+    subtitle: { fr: 'Problèmes à résoudre et fonctionnalités à construire', en: 'Problems to solve and features to build' },
+    addImprovement: { fr: 'Ajouter une amélioration', en: 'Add improvement' },
+    titleLabel: { fr: 'Titre', en: 'Title' },
+    titlePlaceholder: { fr: 'Décrivez le problème ou l\'amélioration...', en: 'Describe the problem or improvement...' },
+    descriptionLabel: { fr: 'Description', en: 'Description' },
+    descriptionPlaceholder: { fr: 'Détails supplémentaires (optionnel)...', en: 'Additional details (optional)...' },
+    priority: { fr: 'Priorité', en: 'Priority' },
+    priorityCritical: { fr: 'Critique', en: 'Critical' },
+    priorityHigh: { fr: 'Haute', en: 'High' },
+    priorityMedium: { fr: 'Moyenne', en: 'Medium' },
+    priorityLow: { fr: 'Basse', en: 'Low' },
+    statusNew: { fr: 'Nouveau', en: 'New' },
+    statusInProgress: { fr: 'En cours', en: 'In Progress' },
+    statusDone: { fr: 'Terminé', en: 'Done' },
+    statusDismissed: { fr: 'Rejeté', en: 'Dismissed' },
+    noImprovements: { fr: 'Aucune amélioration enregistrée.', en: 'No improvements recorded.' },
+    createdBy: { fr: 'Par', en: 'By' },
+    recording: { fr: 'Enregistrement...', en: 'Recording...' },
+    micStart: { fr: 'Dicter', en: 'Dictate' },
+    micStop: { fr: 'Arrêter', en: 'Stop' },
+    micNotSupported: { fr: 'La reconnaissance vocale n\'est pas supportée par ce navigateur.', en: 'Speech recognition is not supported by this browser.' },
+    deleteConfirm: { fr: 'Supprimer cette amélioration ?', en: 'Delete this improvement?' },
+    filterAll: { fr: 'Tous', en: 'All' },
+    filterActive: { fr: 'Actifs', en: 'Active' },
+    filterDone: { fr: 'Terminés', en: 'Done' },
   },
 } as const;
 
