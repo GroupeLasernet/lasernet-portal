@@ -57,3 +57,6 @@ services/robot/station_id.json
 # services/relfar/*.pcap
 # services/relfar/*_results.json
 # services/relfar/register_scan.txt
+
+.vercel
+.env*.local

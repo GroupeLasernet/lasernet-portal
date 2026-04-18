@@ -1165,7 +1165,7 @@ export default function AdminLeadsPage() {
       <div className="bg-white dark:bg-gray-800 overflow-hidden">
         <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
           <thead>
-            <tr className="border-b-[3px] border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900">
+            <tr className="border-b-[3px] border-gray-400 dark:border-gray-500 bg-gray-50 dark:bg-gray-900">
               {[
                 { key: 'status', label: t('leads', 'status'), align: 'center' },
                 { key: 'businessName', label: t('leads', 'businessName'), align: 'left' },
