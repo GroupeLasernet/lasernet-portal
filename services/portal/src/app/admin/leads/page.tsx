@@ -207,7 +207,7 @@ export default function AdminLeadsPage() {
 
   // ── Resizable columns ──
   const COL_KEYS = ['status', 'businessName', 'clientName', 'reasonOfCall', 'inventoryType', 'phone', 'email', 'objective', 'avgBudget'] as const;
-  const COL_DEFAULTS: Record<string, number> = { status: 50, businessName: 160, clientName: 220, reasonOfCall: 180, inventoryType: 180, phone: 120, email: 160, objective: 180, avgBudget: 110 };
+  const COL_DEFAULTS: Record<string, number> = { status: 50, businessName: 140, clientName: 200, reasonOfCall: 140, inventoryType: 150, phone: 110, email: 140, objective: 140, avgBudget: 100 };
   const [colWidths, setColWidths] = useState<Record<string, number>>(COL_DEFAULTS);
   const resizingCol = useRef<string | null>(null);
   const resizeStartX = useRef(0);
@@ -615,7 +615,7 @@ export default function AdminLeadsPage() {
     }
     return (
       <div className="overflow-x-auto border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800">
-        <table className="text-sm" style={{ tableLayout: 'fixed', width: Object.values(colWidths).reduce((s, w) => s + w, 0) }}>
+        <table className="min-w-full text-sm" style={{ tableLayout: 'fixed' }}>
           <thead>
             <tr className="border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
               {[
