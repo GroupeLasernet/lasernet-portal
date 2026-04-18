@@ -225,16 +225,20 @@ function dateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-// ── Meeting Bubbles — physics-based floating tiles ─────────────────────────
+// ── Meeting Tiles — physics-based floating rectangular cards ────────────────
 
-interface BubbleState {
+interface TileState {
   id: string;
   x: number;
   y: number;
   vx: number;
   vy: number;
-  radius: number;
+  w: number;
+  h: number;
 }
+
+const TILE_W = 160;
+const TILE_H = 100;
 
 function MeetingBubbles({
   meetings,
@@ -260,44 +264,39 @@ function MeetingBubbles({
   t: (section: string, key: string) => string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const bubblesRef = useRef<BubbleState[]>([]);
+  const tilesRef = useRef<TileState[]>([]);
   const animFrameRef = useRef<number>(0);
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
-  const [expandedBubble, setExpandedBubble] = useState<string | null>(null);
-  const dragBubbleRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const [expandedTile, setExpandedTile] = useState<string | null>(null);
+  const dragTileRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
 
-  // Compute radius based on attendees (min 50, max 90)
-  const getRadius = useCallback((mtg: ProjectMeeting) => {
-    return Math.min(90, Math.max(50, 40 + mtg.attendees.length * 12));
-  }, []);
-
-  // Initialize / sync bubble state when meetings change
+  // Initialize / sync tile state when meetings change
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const W = container.clientWidth;
     const H = container.clientHeight;
 
-    const existing = new Map(bubblesRef.current.map(b => [b.id, b]));
-    const next: BubbleState[] = meetings.map((mtg, i) => {
-      const radius = getRadius(mtg);
+    const existing = new Map(tilesRef.current.map(t => [t.id, t]));
+    const next: TileState[] = meetings.map((mtg, i) => {
       const prev = existing.get(mtg.id);
-      if (prev) return { ...prev, radius };
-      // Scatter new bubbles
-      const angle = (i / Math.max(meetings.length, 1)) * Math.PI * 2;
-      const cx = W / 2 + Math.cos(angle) * (W * 0.2);
-      const cy = H / 2 + Math.sin(angle) * (H * 0.2);
+      if (prev) return prev;
+      // Place in a grid-ish pattern initially
+      const cols = Math.max(2, Math.floor(W / (TILE_W + 16)));
+      const col = i % cols;
+      const row = Math.floor(i / cols);
       return {
         id: mtg.id,
-        x: Math.max(radius, Math.min(W - radius, cx)),
-        y: Math.max(radius, Math.min(H - radius, cy)),
-        vx: (Math.random() - 0.5) * 1.2,
-        vy: (Math.random() - 0.5) * 1.2,
-        radius,
+        x: Math.min(W - TILE_W, 8 + col * (TILE_W + 12)),
+        y: Math.min(H - TILE_H, 8 + row * (TILE_H + 12)),
+        vx: (Math.random() - 0.5) * 0.8,
+        vy: (Math.random() - 0.5) * 0.8,
+        w: TILE_W,
+        h: TILE_H,
       };
     });
-    bubblesRef.current = next;
-  }, [meetings, getRadius]);
+    tilesRef.current = next;
+  }, [meetings]);
 
   // Physics loop
   useEffect(() => {
@@ -305,70 +304,58 @@ function MeetingBubbles({
     if (!container) return;
 
     let running = true;
-    const DAMPING = 0.992;
-    const NUDGE = 0.15;
+    const DAMPING = 0.985;
 
     const tick = () => {
       if (!running) return;
       const W = container.clientWidth;
       const H = container.clientHeight;
-      const bs = bubblesRef.current;
+      const ts = tilesRef.current;
 
-      for (let i = 0; i < bs.length; i++) {
-        const b = bs[i];
-        // Skip if being dragged
-        if (dragBubbleRef.current?.id === b.id) continue;
+      for (let i = 0; i < ts.length; i++) {
+        const a = ts[i];
+        if (dragTileRef.current?.id === a.id) continue;
 
-        // Apply gentle random drift
-        b.vx += (Math.random() - 0.5) * NUDGE * 0.3;
-        b.vy += (Math.random() - 0.5) * NUDGE * 0.3;
+        // Gentle drift
+        a.vx += (Math.random() - 0.5) * 0.04;
+        a.vy += (Math.random() - 0.5) * 0.04;
+        a.vx *= DAMPING;
+        a.vy *= DAMPING;
+        a.x += a.vx;
+        a.y += a.vy;
 
-        // Damping
-        b.vx *= DAMPING;
-        b.vy *= DAMPING;
+        // Wall bounds
+        if (a.x < 0) { a.x = 0; a.vx = Math.abs(a.vx) * 0.5; }
+        if (a.x + a.w > W) { a.x = W - a.w; a.vx = -Math.abs(a.vx) * 0.5; }
+        if (a.y < 0) { a.y = 0; a.vy = Math.abs(a.vy) * 0.5; }
+        if (a.y + a.h > H) { a.y = H - a.h; a.vy = -Math.abs(a.vy) * 0.5; }
 
-        // Move
-        b.x += b.vx;
-        b.y += b.vy;
-
-        // Wall bounce
-        if (b.x - b.radius < 0) { b.x = b.radius; b.vx = Math.abs(b.vx) * 0.6; }
-        if (b.x + b.radius > W) { b.x = W - b.radius; b.vx = -Math.abs(b.vx) * 0.6; }
-        if (b.y - b.radius < 0) { b.y = b.radius; b.vy = Math.abs(b.vy) * 0.6; }
-        if (b.y + b.radius > H) { b.y = H - b.radius; b.vy = -Math.abs(b.vy) * 0.6; }
-
-        // Bubble-bubble collision
-        for (let j = i + 1; j < bs.length; j++) {
-          const o = bs[j];
-          const dx = o.x - b.x;
-          const dy = o.y - b.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const minDist = b.radius + o.radius + 4;
-          if (dist < minDist && dist > 0) {
-            const nx = dx / dist;
-            const ny = dy / dist;
-            const overlap = (minDist - dist) / 2;
-            b.x -= nx * overlap;
-            b.y -= ny * overlap;
-            o.x += nx * overlap;
-            o.y += ny * overlap;
-            // Swap velocity component along collision axis
-            const relVx = b.vx - o.vx;
-            const relVy = b.vy - o.vy;
-            const relDot = relVx * nx + relVy * ny;
-            b.vx -= relDot * nx * 0.5;
-            b.vy -= relDot * ny * 0.5;
-            o.vx += relDot * nx * 0.5;
-            o.vy += relDot * ny * 0.5;
+        // Tile-tile AABB collision
+        for (let j = i + 1; j < ts.length; j++) {
+          const b = ts[j];
+          const overlapX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+          const overlapY = Math.min(a.y + a.h, b.x + b.h) - Math.max(a.y, b.y);
+          if (overlapX > 0 && overlapY > 0) {
+            // Push apart on the axis with least overlap
+            const acx = a.x + a.w / 2, acy = a.y + a.h / 2;
+            const bcx = b.x + b.w / 2, bcy = b.y + b.h / 2;
+            const dx = bcx - acx;
+            const dy = bcy - acy;
+            if (Math.abs(dx) > Math.abs(dy)) {
+              const push = overlapX / 2 + 2;
+              if (dx > 0) { a.x -= push; b.x += push; } else { a.x += push; b.x -= push; }
+              a.vx *= -0.3; b.vx *= -0.3;
+            } else {
+              const push = overlapY / 2 + 2;
+              if (dy > 0) { a.y -= push; b.y += push; } else { a.y += push; b.y -= push; }
+              a.vy *= -0.3; b.vy *= -0.3;
+            }
           }
         }
       }
 
-      // Push positions to React
       const pos: Record<string, { x: number; y: number }> = {};
-      for (const b of bs) {
-        pos[b.id] = { x: b.x, y: b.y };
-      }
+      for (const t of ts) pos[t.id] = { x: t.x, y: t.y };
       setPositions(pos);
       animFrameRef.current = requestAnimationFrame(tick);
     };
@@ -377,29 +364,27 @@ function MeetingBubbles({
     return () => { running = false; cancelAnimationFrame(animFrameRef.current); };
   }, [meetings.length]);
 
-  // Mouse drag handlers for bubbles
-  const onBubbleMouseDown = useCallback((e: React.MouseEvent, id: string) => {
+  // Mouse drag
+  const onTileMouseDown = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     e.preventDefault();
     const container = containerRef.current;
-    const b = bubblesRef.current.find(x => x.id === id);
-    if (!b || !container) return;
+    const tile = tilesRef.current.find(x => x.id === id);
+    if (!tile || !container) return;
     const rect = container.getBoundingClientRect();
-    const startMouseX = e.clientX - rect.left;
-    const startMouseY = e.clientY - rect.top;
-    dragBubbleRef.current = { id, offsetX: startMouseX - b.x, offsetY: startMouseY - b.y };
+    dragTileRef.current = { id, offsetX: e.clientX - rect.left - tile.x, offsetY: e.clientY - rect.top - tile.y };
     const onMove = (ev: MouseEvent) => {
-      if (!dragBubbleRef.current || !containerRef.current) return;
+      if (!dragTileRef.current || !containerRef.current) return;
       const r = containerRef.current.getBoundingClientRect();
-      const bub = bubblesRef.current.find(x => x.id === dragBubbleRef.current!.id);
-      if (!bub) return;
-      bub.x = ev.clientX - r.left - dragBubbleRef.current.offsetX;
-      bub.y = ev.clientY - r.top - dragBubbleRef.current.offsetY;
-      bub.vx = 0;
-      bub.vy = 0;
+      const t = tilesRef.current.find(x => x.id === dragTileRef.current!.id);
+      if (!t) return;
+      t.x = ev.clientX - r.left - dragTileRef.current.offsetX;
+      t.y = ev.clientY - r.top - dragTileRef.current.offsetY;
+      t.vx = 0;
+      t.vy = 0;
     };
     const onUp = () => {
-      dragBubbleRef.current = null;
+      dragTileRef.current = null;
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
@@ -407,15 +392,10 @@ function MeetingBubbles({
     window.addEventListener('mouseup', onUp);
   }, []);
 
-  const statusColor = (s: string) =>
-    s === 'completed' ? 'from-green-400 to-green-600' :
-    s === 'cancelled' ? 'from-red-300 to-red-500' :
-    'from-brand-400 to-brand-600';
-
-  const statusColorBorder = (s: string) =>
-    s === 'completed' ? 'border-green-400' :
-    s === 'cancelled' ? 'border-red-400' :
-    'border-brand-400';
+  const statusBg = (s: string) =>
+    s === 'completed' ? 'bg-green-500' : s === 'cancelled' ? 'bg-red-400' : 'bg-brand-500';
+  const statusBorder = (s: string) =>
+    s === 'completed' ? 'border-green-400' : s === 'cancelled' ? 'border-red-400' : 'border-brand-400';
 
   return (
     <div
@@ -426,48 +406,50 @@ function MeetingBubbles({
       {meetings.map(mtg => {
         const pos = positions[mtg.id];
         if (!pos) return null;
-        const radius = getRadius(mtg);
         const isOver = dragOverMeeting === mtg.id;
-        const isExpanded = expandedBubble === mtg.id;
+        const isExpanded = expandedTile === mtg.id;
 
         return (
           <div
             key={mtg.id}
-            className={`absolute select-none transition-shadow ${isExpanded ? 'z-30' : 'z-10'}`}
-            style={{
-              left: pos.x - radius,
-              top: pos.y - radius,
-              width: radius * 2,
-              height: radius * 2,
-            }}
+            className={`absolute select-none ${isExpanded ? 'z-30' : 'z-10'}`}
+            style={{ left: pos.x, top: pos.y, width: TILE_W, height: TILE_H }}
             onDragOver={e => { e.preventDefault(); setDragOverMeeting(mtg.id); }}
             onDragLeave={() => setDragOverMeeting(null)}
             onDrop={e => { e.preventDefault(); handleDropOnMeeting(mtg.id); }}
           >
-            {/* The bubble circle */}
+            {/* Rectangular tile */}
             <div
-              className={`w-full h-full rounded-full bg-gradient-to-br ${statusColor(mtg.status)} cursor-grab active:cursor-grabbing
-                flex flex-col items-center justify-center text-white shadow-lg transition-all duration-200
-                ${isOver ? 'ring-4 ring-white/60 scale-110' : 'hover:scale-105'}
-                ${isExpanded ? 'ring-2 ring-white/40' : ''}
+              className={`w-full h-full rounded-xl border-2 ${statusBorder(mtg.status)} bg-white dark:bg-gray-800 cursor-grab active:cursor-grabbing
+                flex flex-col justify-between p-2.5 shadow-md transition-all duration-150
+                ${isOver ? 'ring-2 ring-brand-400 scale-105 shadow-lg shadow-brand-200/40' : 'hover:shadow-lg'}
               `}
-              style={{ boxShadow: isOver ? '0 0 24px rgba(99,102,241,0.5)' : '0 4px 16px rgba(0,0,0,0.15)' }}
-              onMouseDown={e => onBubbleMouseDown(e, mtg.id)}
-              onClick={() => setExpandedBubble(isExpanded ? null : mtg.id)}
+              onMouseDown={e => onTileMouseDown(e, mtg.id)}
+              onClick={() => setExpandedTile(isExpanded ? null : mtg.id)}
             >
-              <span className="text-[11px] font-bold leading-tight text-center px-2 drop-shadow truncate max-w-[90%]">{mtg.title}</span>
-              <span className="text-[9px] opacity-80 mt-0.5">
-                {new Date(mtg.scheduledAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                {' '}
-                {new Date(mtg.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-              <span className="text-[9px] opacity-70 mt-0.5">{mtg.attendees.length} {t('leads', 'attendees').toLowerCase()}</span>
+              {/* Top: status dot + title */}
+              <div className="flex items-start gap-1.5">
+                <span className={`w-2 h-2 rounded-full mt-0.5 flex-shrink-0 ${statusBg(mtg.status)}`} />
+                <span className="text-[11px] font-semibold text-gray-900 dark:text-gray-100 leading-tight line-clamp-2">{mtg.title}</span>
+              </div>
+              {/* Bottom: date + attendees count */}
+              <div className="flex items-center justify-between text-[9px] text-gray-400 dark:text-gray-500">
+                <span>
+                  {new Date(mtg.scheduledAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  {' '}
+                  {new Date(mtg.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span className="flex items-center gap-0.5">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  {mtg.attendees.length}
+                </span>
+              </div>
             </div>
 
             {/* Expanded detail card */}
             {isExpanded && (
               <div
-                className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border ${statusColorBorder(mtg.status)} dark:border-gray-600 p-3 z-40`}
+                className={`absolute top-full left-0 mt-1 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border ${statusBorder(mtg.status)} dark:border-gray-600 p-3 z-40`}
                 onClick={e => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between mb-2">
@@ -1183,7 +1165,7 @@ export default function AdminLeadsPage() {
       <div className="bg-white dark:bg-gray-800 overflow-hidden">
         <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
           <thead>
-            <tr className="border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <tr className="border-b-[3px] border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900">
               {[
                 { key: 'status', label: t('leads', 'status'), align: 'center' },
                 { key: 'businessName', label: t('leads', 'businessName'), align: 'left' },
@@ -1223,7 +1205,7 @@ export default function AdminLeadsPage() {
                 <tr
                   key={`${lead.id}-contact`}
                   onClick={() => openContact(lead.id)}
-                  className={`${rowCls} ${contactSelected}${leadIdx > 0 ? ' border-t-2 border-gray-300 dark:border-gray-600' : ''}`}
+                  className={`${rowCls} ${contactSelected}${leadIdx > 0 ? ' border-t-[3px] border-gray-300 dark:border-gray-600' : ''}`}
                 >
                   <td className="px-4 py-3 text-center overflow-hidden" />
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden">

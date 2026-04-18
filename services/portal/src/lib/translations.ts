@@ -669,7 +669,7 @@ const translations = {
   // CRM / LEADS
   // ============================================================
   leads: {
-    title: { fr: 'Prospects', en: 'Leads' },
+    title: { fr: 'Prospects', en: 'Prospects' },
     subtitle: { fr: 'Pipeline de vente et suivi des prospects', en: 'Sales pipeline and prospect tracking' },
     newLead: { fr: 'Nouveau lead', en: 'New Lead' },
     pipeline: { fr: 'Pipeline', en: 'Pipeline' },
