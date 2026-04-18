@@ -32,7 +32,12 @@ interface Lead {
   productsOfInterest: string | null;
   createdAt: string;
   updatedAt: string;
-  projects: { id: string; name: string; status: string; quotes: { id: string; quoteNumber: string | null; status: string }[] }[];
+  projects: {
+    id: string; name: string; status: string;
+    callbackReason: string | null; suggestedProducts: string | null;
+    objective: string | null; budget: number | null;
+    quotes: { id: string; quoteNumber: string | null; status: string }[];
+  }[];
   _count: { calls: number; visits: number; messages: number };
 }
 
@@ -206,12 +211,14 @@ export default function AdminLeadsPage() {
   const [viewMode, setViewMode] = useState<'list' | 'pipeline' | 'calendar'>('list');
 
   // ── Resizable columns ──
-  const COL_KEYS = ['status', 'businessName', 'clientName', 'reasonOfCall', 'inventoryType', 'phone', 'email', 'objective', 'avgBudget'] as const;
-  const COL_DEFAULTS: Record<string, number> = { status: 50, businessName: 140, clientName: 200, reasonOfCall: 140, inventoryType: 150, phone: 110, email: 140, objective: 140, avgBudget: 100 };
+  const COL_KEYS = ['status', 'businessName', 'clientName', 'reasonOfCall', 'suggestedProducts', 'phone', 'email', 'objective', 'avgBudget'] as const;
+  const COL_DEFAULTS: Record<string, number> = { status: 4, businessName: 13, clientName: 18, reasonOfCall: 13, suggestedProducts: 13, phone: 10, email: 13, objective: 10, avgBudget: 6 };
   const [colWidths, setColWidths] = useState<Record<string, number>>(COL_DEFAULTS);
   const resizingCol = useRef<string | null>(null);
   const resizeStartX = useRef(0);
   const resizeStartW = useRef(0);
+
+  const tableRef = useRef<HTMLTableElement>(null);
 
   const onResizeStart = useCallback((colKey: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -219,11 +226,13 @@ export default function AdminLeadsPage() {
     resizingCol.current = colKey;
     resizeStartX.current = e.clientX;
     resizeStartW.current = colWidths[colKey] ?? COL_DEFAULTS[colKey];
+    const tableW = tableRef.current?.offsetWidth ?? 1000;
 
     const onMove = (ev: MouseEvent) => {
       if (!resizingCol.current) return;
-      const diff = ev.clientX - resizeStartX.current;
-      const newW = Math.max(40, resizeStartW.current + diff);
+      const diffPx = ev.clientX - resizeStartX.current;
+      const diffPct = (diffPx / tableW) * 100;
+      const newW = Math.max(3, resizeStartW.current + diffPct);
       setColWidths(prev => ({ ...prev, [resizingCol.current!]: newW }));
     };
     const onUp = () => {
@@ -615,7 +624,7 @@ export default function AdminLeadsPage() {
     }
     return (
       <div className="overflow-x-auto border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800">
-        <table className="min-w-full text-sm" style={{ tableLayout: 'fixed' }}>
+        <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
           <thead>
             <tr className="border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
               {[
@@ -623,7 +632,7 @@ export default function AdminLeadsPage() {
                 { key: 'businessName', label: t('leads', 'businessName'), align: 'left' },
                 { key: 'clientName', label: t('leads', 'clientName'), align: 'left' },
                 { key: 'reasonOfCall', label: t('leads', 'reasonOfCall'), align: 'left' },
-                { key: 'inventoryType', label: t('leads', 'inventoryType'), align: 'left' },
+                { key: 'suggestedProducts', label: t('leads', 'suggestedProducts'), align: 'left' },
                 { key: 'phone', label: t('leads', 'phone'), align: 'left' },
                 { key: 'email', label: t('leads', 'email'), align: 'left' },
                 { key: 'objective', label: t('leads', 'objective'), align: 'left' },
@@ -631,7 +640,7 @@ export default function AdminLeadsPage() {
               ].map(col => (
                 <th
                   key={col.key}
-                  style={{ width: colWidths[col.key], minWidth: 40, position: 'relative' }}
+                  style={{ width: `${colWidths[col.key]}%`, position: 'relative' }}
                   className={`px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap select-none ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
                 >
                   {col.label}
@@ -646,52 +655,79 @@ export default function AdminLeadsPage() {
           </thead>
           <tbody className="divide-y dark:divide-gray-700">
             {filtered.map(lead => {
-              const products = parseProducts(lead.productsOfInterest);
               const activeProjects = lead.projects?.filter(p => p.status === 'active') ?? [];
-              return (
+              const rowCount = Math.max(1, activeProjects.length);
+              const rowCls = `cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition ${selectedId === lead.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`;
+
+              // Helper to get project-specific or lead-level fallback
+              const projReason = (idx: number) => activeProjects[idx]?.callbackReason || (idx === 0 ? lead.callbackReason || '-' : '-');
+              const projProducts = (idx: number) => {
+                const raw = activeProjects[idx]?.suggestedProducts || (idx === 0 ? lead.productsOfInterest : null);
+                const arr = parseProducts(raw);
+                return arr.length > 0 ? arr.join(', ') : '-';
+              };
+              const projObjective = (idx: number) => activeProjects[idx]?.objective || (idx === 0 ? lead.objective || '-' : '-');
+              const projBudget = (idx: number) => {
+                const b = activeProjects[idx]?.budget ?? (idx === 0 ? lead.budget : null);
+                return b != null ? `$${b.toLocaleString()}` : '-';
+              };
+
+              return Array.from({ length: rowCount }).map((_, rowIdx) => (
                 <tr
-                  key={lead.id}
+                  key={`${lead.id}-${rowIdx}`}
                   onClick={() => setSelectedId(lead.id)}
-                  className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition ${selectedId === lead.id ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
+                  className={`${rowCls} ${rowIdx > 0 ? 'border-t border-dashed border-gray-200 dark:border-gray-700' : ''}`}
                 >
-                  {/* Status — gray dot placeholder */}
-                  <td style={{ width: colWidths.status }} className="px-4 py-3 text-center">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-                  </td>
-                  {/* Business Name */}
-                  <td style={{ width: colWidths.businessName }} className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{lead.company || '-'}</td>
-                  {/* Client Name + active projects */}
-                  <td style={{ width: colWidths.clientName }} className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
-                    <div className="flex items-center gap-2">
-                      <span className="whitespace-nowrap truncate">{lead.name}</span>
-                      <span className={`flex-shrink-0 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STAGE_COLORS[lead.stage]}`}>
-                        {t('leads', `stage_${lead.stage}`)}
-                      </span>
-                    </div>
-                    {activeProjects.length > 0 && (
-                      <div className="mt-1 space-y-0.5">
-                        {activeProjects.map(proj => (
-                          <div key={proj.id} className="flex items-center gap-1.5 text-[11px]">
-                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-400" />
-                            <span className="text-gray-500 dark:text-gray-400 truncate">{proj.name}</span>
-                            {proj.quotes.length > 0 && (
-                              <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">({proj.quotes.length})</span>
-                            )}
+                  {/* ── Shared columns: only on first row with rowSpan ── */}
+                  {rowIdx === 0 && (
+                    <>
+                      <td className="px-4 py-3 text-center" rowSpan={rowCount}>
+                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate" rowSpan={rowCount}>
+                        {lead.company || '-'}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100" rowSpan={rowCount}>
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{lead.name}</span>
+                          <span className={`flex-shrink-0 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STAGE_COLORS[lead.stage]}`}>
+                            {t('leads', `stage_${lead.stage}`)}
+                          </span>
+                        </div>
+                        {activeProjects.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {activeProjects.map(proj => (
+                              <div key={proj.id} className="flex items-center gap-1.5 text-[11px]">
+                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-400" />
+                                <span className="text-gray-500 dark:text-gray-400 truncate">{proj.name}</span>
+                                {proj.quotes.length > 0 && (
+                                  <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">({proj.quotes.length})</span>
+                                )}
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ width: colWidths.reasonOfCall }} className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{lead.callbackReason || '-'}</td>
-                  <td style={{ width: colWidths.inventoryType }} className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{products.length > 0 ? products.join(', ') : '-'}</td>
-                  <td style={{ width: colWidths.phone }} className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap truncate">{lead.phone || '-'}</td>
-                  <td style={{ width: colWidths.email }} className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{lead.email || '-'}</td>
-                  <td style={{ width: colWidths.objective }} className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{lead.objective || '-'}</td>
-                  <td style={{ width: colWidths.avgBudget }} className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    {lead.budget != null ? `$${lead.budget.toLocaleString()}` : '-'}
-                  </td>
+                        )}
+                      </td>
+                    </>
+                  )}
+
+                  {/* ── Project-specific columns: one per row ── */}
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{projReason(rowIdx)}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{projProducts(rowIdx)}</td>
+
+                  {/* ── Shared columns continued: phone + email ── */}
+                  {rowIdx === 0 && (
+                    <>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap truncate" rowSpan={rowCount}>{lead.phone || '-'}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate" rowSpan={rowCount}>{lead.email || '-'}</td>
+                    </>
+                  )}
+
+                  {/* ── Project-specific columns continued ── */}
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{projObjective(rowIdx)}</td>
+                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 whitespace-nowrap">{projBudget(rowIdx)}</td>
                 </tr>
-              );
+              ));
             })}
           </tbody>
         </table>
