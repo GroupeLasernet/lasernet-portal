@@ -67,6 +67,15 @@ export default function VisitsPage() {
   const draggedSourceGroupRef = useRef<string | null>(null);
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
 
+  // Left-panel people search (for adding visitors to groups)
+  const [peopleSearch, setPeopleSearch] = useState('');
+  const [peopleResults, setPeopleResults] = useState<{ id: string; name: string; email: string | null; phone: string | null; company: string | null; photo: string | null }[]>([]);
+  const [peopleSearching, setPeopleSearching] = useState(false);
+  const draggedPersonRef = useRef<{ id: string; name: string; email: string | null; company: string | null } | null>(null);
+
+  // Hover-expand for grid view
+  const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
+
   // Business linking per group
   const [linkingGroupId, setLinkingGroupId] = useState<string | null>(null);
   const [businessSearch, setBusinessSearch] = useState('');
@@ -178,6 +187,42 @@ export default function VisitsPage() {
       if (vg.status === 'active') fetchGroupNeeds(vg.id);
     }
   }, [visitGroups, fetchGroupNeeds]);
+
+  // ── People search for left panel ──
+  useEffect(() => {
+    if (peopleSearch.length < 2) { setPeopleResults([]); return; }
+    const timeout = setTimeout(async () => {
+      setPeopleSearching(true);
+      try {
+        const res = await fetch(`/api/leads/search?q=${encodeURIComponent(peopleSearch)}`);
+        const data = await res.json();
+        setPeopleResults(data.leads ?? []);
+      } catch { setPeopleResults([]); }
+      setPeopleSearching(false);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [peopleSearch]);
+
+  // Handle person drop on a visit group (add as visitor via kiosk API)
+  const handlePersonDropOnGroup = useCallback(async (groupId: string) => {
+    const person = draggedPersonRef.current;
+    if (!person) return;
+    try {
+      await fetch('/api/kiosk/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadId: person.id,
+          name: person.name,
+          email: person.email || '',
+          company: person.company || '',
+          visitGroupId: groupId,
+        }),
+      });
+      await fetchVisitGroups();
+    } catch { /* silently fail */ }
+    draggedPersonRef.current = null;
+  }, [fetchVisitGroups]);
 
   // ── End visit → moves to follow-up (blocked if no main contact) ──
   const handleEndVisit = useCallback(async (groupId: string) => {
@@ -704,8 +749,63 @@ export default function VisitsPage() {
           </div>
         </div>
 
-        {/* Live visit containers */}
+        {/* Live visit containers — split layout: left people | divider | right grid */}
         <div className={`p-6 ${isFullscreen ? 'flex-1 overflow-y-auto' : ''}`} style={{ minHeight: isFullscreen ? undefined : '75vh' }}>
+          <div className="flex h-full" style={{ minHeight: isFullscreen ? undefined : 'calc(75vh - 48px)' }}>
+
+            {/* ── Left: people search panel ── */}
+            <div className="w-44 flex-shrink-0 flex flex-col">
+              <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">{t('liveVisits', 'addPerson')}</p>
+              <div className="relative mb-2">
+                <input
+                  type="text"
+                  value={peopleSearch}
+                  onChange={e => setPeopleSearch(e.target.value)}
+                  placeholder={t('liveVisits', 'searchPeople')}
+                  className="w-full bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-brand-500"
+                />
+                {peopleSearching && <div className="absolute right-2 top-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-500" /></div>}
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-1">
+                {peopleResults.length > 0 ? (
+                  peopleResults.map(person => {
+                    const alreadyIn = activeGroups.some(g => g.visitors.some(v => v.leadId === person.id));
+                    return (
+                      <div
+                        key={person.id}
+                        draggable={!alreadyIn}
+                        onDragStart={() => { draggedPersonRef.current = { id: person.id, name: person.name, email: person.email, company: person.company }; }}
+                        onDragEnd={() => { draggedPersonRef.current = null; }}
+                        className={`px-2 py-1.5 rounded-lg text-xs flex items-center gap-2 border border-white/10 transition ${
+                          alreadyIn
+                            ? 'opacity-40 cursor-not-allowed'
+                            : 'cursor-grab active:cursor-grabbing hover:border-brand-400/50 hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="w-6 h-6 rounded-full bg-brand-500/20 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[9px] font-bold text-brand-300">{person.name.charAt(0).toUpperCase()}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-white/80 truncate">{person.name}</p>
+                          {person.company && <p className="text-[10px] text-white/30 truncate">{person.company}</p>}
+                        </div>
+                        {alreadyIn && <span className="text-[9px] text-white/30 ml-auto">✓</span>}
+                      </div>
+                    );
+                  })
+                ) : peopleSearch.length >= 2 && !peopleSearching ? (
+                  <p className="text-[11px] text-white/30 text-center py-4">{t('common', 'noResults')}</p>
+                ) : (
+                  <p className="text-[11px] text-white/20 text-center py-6 px-1 leading-relaxed">{t('liveVisits', 'searchPeople')}</p>
+                )}
+              </div>
+            </div>
+
+            {/* ── Divider ── */}
+            <div className="w-px bg-white/10 mx-4 flex-shrink-0" />
+
+            {/* ── Right: visit groups grid ── */}
+            <div className="flex-1 min-w-0 overflow-y-auto">
           {activeGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
@@ -716,7 +816,7 @@ export default function VisitsPage() {
               <p className="text-lg font-semibold text-white/40">{t('liveVisits', 'noActiveVisits')}</p>
             </div>
           ) : (
-            <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-white/10">
+            <div className="flex flex-wrap gap-4 items-start content-start">
               {activeGroups.map(vg => {
                 const bizName = getBusinessName(vg);
                 const bizType = getBusinessType(vg);
@@ -725,44 +825,35 @@ export default function VisitsPage() {
                 const isDragOver = dragOverGroupId === vg.id;
                 const isEditingName = editingNameGroupId === vg.id;
                 const isExpanded = expandedGroupId === vg.id;
-                const isCollapsed = expandedGroupId !== null && expandedGroupId !== vg.id;
-
-                // ── Collapsed view: just the business name ──
-                if (isCollapsed) {
-                  return (
-                    <div
-                      key={vg.id}
-                      className="flex-shrink-0 w-[140px] bg-gray-900 border border-white/10 rounded-2xl overflow-hidden flex flex-col items-center justify-center cursor-pointer hover:border-white/20 transition-all duration-300"
-                      style={{ minHeight: 120 }}
-                      onClick={() => handleContainerClick(vg.id)}
-                      onMouseEnter={() => handleContainerMouseEnter(vg.id)}
-                      onMouseLeave={handleContainerMouseLeave}
-                      onDragOver={(e) => handleDragOver(e, vg.id)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, vg.id)}
-                    >
-                      <p className="text-sm font-semibold text-white/70 text-center px-3 truncate w-full">{bizName}</p>
-                      <p className="text-xs text-white/30 mt-1">{vg.visitors.length} {t('liveVisits', 'visitors').toLowerCase()}</p>
-                    </div>
-                  );
-                }
-
-                // ── Normal or Expanded view ──
+                const isHov = hoveredGroupId === vg.id;
+                const someoneHovered = hoveredGroupId !== null;
+                const isCollapsedByHover = someoneHovered && !isHov;
                 const currentNeeds = groupNeeds[vg.id] || [];
 
                 return (
                   <div
                     key={vg.id}
-                    className={`flex-shrink-0 bg-gray-900 border rounded-2xl overflow-hidden transition-all duration-300 ${
-                      isDragOver ? 'border-brand-500 bg-brand-500/5' : isExpanded ? 'border-brand-400/50' : 'border-white/10'
+                    className={`bg-gray-900 border rounded-2xl overflow-hidden transition-all duration-300 ${
+                      isDragOver ? 'border-brand-500 bg-brand-500/5' : isExpanded ? 'border-brand-400/50' : isHov ? 'border-white/30 shadow-lg shadow-brand-500/10' : 'border-white/10'
                     }`}
-                    style={{ width: isExpanded ? 1050 : 350 }}
+                    style={{
+                      width: isExpanded ? '100%' : isHov ? '100%' : isCollapsedByHover ? '100%' : 'calc(50% - 8px)',
+                      maxHeight: isCollapsedByHover ? 48 : 1200,
+                      order: isHov ? -1 : 0,
+                    }}
                     onClick={() => handleContainerClick(vg.id)}
-                    onMouseEnter={() => handleContainerMouseEnter(vg.id)}
-                    onMouseLeave={handleContainerMouseLeave}
-                    onDragOver={(e) => handleDragOver(e, vg.id)}
+                    onMouseEnter={() => { handleContainerMouseEnter(vg.id); setHoveredGroupId(vg.id); }}
+                    onMouseLeave={() => { handleContainerMouseLeave(); setHoveredGroupId(null); }}
+                    onDragOver={(e) => { handleDragOver(e, vg.id); }}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => {
+                      // Handle person drops from left panel
+                      if (draggedPersonRef.current) {
+                        e.preventDefault();
+                        setDragOverGroupId(null);
+                        handlePersonDropOnGroup(vg.id);
+                        return;
+                      }
                       // Handle sidebar item drops
                       const sidebarItem = draggedSidebarItemRef.current;
                       if (sidebarItem) {
@@ -775,6 +866,14 @@ export default function VisitsPage() {
                       handleDrop(e, vg.id);
                     }}
                   >
+                    {/* Collapsed-by-hover: just name + visitor count */}
+                    {isCollapsedByHover ? (
+                      <div className="px-4 py-3 flex items-center justify-between">
+                        <p className="text-sm font-semibold text-white/60 truncate">{bizName}</p>
+                        <p className="text-xs text-white/30 flex-shrink-0">{vg.visitors.length} {t('liveVisits', 'visitors').toLowerCase()}</p>
+                      </div>
+                    ) : (
+                      <>
                     {/* ── Container header ── */}
                     <div className="p-4 border-b border-white/10" onClick={(e) => e.stopPropagation()}>
                       {/* Row 1: Business name + type badge + end visit */}
@@ -1148,6 +1247,8 @@ export default function VisitsPage() {
                       </div>
                       <span>{vg.visitors.length} {t('liveVisits', 'visitors').toLowerCase()}</span>
                     </div>
+                    </>
+                    )}
                   </div>
                 );
               })}
@@ -1155,7 +1256,8 @@ export default function VisitsPage() {
               {/* ── "+" card ── */}
               <button
                 onClick={handleCreateGroup}
-                className="flex-shrink-0 w-[350px] bg-gray-900/50 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-brand-500/50 hover:bg-brand-500/5 transition-colors min-h-[200px] cursor-pointer"
+                className="bg-gray-900/50 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-brand-500/50 hover:bg-brand-500/5 transition-colors min-h-[200px] cursor-pointer"
+                style={{ width: 'calc(50% - 8px)' }}
                 onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
                 onDrop={async (e) => {
                   e.preventDefault();
@@ -1191,6 +1293,8 @@ export default function VisitsPage() {
               </button>
             </div>
           )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
