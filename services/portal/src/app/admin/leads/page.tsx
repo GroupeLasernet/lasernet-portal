@@ -333,6 +333,7 @@ export default function AdminLeadsPage() {
   const [addingAttendeeToMeeting, setAddingAttendeeToMeeting] = useState<string | null>(null); // meetingId currently adding to
   const [draggedLead, setDraggedLead] = useState<LeadSearchResult | null>(null);
   const [dragOverMeeting, setDragOverMeeting] = useState<string | null>(null);
+  const [hoveredMeeting, setHoveredMeeting] = useState<string | null>(null);
 
   // ── Complete meeting modal ──
   const [completingMeetingId, setCompletingMeetingId] = useState<string | null>(null);
@@ -1296,7 +1297,7 @@ export default function AdminLeadsPage() {
               {activeTab === 'visits' && (
                 <div className="space-y-4">
 
-                  {/* ── Meetings Section ── */}
+                  {/* ── Meetings Section — split: left people / right meeting grid ── */}
                   {editMode === 'project' && selectedProjectId && (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
@@ -1349,124 +1350,216 @@ export default function AdminLeadsPage() {
                         </div>
                       )}
 
-                      {/* Meeting cards */}
-                      {meetings.length === 0 && !showMeetingForm ? (
-                        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">{t('leads', 'noMeetings')}</p>
-                      ) : (
-                        meetings.map(mtg => (
-                          <div
-                            key={mtg.id}
-                            className={`bg-gray-50 dark:bg-gray-900 rounded-lg border dark:border-gray-700 overflow-hidden transition ${
-                              dragOverMeeting === mtg.id ? 'ring-2 ring-brand-500 border-brand-500' : ''
-                            }`}
-                            onDragOver={e => { e.preventDefault(); setDragOverMeeting(mtg.id); }}
-                            onDragLeave={() => setDragOverMeeting(null)}
-                            onDrop={e => { e.preventDefault(); handleDropOnMeeting(mtg.id); }}
-                          >
-                            {/* Meeting header */}
-                            <div className="px-3 py-2 flex items-center justify-between">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
-                                  mtg.status === 'completed' ? 'bg-green-500' : mtg.status === 'cancelled' ? 'bg-red-400' : 'bg-blue-500'
-                                }`} />
-                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{mtg.title}</span>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                                  mtg.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                  mtg.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                }`}>
-                                  {t('leads', `meetingStatus_${mtg.status}`)}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1 flex-shrink-0">
-                                {mtg.status === 'scheduled' && (
-                                  <button onClick={() => handleCompleteMeeting(mtg.id)} className="text-[10px] text-green-600 hover:text-green-700 px-1" title={t('leads', 'completeMeeting')}>✓</button>
-                                )}
-                                <button onClick={() => handleDeleteMeeting(mtg.id)} className="text-[10px] text-red-400 hover:text-red-600 px-1" title={t('leads', 'deleteMeeting')}>✕</button>
-                              </div>
-                            </div>
+                      {/* Split layout: left people list | divider | right meeting grid */}
+                      <div className="flex" style={{ minHeight: 320 }}>
 
-                            {/* Meeting details */}
-                            <div className="px-3 pb-2 flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
-                              <span>{new Date(mtg.scheduledAt).toLocaleDateString()} {new Date(mtg.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                              <span>{mtg.durationMinutes} min</span>
-                              {mtg.location && <span>{mtg.location}</span>}
-                            </div>
-
-                            {/* Attendees */}
-                            <div className="px-3 pb-2 space-y-1">
-                              <p className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase">{t('leads', 'attendees')} ({mtg.attendees.length})</p>
-                              {mtg.attendees.length === 0 ? (
-                                <p className="text-[11px] text-gray-400 dark:text-gray-500 italic">{t('leads', 'noAttendees')}</p>
-                              ) : (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {mtg.attendees.map(att => {
-                                    const isMain = att.leadId && att.leadId === selectedId;
-                                    return (
-                                      <span key={att.id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] ${isMain ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-1 ring-green-400' : 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'}`}>
-                                        {att.lead?.name || att.name || '?'}
-                                        {isMain && <span className="text-[8px] font-bold ml-0.5">{t('leads', 'mainContact')}</span>}
-                                        <button onClick={() => handleRemoveAttendee(mtg.id, att.id)} className="text-brand-400 hover:text-brand-600">
-                                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                        </button>
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              )}
-
-                              {/* Add attendee inline */}
-                              {addingAttendeeToMeeting === mtg.id ? (
-                                <div className="mt-1">
-                                  <div className="relative">
-                                    <input
-                                      type="text"
-                                      value={attendeeSearch}
-                                      onChange={e => setAttendeeSearch(e.target.value)}
-                                      className={`${INPUT_CLS} text-xs`}
-                                      placeholder={t('leads', 'searchAttendee')}
-                                      autoFocus
-                                    />
-                                    {attendeeSearching && <div className="absolute right-2 top-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-600" /></div>}
-                                  </div>
-                                  {attendeeResults.length > 0 && (
-                                    <div className="mt-1 border dark:border-gray-600 rounded-lg max-h-32 overflow-y-auto bg-white dark:bg-gray-800">
-                                      {attendeeResults.map(lead => {
-                                        const alreadyAdded = mtg.attendees.some(a => a.leadId === lead.id);
-                                        return (
-                                          <button
-                                            key={lead.id}
-                                            disabled={alreadyAdded}
-                                            onClick={() => { handleAddAttendee(mtg.id, lead); setAttendeeSearch(''); setAttendeeResults([]); }}
-                                            draggable
-                                            onDragStart={() => setDraggedLead(lead)}
-                                            onDragEnd={() => setDraggedLead(null)}
-                                            className={`w-full px-2 py-1.5 text-left text-xs flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition ${alreadyAdded ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-                                          >
-                                            <span className="font-medium text-gray-800 dark:text-gray-200">{lead.name}</span>
-                                            {lead.company && <span className="text-gray-400 dark:text-gray-500">{lead.company}</span>}
-                                            {alreadyAdded && <span className="text-[10px] text-gray-400 ml-auto">✓</span>}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                  <button onClick={() => { setAddingAttendeeToMeeting(null); setAttendeeSearch(''); setAttendeeResults([]); }} className="mt-1 text-[11px] text-gray-400 hover:text-gray-600">{t('leads', 'cancel')}</button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => setAddingAttendeeToMeeting(mtg.id)}
-                                  className="text-[11px] text-brand-600 hover:text-brand-700 font-medium mt-1"
-                                >
-                                  + {t('leads', 'addAttendee')}
-                                </button>
-                              )}
-                            </div>
-
-                            {mtg.notes && <div className="px-3 pb-2"><p className="text-[11px] text-gray-500 dark:text-gray-400">{mtg.notes}</p></div>}
+                        {/* ── Left: unassigned people search list ── */}
+                        <div className="w-44 flex-shrink-0 flex flex-col">
+                          <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase mb-1.5">{t('leads', 'searchAttendee')}</p>
+                          <div className="relative mb-2">
+                            <input
+                              type="text"
+                              value={attendeeSearch}
+                              onChange={e => setAttendeeSearch(e.target.value)}
+                              className={`${INPUT_CLS} text-xs`}
+                              placeholder={t('leads', 'searchAttendee')}
+                            />
+                            {attendeeSearching && <div className="absolute right-2 top-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-600" /></div>}
                           </div>
-                        ))
-                      )}
+                          <div className="flex-1 overflow-y-auto space-y-1">
+                            {attendeeResults.length > 0 ? (
+                              attendeeResults.map(lead => {
+                                const alreadyInAny = meetings.some(m => m.attendees.some(a => a.leadId === lead.id));
+                                return (
+                                  <div
+                                    key={lead.id}
+                                    draggable={!alreadyInAny}
+                                    onDragStart={() => setDraggedLead(lead)}
+                                    onDragEnd={() => setDraggedLead(null)}
+                                    className={`px-2 py-1.5 rounded-lg text-xs flex items-center gap-2 border dark:border-gray-700 transition ${
+                                      alreadyInAny
+                                        ? 'opacity-40 cursor-not-allowed bg-gray-50 dark:bg-gray-900'
+                                        : 'cursor-grab active:cursor-grabbing bg-white dark:bg-gray-800 hover:border-brand-400 hover:shadow-sm'
+                                    }`}
+                                  >
+                                    <div className="w-6 h-6 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0">
+                                      <span className="text-[9px] font-bold text-brand-700 dark:text-brand-300">{lead.name.charAt(0).toUpperCase()}</span>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{lead.name}</p>
+                                      {lead.company && <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{lead.company}</p>}
+                                    </div>
+                                    {alreadyInAny && <span className="text-[9px] text-gray-400 ml-auto">✓</span>}
+                                  </div>
+                                );
+                              })
+                            ) : attendeeSearch.length >= 2 && !attendeeSearching ? (
+                              <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center py-4">{t('common', 'noResults')}</p>
+                            ) : (
+                              <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center py-6 px-1 leading-relaxed">{t('leads', 'searchAttendee')}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* ── Divider ── */}
+                        <div className="w-px bg-gray-200 dark:bg-gray-600 mx-3 flex-shrink-0" />
+
+                        {/* ── Right: meeting cards grid with hover expand ── */}
+                        <div className="flex-1 min-w-0">
+                          {meetings.length === 0 && !showMeetingForm ? (
+                            <div className="flex items-center justify-center h-full">
+                              <p className="text-sm text-gray-400 dark:text-gray-500">{t('leads', 'noMeetings')}</p>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-2 items-start content-start">
+                              {meetings.map(mtg => {
+                                const isHovered = hoveredMeeting === mtg.id;
+                                const someoneHovered = hoveredMeeting !== null;
+                                const isCollapsed = someoneHovered && !isHovered;
+                                const isOver = dragOverMeeting === mtg.id;
+
+                                return (
+                                  <div
+                                    key={mtg.id}
+                                    className={`rounded-lg border dark:border-gray-700 overflow-hidden transition-all duration-300 ease-in-out ${
+                                      isOver ? 'ring-2 ring-brand-500 border-brand-500' : ''
+                                    } ${isHovered
+                                      ? 'bg-white dark:bg-gray-800 shadow-lg flex-grow'
+                                      : isCollapsed
+                                        ? 'bg-gray-50 dark:bg-gray-900 opacity-70'
+                                        : 'bg-gray-50 dark:bg-gray-900'
+                                    }`}
+                                    style={{
+                                      width: isHovered ? '100%' : isCollapsed ? '100%' : `calc(50% - 4px)`,
+                                      maxHeight: isCollapsed ? 44 : 600,
+                                      order: isHovered ? -1 : 0,
+                                    }}
+                                    onMouseEnter={() => setHoveredMeeting(mtg.id)}
+                                    onMouseLeave={() => setHoveredMeeting(null)}
+                                    onDragOver={e => { e.preventDefault(); setDragOverMeeting(mtg.id); }}
+                                    onDragLeave={() => setDragOverMeeting(null)}
+                                    onDrop={e => { e.preventDefault(); handleDropOnMeeting(mtg.id); }}
+                                  >
+                                    {/* Meeting header — always visible */}
+                                    <div className="px-3 py-2 flex items-center justify-between">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+                                          mtg.status === 'completed' ? 'bg-green-500' : mtg.status === 'cancelled' ? 'bg-red-400' : 'bg-blue-500'
+                                        }`} />
+                                        <span className={`font-medium text-gray-900 dark:text-gray-100 truncate ${isCollapsed ? 'text-xs' : 'text-sm'}`}>{mtg.title}</span>
+                                        {!isCollapsed && (
+                                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                            mtg.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                            mtg.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                            'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                          }`}>
+                                            {t('leads', `meetingStatus_${mtg.status}`)}
+                                          </span>
+                                        )}
+                                        {isCollapsed && (
+                                          <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+                                            <svg className="w-3 h-3 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                            {' '}{mtg.attendees.length}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {!isCollapsed && (
+                                        <div className="flex items-center gap-1 flex-shrink-0">
+                                          {mtg.status === 'scheduled' && (
+                                            <button onClick={() => handleCompleteMeeting(mtg.id)} className="text-[10px] text-green-600 hover:text-green-700 px-1" title={t('leads', 'completeMeeting')}>✓</button>
+                                          )}
+                                          <button onClick={() => handleDeleteMeeting(mtg.id)} className="text-[10px] text-red-400 hover:text-red-600 px-1" title={t('leads', 'deleteMeeting')}>✕</button>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Expanded content — hidden when collapsed */}
+                                    {!isCollapsed && (
+                                      <>
+                                        {/* Meeting details */}
+                                        <div className="px-3 pb-2 flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
+                                          <span>{new Date(mtg.scheduledAt).toLocaleDateString()} {new Date(mtg.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                          <span>{mtg.durationMinutes} min</span>
+                                          {mtg.location && <span>{mtg.location}</span>}
+                                        </div>
+
+                                        {/* Attendees */}
+                                        <div className="px-3 pb-2 space-y-1">
+                                          <p className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase">{t('leads', 'attendees')} ({mtg.attendees.length})</p>
+                                          {mtg.attendees.length === 0 ? (
+                                            <p className="text-[11px] text-gray-400 dark:text-gray-500 italic">{t('leads', 'noAttendees')}</p>
+                                          ) : (
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {mtg.attendees.map(att => {
+                                                const isMain = att.leadId && att.leadId === selectedId;
+                                                return (
+                                                  <span key={att.id} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] ${isMain ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-1 ring-green-400' : 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'}`}>
+                                                    {att.lead?.name || att.name || '?'}
+                                                    {isMain && <span className="text-[8px] font-bold ml-0.5">{t('leads', 'mainContact')}</span>}
+                                                    <button onClick={() => handleRemoveAttendee(mtg.id, att.id)} className="text-brand-400 hover:text-brand-600">
+                                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                    </button>
+                                                  </span>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+
+                                          {/* Add attendee inline */}
+                                          {addingAttendeeToMeeting === mtg.id ? (
+                                            <div className="mt-1">
+                                              <div className="relative">
+                                                <input
+                                                  type="text"
+                                                  value={attendeeSearch}
+                                                  onChange={e => setAttendeeSearch(e.target.value)}
+                                                  className={`${INPUT_CLS} text-xs`}
+                                                  placeholder={t('leads', 'searchAttendee')}
+                                                  autoFocus
+                                                />
+                                                {attendeeSearching && <div className="absolute right-2 top-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-600" /></div>}
+                                              </div>
+                                              {attendeeResults.length > 0 && (
+                                                <div className="mt-1 border dark:border-gray-600 rounded-lg max-h-32 overflow-y-auto bg-white dark:bg-gray-800">
+                                                  {attendeeResults.map(lead => {
+                                                    const alreadyAdded = mtg.attendees.some(a => a.leadId === lead.id);
+                                                    return (
+                                                      <button
+                                                        key={lead.id}
+                                                        disabled={alreadyAdded}
+                                                        onClick={() => { handleAddAttendee(mtg.id, lead); setAttendeeSearch(''); setAttendeeResults([]); }}
+                                                        className={`w-full px-2 py-1.5 text-left text-xs flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition ${alreadyAdded ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                      >
+                                                        <span className="font-medium text-gray-800 dark:text-gray-200">{lead.name}</span>
+                                                        {lead.company && <span className="text-gray-400 dark:text-gray-500">{lead.company}</span>}
+                                                        {alreadyAdded && <span className="text-[10px] text-gray-400 ml-auto">✓</span>}
+                                                      </button>
+                                                    );
+                                                  })}
+                                                </div>
+                                              )}
+                                              <button onClick={() => { setAddingAttendeeToMeeting(null); setAttendeeSearch(''); setAttendeeResults([]); }} className="mt-1 text-[11px] text-gray-400 hover:text-gray-600">{t('leads', 'cancel')}</button>
+                                            </div>
+                                          ) : (
+                                            <button
+                                              onClick={() => setAddingAttendeeToMeeting(mtg.id)}
+                                              className="text-[11px] text-brand-600 hover:text-brand-700 font-medium mt-1"
+                                            >
+                                              + {t('leads', 'addAttendee')}
+                                            </button>
+                                          )}
+                                        </div>
+
+                                        {mtg.notes && <div className="px-3 pb-2"><p className="text-[11px] text-gray-500 dark:text-gray-400">{mtg.notes}</p></div>}
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
 
                       <hr className="border-gray-200 dark:border-gray-700" />
                     </div>
