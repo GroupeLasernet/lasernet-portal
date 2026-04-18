@@ -623,7 +623,7 @@ export default function AdminLeadsPage() {
       return <div className="text-center text-gray-400 dark:text-gray-500 py-16 text-sm">{t('leads', 'noLeads')}</div>;
     }
     return (
-      <div className="overflow-x-auto border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800">
+      <div className="border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden">
         <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
           <thead>
             <tr className="border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
@@ -640,8 +640,8 @@ export default function AdminLeadsPage() {
               ].map(col => (
                 <th
                   key={col.key}
-                  style={{ width: `${colWidths[col.key]}%`, position: 'relative' }}
-                  className={`px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap select-none ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
+                  style={{ width: `${colWidths[col.key]}%`, position: 'relative', overflow: 'hidden' }}
+                  className={`px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 select-none ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
                 >
                   {col.label}
                   {/* Resize handle */}
@@ -681,13 +681,13 @@ export default function AdminLeadsPage() {
                   {/* ── Shared columns: only on first row with rowSpan ── */}
                   {rowIdx === 0 && (
                     <>
-                      <td className="px-4 py-3 text-center" rowSpan={rowCount}>
+                      <td className="px-4 py-3 text-center overflow-hidden" rowSpan={rowCount}>
                         <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
                       </td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate" rowSpan={rowCount}>
-                        {lead.company || '-'}
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden" rowSpan={rowCount}>
+                        <span className="block truncate">{lead.company || '-'}</span>
                       </td>
-                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100" rowSpan={rowCount}>
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 overflow-hidden" rowSpan={rowCount}>
                         <div className="flex items-center gap-2">
                           <span className="truncate">{lead.name}</span>
                           <span className={`flex-shrink-0 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STAGE_COLORS[lead.stage]}`}>
@@ -712,20 +712,20 @@ export default function AdminLeadsPage() {
                   )}
 
                   {/* ── Project-specific columns: one per row ── */}
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{projReason(rowIdx)}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{projProducts(rowIdx)}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden"><span className="block truncate">{projReason(rowIdx)}</span></td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden"><span className="block truncate">{projProducts(rowIdx)}</span></td>
 
                   {/* ── Shared columns continued: phone + email ── */}
                   {rowIdx === 0 && (
                     <>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap truncate" rowSpan={rowCount}>{lead.phone || '-'}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate" rowSpan={rowCount}>{lead.email || '-'}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden" rowSpan={rowCount}><span className="block truncate">{lead.phone || '-'}</span></td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden" rowSpan={rowCount}><span className="block truncate">{lead.email || '-'}</span></td>
                     </>
                   )}
 
                   {/* ── Project-specific columns continued ── */}
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 truncate">{projObjective(rowIdx)}</td>
-                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 whitespace-nowrap">{projBudget(rowIdx)}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden"><span className="block truncate">{projObjective(rowIdx)}</span></td>
+                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 overflow-hidden"><span className="block truncate">{projBudget(rowIdx)}</span></td>
                 </tr>
               ));
             })}
