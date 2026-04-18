@@ -52,6 +52,31 @@ export async function PATCH(
     updates.name = body.name.trim();
   }
 
+  // Field: email
+  if (typeof body.email === 'string' && body.email.trim()) {
+    updates.email = body.email.trim().toLowerCase();
+  }
+
+  // Access schedule fields
+  if (body.accessAlways !== undefined) {
+    updates.accessAlways = Boolean(body.accessAlways);
+  }
+  if (body.accessTimeFrom !== undefined) {
+    updates.accessTimeFrom = body.accessTimeFrom || null;
+  }
+  if (body.accessTimeTo !== undefined) {
+    updates.accessTimeTo = body.accessTimeTo || null;
+  }
+  if (body.accessDays !== undefined) {
+    updates.accessDays = body.accessDays ? JSON.stringify(body.accessDays) : null;
+  }
+  if (body.accessDateFrom !== undefined) {
+    updates.accessDateFrom = body.accessDateFrom ? new Date(body.accessDateFrom) : null;
+  }
+  if (body.accessDateTo !== undefined) {
+    updates.accessDateTo = body.accessDateTo ? new Date(body.accessDateTo) : null;
+  }
+
   // Field: status  ('active' | 'disabled')
   if (body.status === 'active' || body.status === 'disabled') {
     if (body.status === 'disabled') {
@@ -125,6 +150,12 @@ export async function PATCH(
       role: true,
       status: true,
       inviteExpiresAt: true,
+      accessAlways: true,
+      accessTimeFrom: true,
+      accessTimeTo: true,
+      accessDays: true,
+      accessDateFrom: true,
+      accessDateTo: true,
     },
   });
 

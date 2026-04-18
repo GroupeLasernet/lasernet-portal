@@ -29,6 +29,15 @@ model User {
   status      String   @default("invited") // "invited" | "active" | "disabled"
   inviteToken String?  @db.Text
   inviteExpiresAt DateTime?
+
+  // Access schedule
+  accessAlways    Boolean  @default(true)       // true = 24/7 access
+  accessTimeFrom  String?                        // e.g. "08:00"
+  accessTimeTo    String?                        // e.g. "17:00"
+  accessDays      String?                        // JSON array e.g. ["mon","tue","wed","thu","fri"]
+  accessDateFrom  DateTime?                      // access valid from this date
+  accessDateTo    DateTime?                      // access valid until this date
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

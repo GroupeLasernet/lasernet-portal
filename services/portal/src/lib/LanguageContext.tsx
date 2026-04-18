@@ -31,10 +31,23 @@ export function LanguageProvider({ children, initialLang = 'fr' }: { children: R
   // (avoids a French flash when navigating or hard-reloading).
   const [lang, setLangState] = useState<Language>(() => readCachedLang(initialLang));
 
-  // On mount, reconcile with the user's DB preference (source of truth across devices).
+  // On mount, reconcile with the user's DB preference — but only if the user
+  // has NOT already made a local choice (localStorage).  This prevents the DB
+  // from overriding a language switch whose POST silently failed (e.g. 401).
   useEffect(() => {
+    const cachedLocally = (() => { try { return window.localStorage.getItem(STORAGE_KEY); } catch { return null; } })();
+    // If user already chose a language locally, try to push it to DB (in case the previous POST failed)
+    if (cachedLocally === 'fr' || cachedLocally === 'en') {
+      fetch('/api/auth/language', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: cachedLocally }),
+      }).catch(() => {});
+      return; // trust localStorage, don't fetch from DB
+    }
+    // No local preference — pull from DB
     fetch('/api/auth/me')
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error('not auth'); return r.json(); })
       .then(data => {
         const dbLang = data?.user?.language;
         if (dbLang === 'fr' || dbLang === 'en') {

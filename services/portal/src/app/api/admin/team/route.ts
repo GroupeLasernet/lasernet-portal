@@ -30,6 +30,12 @@ export async function GET(request: NextRequest) {
       phone: true,
       createdAt: true,
       inviteExpiresAt: true,
+      accessAlways: true,
+      accessTimeFrom: true,
+      accessTimeTo: true,
+      accessDays: true,
+      accessDateFrom: true,
+      accessDateTo: true,
     },
   });
 

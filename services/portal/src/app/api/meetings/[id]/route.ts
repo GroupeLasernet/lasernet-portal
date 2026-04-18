@@ -1,5 +1,10 @@
 // ============================================================
 // /api/meetings/[id] — PATCH (update) and DELETE
+//
+// When completing (status='completed'), caller must supply
+// mainContactId (attendee ID) — the chosen attendee becomes
+// the project's lead. If the attendee has no leadId we create
+// a new Lead from their name/email first.
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -20,8 +25,70 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { title, scheduledAt, durationMinutes, location, notes, status } = body;
+  const { title, scheduledAt, durationMinutes, location, notes, status, mainContactAttendeeId } = body;
 
+  // ── Completing a meeting requires picking a main contact ──
+  if (status === 'completed') {
+    if (!mainContactAttendeeId) {
+      return NextResponse.json(
+        { error: 'You must select a main contact before completing the meeting.' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch the meeting + attendee
+    const mtg = await prisma.projectMeeting.findUnique({
+      where: { id: params.id },
+      include: { attendees: true },
+    });
+    if (!mtg) return NextResponse.json({ error: 'Meeting not found' }, { status: 404 });
+
+    const attendee = mtg.attendees.find(a => a.id === mainContactAttendeeId);
+    if (!attendee) {
+      return NextResponse.json({ error: 'Attendee not found in this meeting.' }, { status: 400 });
+    }
+
+    // Resolve leadId — create a Lead if the attendee is free-text only
+    let leadId = attendee.leadId;
+    if (!leadId) {
+      const newLead = await prisma.lead.create({
+        data: {
+          name: attendee.name || 'Unknown',
+          email: attendee.email || null,
+          stage: 'new',
+          source: 'walk_in',
+        },
+      });
+      leadId = newLead.id;
+      // Link the attendee to the new lead
+      await prisma.meetingAttendee.update({
+        where: { id: attendee.id },
+        data: { leadId },
+      });
+    }
+
+    // Update the project's main contact (leadId)
+    await prisma.leadProject.update({
+      where: { id: mtg.projectId },
+      data: { leadId },
+    });
+
+    // Mark meeting completed
+    const meeting = await prisma.projectMeeting.update({
+      where: { id: params.id },
+      data: { status: 'completed' },
+      include: {
+        attendees: {
+          include: { lead: { select: { id: true, name: true, email: true, phone: true, company: true, photo: true } } },
+        },
+        createdBy: { select: { id: true, name: true } },
+      },
+    });
+
+    return NextResponse.json({ meeting, mainContactLeadId: leadId });
+  }
+
+  // ── Normal (non-completion) update ──
   try {
     const meeting = await prisma.projectMeeting.update({
       where: { id: params.id },

@@ -225,6 +225,291 @@ function dateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+// ── Meeting Bubbles — physics-based floating tiles ─────────────────────────
+
+interface BubbleState {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+}
+
+function MeetingBubbles({
+  meetings,
+  dragOverMeeting,
+  setDragOverMeeting,
+  handleDropOnMeeting,
+  handleCompleteMeeting,
+  handleDeleteMeeting,
+  handleRemoveAttendee,
+  handleAddAttendee,
+  mainContactLeadId,
+  t,
+}: {
+  meetings: ProjectMeeting[];
+  dragOverMeeting: string | null;
+  setDragOverMeeting: (id: string | null) => void;
+  handleDropOnMeeting: (id: string) => void;
+  handleCompleteMeeting: (id: string) => void;
+  handleDeleteMeeting: (id: string) => void;
+  handleRemoveAttendee: (meetingId: string, attendeeId: string) => void;
+  handleAddAttendee: (meetingId: string, lead: LeadSearchResult) => void;
+  mainContactLeadId: string | null;
+  t: (section: string, key: string) => string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const bubblesRef = useRef<BubbleState[]>([]);
+  const animFrameRef = useRef<number>(0);
+  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [expandedBubble, setExpandedBubble] = useState<string | null>(null);
+  const dragBubbleRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+
+  // Compute radius based on attendees (min 50, max 90)
+  const getRadius = useCallback((mtg: ProjectMeeting) => {
+    return Math.min(90, Math.max(50, 40 + mtg.attendees.length * 12));
+  }, []);
+
+  // Initialize / sync bubble state when meetings change
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const W = container.clientWidth;
+    const H = container.clientHeight;
+
+    const existing = new Map(bubblesRef.current.map(b => [b.id, b]));
+    const next: BubbleState[] = meetings.map((mtg, i) => {
+      const radius = getRadius(mtg);
+      const prev = existing.get(mtg.id);
+      if (prev) return { ...prev, radius };
+      // Scatter new bubbles
+      const angle = (i / Math.max(meetings.length, 1)) * Math.PI * 2;
+      const cx = W / 2 + Math.cos(angle) * (W * 0.2);
+      const cy = H / 2 + Math.sin(angle) * (H * 0.2);
+      return {
+        id: mtg.id,
+        x: Math.max(radius, Math.min(W - radius, cx)),
+        y: Math.max(radius, Math.min(H - radius, cy)),
+        vx: (Math.random() - 0.5) * 1.2,
+        vy: (Math.random() - 0.5) * 1.2,
+        radius,
+      };
+    });
+    bubblesRef.current = next;
+  }, [meetings, getRadius]);
+
+  // Physics loop
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let running = true;
+    const DAMPING = 0.992;
+    const NUDGE = 0.15;
+
+    const tick = () => {
+      if (!running) return;
+      const W = container.clientWidth;
+      const H = container.clientHeight;
+      const bs = bubblesRef.current;
+
+      for (let i = 0; i < bs.length; i++) {
+        const b = bs[i];
+        // Skip if being dragged
+        if (dragBubbleRef.current?.id === b.id) continue;
+
+        // Apply gentle random drift
+        b.vx += (Math.random() - 0.5) * NUDGE * 0.3;
+        b.vy += (Math.random() - 0.5) * NUDGE * 0.3;
+
+        // Damping
+        b.vx *= DAMPING;
+        b.vy *= DAMPING;
+
+        // Move
+        b.x += b.vx;
+        b.y += b.vy;
+
+        // Wall bounce
+        if (b.x - b.radius < 0) { b.x = b.radius; b.vx = Math.abs(b.vx) * 0.6; }
+        if (b.x + b.radius > W) { b.x = W - b.radius; b.vx = -Math.abs(b.vx) * 0.6; }
+        if (b.y - b.radius < 0) { b.y = b.radius; b.vy = Math.abs(b.vy) * 0.6; }
+        if (b.y + b.radius > H) { b.y = H - b.radius; b.vy = -Math.abs(b.vy) * 0.6; }
+
+        // Bubble-bubble collision
+        for (let j = i + 1; j < bs.length; j++) {
+          const o = bs[j];
+          const dx = o.x - b.x;
+          const dy = o.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const minDist = b.radius + o.radius + 4;
+          if (dist < minDist && dist > 0) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const overlap = (minDist - dist) / 2;
+            b.x -= nx * overlap;
+            b.y -= ny * overlap;
+            o.x += nx * overlap;
+            o.y += ny * overlap;
+            // Swap velocity component along collision axis
+            const relVx = b.vx - o.vx;
+            const relVy = b.vy - o.vy;
+            const relDot = relVx * nx + relVy * ny;
+            b.vx -= relDot * nx * 0.5;
+            b.vy -= relDot * ny * 0.5;
+            o.vx += relDot * nx * 0.5;
+            o.vy += relDot * ny * 0.5;
+          }
+        }
+      }
+
+      // Push positions to React
+      const pos: Record<string, { x: number; y: number }> = {};
+      for (const b of bs) {
+        pos[b.id] = { x: b.x, y: b.y };
+      }
+      setPositions(pos);
+      animFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    animFrameRef.current = requestAnimationFrame(tick);
+    return () => { running = false; cancelAnimationFrame(animFrameRef.current); };
+  }, [meetings.length]);
+
+  // Mouse drag handlers for bubbles
+  const onBubbleMouseDown = useCallback((e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const container = containerRef.current;
+    const b = bubblesRef.current.find(x => x.id === id);
+    if (!b || !container) return;
+    const rect = container.getBoundingClientRect();
+    const startMouseX = e.clientX - rect.left;
+    const startMouseY = e.clientY - rect.top;
+    dragBubbleRef.current = { id, offsetX: startMouseX - b.x, offsetY: startMouseY - b.y };
+    const onMove = (ev: MouseEvent) => {
+      if (!dragBubbleRef.current || !containerRef.current) return;
+      const r = containerRef.current.getBoundingClientRect();
+      const bub = bubblesRef.current.find(x => x.id === dragBubbleRef.current!.id);
+      if (!bub) return;
+      bub.x = ev.clientX - r.left - dragBubbleRef.current.offsetX;
+      bub.y = ev.clientY - r.top - dragBubbleRef.current.offsetY;
+      bub.vx = 0;
+      bub.vy = 0;
+    };
+    const onUp = () => {
+      dragBubbleRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, []);
+
+  const statusColor = (s: string) =>
+    s === 'completed' ? 'from-green-400 to-green-600' :
+    s === 'cancelled' ? 'from-red-300 to-red-500' :
+    'from-brand-400 to-brand-600';
+
+  const statusColorBorder = (s: string) =>
+    s === 'completed' ? 'border-green-400' :
+    s === 'cancelled' ? 'border-red-400' :
+    'border-brand-400';
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full overflow-hidden"
+      style={{ minHeight: 340 }}
+    >
+      {meetings.map(mtg => {
+        const pos = positions[mtg.id];
+        if (!pos) return null;
+        const radius = getRadius(mtg);
+        const isOver = dragOverMeeting === mtg.id;
+        const isExpanded = expandedBubble === mtg.id;
+
+        return (
+          <div
+            key={mtg.id}
+            className={`absolute select-none transition-shadow ${isExpanded ? 'z-30' : 'z-10'}`}
+            style={{
+              left: pos.x - radius,
+              top: pos.y - radius,
+              width: radius * 2,
+              height: radius * 2,
+            }}
+            onDragOver={e => { e.preventDefault(); setDragOverMeeting(mtg.id); }}
+            onDragLeave={() => setDragOverMeeting(null)}
+            onDrop={e => { e.preventDefault(); handleDropOnMeeting(mtg.id); }}
+          >
+            {/* The bubble circle */}
+            <div
+              className={`w-full h-full rounded-full bg-gradient-to-br ${statusColor(mtg.status)} cursor-grab active:cursor-grabbing
+                flex flex-col items-center justify-center text-white shadow-lg transition-all duration-200
+                ${isOver ? 'ring-4 ring-white/60 scale-110' : 'hover:scale-105'}
+                ${isExpanded ? 'ring-2 ring-white/40' : ''}
+              `}
+              style={{ boxShadow: isOver ? '0 0 24px rgba(99,102,241,0.5)' : '0 4px 16px rgba(0,0,0,0.15)' }}
+              onMouseDown={e => onBubbleMouseDown(e, mtg.id)}
+              onClick={() => setExpandedBubble(isExpanded ? null : mtg.id)}
+            >
+              <span className="text-[11px] font-bold leading-tight text-center px-2 drop-shadow truncate max-w-[90%]">{mtg.title}</span>
+              <span className="text-[9px] opacity-80 mt-0.5">
+                {new Date(mtg.scheduledAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                {' '}
+                {new Date(mtg.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <span className="text-[9px] opacity-70 mt-0.5">{mtg.attendees.length} {t('leads', 'attendees').toLowerCase()}</span>
+            </div>
+
+            {/* Expanded detail card */}
+            {isExpanded && (
+              <div
+                className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border ${statusColorBorder(mtg.status)} dark:border-gray-600 p-3 z-40`}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">{mtg.title}</span>
+                  <div className="flex gap-1">
+                    {mtg.status === 'scheduled' && (
+                      <button onClick={() => handleCompleteMeeting(mtg.id)} className="text-[10px] text-green-600 hover:text-green-700" title={t('leads', 'completeMeeting')}>✓</button>
+                    )}
+                    <button onClick={() => handleDeleteMeeting(mtg.id)} className="text-[10px] text-red-400 hover:text-red-600" title={t('leads', 'deleteMeeting')}>✕</button>
+                  </div>
+                </div>
+                <div className="text-[10px] text-gray-500 dark:text-gray-400 space-y-0.5 mb-2">
+                  <p>{new Date(mtg.scheduledAt).toLocaleDateString()} {new Date(mtg.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {mtg.durationMinutes}min</p>
+                  {mtg.location && <p>{mtg.location}</p>}
+                  {mtg.notes && <p className="italic">{mtg.notes}</p>}
+                </div>
+                <p className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 uppercase mb-1">{t('leads', 'attendees')} ({mtg.attendees.length})</p>
+                {mtg.attendees.length === 0 ? (
+                  <p className="text-[10px] text-gray-400 italic">{t('leads', 'noAttendees')}</p>
+                ) : (
+                  <div className="space-y-1 max-h-24 overflow-y-auto">
+                    {mtg.attendees.map(att => {
+                      const isMain = att.leadId && att.leadId === mainContactLeadId;
+                      return (
+                        <div key={att.id} className="flex items-center justify-between gap-1">
+                          <span className="text-[11px] text-gray-700 dark:text-gray-300 truncate">{att.lead?.name || att.name || '?'}</span>
+                          {isMain && <span className="text-[8px] font-bold bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 px-1.5 py-0.5 rounded-full flex-shrink-0">{t('leads', 'mainContact')}</span>}
+                          <button onClick={() => handleRemoveAttendee(mtg.id, att.id)} className="text-[10px] text-red-400 hover:text-red-600 flex-shrink-0">✕</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function AdminLeadsPage() {
@@ -333,6 +618,11 @@ export default function AdminLeadsPage() {
   const [addingAttendeeToMeeting, setAddingAttendeeToMeeting] = useState<string | null>(null); // meetingId currently adding to
   const [draggedLead, setDraggedLead] = useState<LeadSearchResult | null>(null);
   const [dragOverMeeting, setDragOverMeeting] = useState<string | null>(null);
+
+  // ── Complete meeting modal ──
+  const [completingMeetingId, setCompletingMeetingId] = useState<string | null>(null);
+  const [selectedMainContactAttendeeId, setSelectedMainContactAttendeeId] = useState<string | null>(null);
+  const [completingSaving, setCompletingSaving] = useState(false);
 
   // ── Send message ──
   const [messageBody, setMessageBody] = useState('');
@@ -784,15 +1074,35 @@ export default function AdminLeadsPage() {
     } catch { /* silently fail */ }
   };
 
-  const handleCompleteMeeting = async (meetingId: string) => {
+  const handleCompleteMeeting = (meetingId: string) => {
+    // Open the main-contact selection modal instead of completing directly
+    const mtg = meetings.find(m => m.id === meetingId);
+    if (!mtg) return;
+
+    // Auto-select if an attendee is already the project's lead (main contact)
+    const preSelected = mtg.attendees.find(a => a.leadId && a.leadId === selectedId);
+    setSelectedMainContactAttendeeId(preSelected?.id ?? null);
+    setCompletingMeetingId(meetingId);
+  };
+
+  const confirmCompleteMeeting = async () => {
+    if (!completingMeetingId || !selectedMainContactAttendeeId) return;
+    setCompletingSaving(true);
     try {
-      await fetch(`/api/meetings/${meetingId}`, {
+      const res = await fetch(`/api/meetings/${completingMeetingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'completed' }),
+        body: JSON.stringify({ status: 'completed', mainContactAttendeeId: selectedMainContactAttendeeId }),
       });
-      if (selectedProjectId) loadMeetings(selectedProjectId);
+      if (res.ok) {
+        setCompletingMeetingId(null);
+        setSelectedMainContactAttendeeId(null);
+        if (selectedProjectId) loadMeetings(selectedProjectId);
+        // Refresh leads in case the main contact changed
+        fetchLeads();
+      }
     } catch { /* silently fail */ }
+    setCompletingSaving(false);
   };
 
   // Search leads for attendee assignment
@@ -915,9 +1225,7 @@ export default function AdminLeadsPage() {
                   onClick={() => openContact(lead.id)}
                   className={`${rowCls} ${contactSelected}${leadIdx > 0 ? ' border-t-2 border-gray-300 dark:border-gray-600' : ''}`}
                 >
-                  <td className="px-4 py-3 text-center overflow-hidden">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-                  </td>
+                  <td className="px-4 py-3 text-center overflow-hidden" />
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 overflow-hidden">
                     <span className="block truncate">{lead.company || '-'}</span>
                   </td>
@@ -1273,10 +1581,10 @@ export default function AdminLeadsPage() {
               {activeTab === 'visits' && (
                 <div className="space-y-4">
 
-                  {/* ── Meetings Section ── */}
+                  {/* ── Meetings Section — split layout ── */}
                   {editMode === 'project' && selectedProjectId && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
                         <h4 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('leads', 'meetings')}</h4>
                         <button
                           onClick={() => setShowMeetingForm(!showMeetingForm)}
@@ -1288,7 +1596,7 @@ export default function AdminLeadsPage() {
 
                       {/* New meeting form */}
                       {showMeetingForm && (
-                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700">
+                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700 mb-3">
                           <div>
                             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'meetingTitle')}</label>
                             <input type="text" value={meetingForm.title} onChange={e => setMeetingForm({ ...meetingForm, title: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'meetingTitlePlaceholder')} />
@@ -1326,122 +1634,79 @@ export default function AdminLeadsPage() {
                         </div>
                       )}
 
-                      {/* Meeting cards */}
-                      {meetings.length === 0 && !showMeetingForm ? (
-                        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">{t('leads', 'noMeetings')}</p>
-                      ) : (
-                        meetings.map(mtg => (
-                          <div
-                            key={mtg.id}
-                            className={`bg-gray-50 dark:bg-gray-900 rounded-lg border dark:border-gray-700 overflow-hidden transition ${
-                              dragOverMeeting === mtg.id ? 'ring-2 ring-brand-500 border-brand-500' : ''
-                            }`}
-                            onDragOver={e => { e.preventDefault(); setDragOverMeeting(mtg.id); }}
-                            onDragLeave={() => setDragOverMeeting(null)}
-                            onDrop={e => { e.preventDefault(); handleDropOnMeeting(mtg.id); }}
-                          >
-                            {/* Meeting header */}
-                            <div className="px-3 py-2 flex items-center justify-between">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
-                                  mtg.status === 'completed' ? 'bg-green-500' : mtg.status === 'cancelled' ? 'bg-red-400' : 'bg-blue-500'
-                                }`} />
-                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{mtg.title}</span>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                                  mtg.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                  mtg.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                }`}>
-                                  {t('leads', `meetingStatus_${mtg.status}`)}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1 flex-shrink-0">
-                                {mtg.status === 'scheduled' && (
-                                  <button onClick={() => handleCompleteMeeting(mtg.id)} className="text-[10px] text-green-600 hover:text-green-700 px-1" title={t('leads', 'completeMeeting')}>✓</button>
-                                )}
-                                <button onClick={() => handleDeleteMeeting(mtg.id)} className="text-[10px] text-red-400 hover:text-red-600 px-1" title={t('leads', 'deleteMeeting')}>✕</button>
-                              </div>
-                            </div>
-
-                            {/* Meeting details */}
-                            <div className="px-3 pb-2 flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
-                              <span>{new Date(mtg.scheduledAt).toLocaleDateString()} {new Date(mtg.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                              <span>{mtg.durationMinutes} min</span>
-                              {mtg.location && <span>{mtg.location}</span>}
-                            </div>
-
-                            {/* Attendees */}
-                            <div className="px-3 pb-2 space-y-1">
-                              <p className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase">{t('leads', 'attendees')} ({mtg.attendees.length})</p>
-                              {mtg.attendees.length === 0 ? (
-                                <p className="text-[11px] text-gray-400 dark:text-gray-500 italic">{t('leads', 'noAttendees')}</p>
-                              ) : (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {mtg.attendees.map(att => (
-                                    <span key={att.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300">
-                                      {att.lead?.name || att.name || '?'}
-                                      <button onClick={() => handleRemoveAttendee(mtg.id, att.id)} className="text-brand-400 hover:text-brand-600">
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                      </button>
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-
-                              {/* Add attendee inline */}
-                              {addingAttendeeToMeeting === mtg.id ? (
-                                <div className="mt-1">
-                                  <div className="relative">
-                                    <input
-                                      type="text"
-                                      value={attendeeSearch}
-                                      onChange={e => setAttendeeSearch(e.target.value)}
-                                      className={`${INPUT_CLS} text-xs`}
-                                      placeholder={t('leads', 'searchAttendee')}
-                                      autoFocus
-                                    />
-                                    {attendeeSearching && <div className="absolute right-2 top-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-600" /></div>}
-                                  </div>
-                                  {attendeeResults.length > 0 && (
-                                    <div className="mt-1 border dark:border-gray-600 rounded-lg max-h-32 overflow-y-auto bg-white dark:bg-gray-800">
-                                      {attendeeResults.map(lead => {
-                                        const alreadyAdded = mtg.attendees.some(a => a.leadId === lead.id);
-                                        return (
-                                          <button
-                                            key={lead.id}
-                                            disabled={alreadyAdded}
-                                            onClick={() => { handleAddAttendee(mtg.id, lead); setAttendeeSearch(''); setAttendeeResults([]); }}
-                                            draggable
-                                            onDragStart={() => setDraggedLead(lead)}
-                                            onDragEnd={() => setDraggedLead(null)}
-                                            className={`w-full px-2 py-1.5 text-left text-xs flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition ${alreadyAdded ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-                                          >
-                                            <span className="font-medium text-gray-800 dark:text-gray-200">{lead.name}</span>
-                                            {lead.company && <span className="text-gray-400 dark:text-gray-500">{lead.company}</span>}
-                                            {alreadyAdded && <span className="text-[10px] text-gray-400 ml-auto">✓</span>}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                  <button onClick={() => { setAddingAttendeeToMeeting(null); setAttendeeSearch(''); setAttendeeResults([]); }} className="mt-1 text-[11px] text-gray-400 hover:text-gray-600">{t('leads', 'cancel')}</button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => setAddingAttendeeToMeeting(mtg.id)}
-                                  className="text-[11px] text-brand-600 hover:text-brand-700 font-medium mt-1"
-                                >
-                                  + {t('leads', 'addAttendee')}
-                                </button>
-                              )}
-                            </div>
-
-                            {mtg.notes && <div className="px-3 pb-2"><p className="text-[11px] text-gray-500 dark:text-gray-400">{mtg.notes}</p></div>}
+                      {/* Split layout: left = people list, right = meeting bubbles */}
+                      <div className="flex" style={{ minHeight: 360 }}>
+                        {/* ── Left: unassigned people + search ── */}
+                        <div className="w-48 flex-shrink-0 border-r dark:border-gray-600 pr-3 flex flex-col">
+                          <div className="relative mb-2">
+                            <input
+                              type="text"
+                              value={attendeeSearch}
+                              onChange={e => setAttendeeSearch(e.target.value)}
+                              className={`${INPUT_CLS} text-xs`}
+                              placeholder={t('leads', 'searchAttendee')}
+                            />
+                            {attendeeSearching && <div className="absolute right-2 top-2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-600" /></div>}
                           </div>
-                        ))
-                      )}
+                          <div className="flex-1 overflow-y-auto space-y-1">
+                            {attendeeResults.length > 0 ? (
+                              attendeeResults.map(lead => {
+                                const alreadyInAny = meetings.some(m => m.attendees.some(a => a.leadId === lead.id));
+                                return (
+                                  <div
+                                    key={lead.id}
+                                    draggable={!alreadyInAny}
+                                    onDragStart={() => setDraggedLead(lead)}
+                                    onDragEnd={() => setDraggedLead(null)}
+                                    className={`px-2 py-1.5 rounded-lg text-xs flex items-center gap-2 border dark:border-gray-700 transition ${
+                                      alreadyInAny
+                                        ? 'opacity-40 cursor-not-allowed bg-gray-50 dark:bg-gray-900'
+                                        : 'cursor-grab active:cursor-grabbing bg-white dark:bg-gray-800 hover:border-brand-400 hover:shadow-sm'
+                                    }`}
+                                  >
+                                    <div className="w-6 h-6 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0">
+                                      <span className="text-[9px] font-bold text-brand-700 dark:text-brand-300">{lead.name.charAt(0).toUpperCase()}</span>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{lead.name}</p>
+                                      {lead.company && <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{lead.company}</p>}
+                                    </div>
+                                    {alreadyInAny && <span className="text-[9px] text-gray-400 ml-auto">✓</span>}
+                                  </div>
+                                );
+                              })
+                            ) : attendeeSearch.length >= 2 && !attendeeSearching ? (
+                              <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center py-4">{t('common', 'noResults')}</p>
+                            ) : (
+                              <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center py-4 px-1">{t('leads', 'searchAttendee')}</p>
+                            )}
+                          </div>
+                        </div>
 
-                      <hr className="border-gray-200 dark:border-gray-700" />
+                        {/* ── Right: meeting bubbles canvas ── */}
+                        <div className="flex-1 pl-3 relative">
+                          {meetings.length === 0 && !showMeetingForm ? (
+                            <div className="flex items-center justify-center h-full">
+                              <p className="text-sm text-gray-400 dark:text-gray-500">{t('leads', 'noMeetings')}</p>
+                            </div>
+                          ) : (
+                            <MeetingBubbles
+                              meetings={meetings}
+                              dragOverMeeting={dragOverMeeting}
+                              setDragOverMeeting={setDragOverMeeting}
+                              handleDropOnMeeting={handleDropOnMeeting}
+                              handleCompleteMeeting={handleCompleteMeeting}
+                              handleDeleteMeeting={handleDeleteMeeting}
+                              handleRemoveAttendee={handleRemoveAttendee}
+                              handleAddAttendee={handleAddAttendee}
+                              mainContactLeadId={selectedId}
+                              t={t}
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      <hr className="border-gray-200 dark:border-gray-700 mt-4" />
                     </div>
                   )}
 
@@ -1982,6 +2247,80 @@ export default function AdminLeadsPage() {
             </div>
           </div>
         )}
+
+        {/* ── Complete meeting: pick main contact modal ── */}
+        {completingMeetingId && (() => {
+          const mtg = meetings.find(m => m.id === completingMeetingId);
+          if (!mtg) return null;
+          return (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('leads', 'selectMainContact')}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('leads', 'selectMainContactDesc')}</p>
+
+                {mtg.attendees.length === 0 ? (
+                  <p className="text-sm text-red-500 py-4 text-center">{t('leads', 'noAttendeesToSelect')}</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {mtg.attendees.map(att => {
+                      const isCurrentMain = att.leadId && att.leadId === selectedId;
+                      const isSelected = selectedMainContactAttendeeId === att.id;
+                      return (
+                        <button
+                          key={att.id}
+                          onClick={() => setSelectedMainContactAttendeeId(att.id)}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 transition text-left ${
+                            isSelected
+                              ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
+                              : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            isSelected ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                          }`}>
+                            <span className="text-xs font-bold">{(att.lead?.name || att.name || '?').charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{att.lead?.name || att.name || '?'}</p>
+                            {(att.lead?.email || att.email) && (
+                              <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{att.lead?.email || att.email}</p>
+                            )}
+                          </div>
+                          {isCurrentMain && (
+                            <span className="text-[10px] font-semibold bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 px-2 py-0.5 rounded-full flex-shrink-0">
+                              {t('leads', 'mainContact')}
+                            </span>
+                          )}
+                          {isSelected && (
+                            <svg className="w-5 h-5 text-brand-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="flex gap-2 justify-end pt-2">
+                  <button
+                    onClick={() => { setCompletingMeetingId(null); setSelectedMainContactAttendeeId(null); }}
+                    className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                  >
+                    {t('leads', 'cancel')}
+                  </button>
+                  <button
+                    onClick={confirmCompleteMeeting}
+                    disabled={completingSaving || !selectedMainContactAttendeeId}
+                    className="px-4 py-2 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium"
+                  >
+                    {completingSaving ? t('leads', 'saving') : t('leads', 'completeMeeting')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </>
     );
   };

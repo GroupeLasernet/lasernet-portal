@@ -29,7 +29,24 @@ interface TeamAdmin {
   role: string;
   status: string;
   inviteExpiresAt: string | null;
+  accessAlways: boolean;
+  accessTimeFrom: string | null;
+  accessTimeTo: string | null;
+  accessDays: string | null;
+  accessDateFrom: string | null;
+  accessDateTo: string | null;
 }
+
+const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+const WEEKDAY_LABELS: Record<string, { fr: string; en: string }> = {
+  mon: { fr: 'Lun', en: 'Mon' },
+  tue: { fr: 'Mar', en: 'Tue' },
+  wed: { fr: 'Mer', en: 'Wed' },
+  thu: { fr: 'Jeu', en: 'Thu' },
+  fri: { fr: 'Ven', en: 'Fri' },
+  sat: { fr: 'Sam', en: 'Sat' },
+  sun: { fr: 'Dim', en: 'Sun' },
+};
 
 export default function SettingsPage() {
   const { lang, setLang, t } = useLanguage();
@@ -53,6 +70,69 @@ export default function SettingsPage() {
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
   const [teamFeedback, setTeamFeedback] = useState<{ kind: 'ok' | 'warn' | 'err'; msg: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Team edit panel
+  const [editingAdmin, setEditingAdmin] = useState<TeamAdmin | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '', email: '',
+    accessAlways: true, accessTimeFrom: '08:00', accessTimeTo: '17:00',
+    accessDays: ['mon', 'tue', 'wed', 'thu', 'fri'] as string[],
+    accessDateFrom: '', accessDateTo: '',
+  });
+  const [editSaving, setEditSaving] = useState(false);
+
+  const openEditPanel = (admin: TeamAdmin) => {
+    setEditingAdmin(admin);
+    const days = admin.accessDays ? (() => { try { return JSON.parse(admin.accessDays); } catch { return ['mon','tue','wed','thu','fri']; } })() : ['mon','tue','wed','thu','fri'];
+    setEditForm({
+      name: admin.name,
+      email: admin.email,
+      accessAlways: admin.accessAlways,
+      accessTimeFrom: admin.accessTimeFrom || '08:00',
+      accessTimeTo: admin.accessTimeTo || '17:00',
+      accessDays: days,
+      accessDateFrom: admin.accessDateFrom ? admin.accessDateFrom.slice(0, 10) : '',
+      accessDateTo: admin.accessDateTo ? admin.accessDateTo.slice(0, 10) : '',
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingAdmin) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/admin/team/${editingAdmin.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          email: editForm.email.trim(),
+          accessAlways: editForm.accessAlways,
+          accessTimeFrom: editForm.accessAlways ? null : editForm.accessTimeFrom,
+          accessTimeTo: editForm.accessAlways ? null : editForm.accessTimeTo,
+          accessDays: editForm.accessAlways ? null : editForm.accessDays,
+          accessDateFrom: editForm.accessDateFrom || null,
+          accessDateTo: editForm.accessDateTo || null,
+        }),
+      });
+      if (res.ok) {
+        fetchTeam();
+        setEditingAdmin(null);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to save.');
+      }
+    } catch { alert('Network error'); }
+    setEditSaving(false);
+  };
+
+  const toggleDay = (day: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      accessDays: prev.accessDays.includes(day)
+        ? prev.accessDays.filter(d => d !== day)
+        : [...prev.accessDays, day],
+    }));
+  };
 
   const fetchTeam = useCallback(async () => {
     setTeamLoading(true);
@@ -452,46 +532,20 @@ export default function SettingsPage() {
                           you
                         </span>
                       )}
+                      {!admin.accessAlways && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">
+                          {t('settings', 'restricted')}
+                        </span>
+                      )}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">{admin.email}</div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {admin.status === 'invited' && (
-                      <HoldButton
-                        color="blue"
-                        label="Send invite again"
-                        activeLabel="Hold to confirm…"
-                        doneLabel="Sent!"
-                        onConfirm={() => handleResendInvite(admin)}
-                      />
-                    )}
-                    {admin.status === 'active' && (
-                      <HoldButton
-                        color="red"
-                        label="Reset password"
-                        activeLabel="Hold to confirm…"
-                        doneLabel="Email sent!"
-                        onConfirm={() => handleResetPassword(admin)}
-                      />
-                    )}
-                    {admin.status !== 'invited' && !isSelf && (
-                      <button
-                        onClick={() => handleToggleStatus(admin)}
-                        className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                      >
-                        {admin.status === 'active' ? 'Deactivate' : 'Reactivate'}
-                      </button>
-                    )}
-                    {!isSelf && (
-                      <button
-                        onClick={() => handleRemoveAdmin(admin)}
-                        className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-600 rounded"
-                        title="Remove from admin team"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => openEditPanel(admin)}
+                    className="px-3 py-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition"
+                  >
+                    {t('common', 'edit')}
+                  </button>
                 </div>
               );
             })
@@ -650,6 +704,177 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          TEAM MEMBER EDIT PANEL (slide-in from right)
+          ════════════════════════════════════════════════════════════════════════ */}
+      {editingAdmin && (
+        <>
+          <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setEditingAdmin(null)} />
+          <div className="fixed top-0 right-0 h-full w-2/3 max-w-[600px] z-50 bg-white dark:bg-gray-800 shadow-xl border-l dark:border-gray-700 overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-5 py-4 flex items-center justify-between z-10">
+              <div>
+                <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">{editingAdmin.name}</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{editingAdmin.email}</p>
+              </div>
+              <button onClick={() => setEditingAdmin(null)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              {/* Basic info */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('settings', 'teamInfo')}</h3>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('settings', 'teamName')}</label>
+                  <input type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('settings', 'teamEmail')}</label>
+                  <input type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                </div>
+              </div>
+
+              <hr className="border-gray-100 dark:border-gray-700" />
+
+              {/* Access hours */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('settings', 'accessSchedule')}</h3>
+
+                {/* Always toggle */}
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editForm.accessAlways}
+                    onChange={e => setEditForm({ ...editForm, accessAlways: e.target.checked })}
+                    className="rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings', 'accessAlways')}</span>
+                </label>
+
+                {/* Time range */}
+                {!editForm.accessAlways && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('settings', 'accessFrom')}</label>
+                        <input type="time" value={editForm.accessTimeFrom} onChange={e => setEditForm({ ...editForm, accessTimeFrom: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('settings', 'accessTo')}</label>
+                        <input type="time" value={editForm.accessTimeTo} onChange={e => setEditForm({ ...editForm, accessTimeTo: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                      </div>
+                    </div>
+
+                    {/* Weekdays */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('settings', 'accessDays')}</label>
+                      <div className="flex gap-1.5">
+                        {WEEKDAYS.map(day => (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => toggleDay(day)}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
+                              editForm.accessDays.includes(day)
+                                ? 'bg-brand-600 text-white'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            {WEEKDAY_LABELS[day][lang]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Date range */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('settings', 'accessDateFrom')}</label>
+                    <input type="date" value={editForm.accessDateFrom} onChange={e => setEditForm({ ...editForm, accessDateFrom: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('settings', 'accessDateTo')}</label>
+                    <input type="date" value={editForm.accessDateTo} onChange={e => setEditForm({ ...editForm, accessDateTo: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('settings', 'accessDateHint')}</p>
+              </div>
+
+              <hr className="border-gray-100 dark:border-gray-700" />
+
+              {/* Access levels placeholder */}
+              <div className="space-y-2">
+                <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('settings', 'accessLevels')}</h3>
+                <p className="text-sm text-gray-400 dark:text-gray-500 italic">{t('settings', 'accessLevelsComingSoon')}</p>
+              </div>
+
+              <hr className="border-gray-100 dark:border-gray-700" />
+
+              {/* Save */}
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={editSaving || !editForm.name.trim() || !editForm.email.trim()}
+                  className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50"
+                >
+                  {editSaving ? t('common', 'saving') : t('common', 'save')}
+                </button>
+              </div>
+
+              <hr className="border-gray-100 dark:border-gray-700" />
+
+              {/* Actions */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('settings', 'teamActions')}</h3>
+
+                {editingAdmin.status === 'invited' && (
+                  <HoldButton
+                    color="blue"
+                    label={t('settings', 'resendInvite')}
+                    activeLabel={t('settings', 'holdToConfirm')}
+                    doneLabel={t('settings', 'sent')}
+                    onConfirm={() => { handleResendInvite(editingAdmin); }}
+                  />
+                )}
+
+                {editingAdmin.status === 'active' && (
+                  <HoldButton
+                    color="amber"
+                    label={t('settings', 'resetPassword')}
+                    activeLabel={t('settings', 'holdToConfirm')}
+                    doneLabel={t('settings', 'sent')}
+                    onConfirm={() => { handleResetPassword(editingAdmin); }}
+                  />
+                )}
+
+                {editingAdmin.id !== currentUserId && editingAdmin.status !== 'invited' && (
+                  <button
+                    onClick={() => { handleToggleStatus(editingAdmin); setEditingAdmin(null); }}
+                    className="w-full px-4 py-2 text-sm font-medium text-left rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                  >
+                    {editingAdmin.status === 'active' ? t('settings', 'deactivate') : t('settings', 'reactivate')}
+                  </button>
+                )}
+
+                {editingAdmin.id !== currentUserId && (
+                  <button
+                    onClick={() => { handleRemoveAdmin(editingAdmin); setEditingAdmin(null); }}
+                    className="w-full px-4 py-2 text-sm font-medium text-left rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                  >
+                    {t('settings', 'removeFromTeam')}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════════════
           VISIT SIDEBAR — Configure which QB inventory categories show in visits
