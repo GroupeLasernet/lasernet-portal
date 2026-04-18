@@ -724,7 +724,7 @@ export default function AdminLeadsPage() {
     };
 
     return (
-      <div className="border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 overflow-hidden">
         <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
           <thead>
             <tr className="border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
@@ -755,8 +755,8 @@ export default function AdminLeadsPage() {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y dark:divide-gray-700">
-            {filtered.map(lead => {
+          <tbody>
+            {filtered.map((lead, leadIdx) => {
               const activeProjects = lead.projects?.filter(p => p.status === 'active') ?? [];
               const totalQuotes = activeProjects.reduce((sum, p) => sum + p.quotes.length, 0);
               const rowCls = `cursor-pointer hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition`;
@@ -767,7 +767,7 @@ export default function AdminLeadsPage() {
                 <tr
                   key={`${lead.id}-contact`}
                   onClick={() => openContact(lead.id)}
-                  className={`${rowCls} ${contactSelected}`}
+                  className={`${rowCls} ${contactSelected}${leadIdx > 0 ? ' border-t-2 border-gray-300 dark:border-gray-600' : ''}`}
                 >
                   <td className="px-4 py-3 text-center overflow-hidden">
                     <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
@@ -1758,7 +1758,7 @@ export default function AdminLeadsPage() {
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
