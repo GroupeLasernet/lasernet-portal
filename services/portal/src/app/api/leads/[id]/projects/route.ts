@@ -33,7 +33,7 @@ export async function POST(
   try {
     const { id } = params;
     const body = await request.json();
-    const { name, notes } = body;
+    const { name, notes, callbackReason, suggestedProducts, objective, budget } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Project name is required' }, { status: 400 });
@@ -49,6 +49,10 @@ export async function POST(
         leadId: id,
         name: name.trim(),
         notes: notes || null,
+        callbackReason: callbackReason || null,
+        suggestedProducts: suggestedProducts || null,
+        objective: objective || null,
+        budget: budget != null ? parseFloat(budget) : null,
       },
       include: {
         quotes: { include: { items: true } },

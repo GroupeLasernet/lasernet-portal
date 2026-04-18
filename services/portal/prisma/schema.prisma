@@ -870,18 +870,24 @@ model LeadActivity {
 // ============================================================
 
 model LeadProject {
-  id              String   @id @default(cuid())
-  leadId          String
-  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  id                  String   @id @default(cuid())
+  leadId              String
+  lead                Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  name            String   // e.g. "Laser cleaning system — warehouse"
-  status          String   @default("active") // "active" | "won" | "lost" | "on_hold"
-  notes           String?  @db.Text
+  name                String   // e.g. "Laser cleaning system — warehouse"
+  status              String   @default("active") // "active" | "won" | "lost" | "on_hold"
+  notes               String?  @db.Text
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  // Project-specific sales fields (override lead-level defaults)
+  callbackReason      String?            // reason for this specific project
+  suggestedProducts   String?  @db.Text  // JSON array of product names
+  objective           String?
+  budget              Float?
 
-  quotes          Quote[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  quotes              Quote[]
 
   @@index([leadId])
 }

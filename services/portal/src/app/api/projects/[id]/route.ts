@@ -40,6 +40,10 @@ export async function PATCH(
     if (body.name !== undefined) data.name = body.name.trim();
     if (body.status !== undefined) data.status = body.status;
     if (body.notes !== undefined) data.notes = body.notes || null;
+    if (body.callbackReason !== undefined) data.callbackReason = body.callbackReason || null;
+    if (body.suggestedProducts !== undefined) data.suggestedProducts = body.suggestedProducts || null;
+    if (body.objective !== undefined) data.objective = body.objective || null;
+    if (body.budget !== undefined) data.budget = body.budget != null ? parseFloat(String(body.budget)) : null;
 
     // When refusing a project, mark all its quotes as "refused"
     if (body.refuseAllQuotes) {

@@ -805,7 +805,7 @@ const translations = {
     status: { fr: 'Statut', en: 'Status' },
     clientName: { fr: 'Nom du client', en: 'Client Name' },
     reasonOfCall: { fr: 'Raison de l\'appel', en: 'Reason of Call' },
-    inventoryType: { fr: 'Type d\'inventaire suggéré', en: 'Inventory Type Suggested' },
+    suggestedProducts: { fr: 'Produits suggérés', en: 'Suggested Products' },
     businessName: { fr: 'Nom de l\'entreprise', en: 'Business Name' },
     objective: { fr: 'Objectif', en: 'Objective' },
     avgBudget: { fr: 'Budget moyen', en: 'Avg Budget' },
