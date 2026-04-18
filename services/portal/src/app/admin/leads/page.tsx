@@ -284,6 +284,11 @@ export default function AdminLeadsPage() {
   const [callForm, setCallForm] = useState({ type: 'outbound' as 'inbound' | 'outbound', clientType: 'new' as 'existing' | 'new', outcome: '', duration: '', notes: '' });
   const [callSaving, setCallSaving] = useState(false);
 
+  // ── Log visit form ──
+  const [showVisitForm, setShowVisitForm] = useState(false);
+  const [visitForm, setVisitForm] = useState({ visitorName: '', purpose: '', notes: '' });
+  const [visitSaving, setVisitSaving] = useState(false);
+
   // ── Send message ──
   const [messageBody, setMessageBody] = useState('');
   const [messageSending, setMessageSending] = useState(false);
@@ -645,6 +650,28 @@ export default function AdminLeadsPage() {
     setCallSaving(false);
   };
 
+  // ── Log visit ──
+  const handleLogVisit = async () => {
+    if (!selectedLead || !visitForm.visitorName.trim()) return;
+    setVisitSaving(true);
+    try {
+      await fetch(`/api/leads/${selectedLead.id}/visits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visitorName: visitForm.visitorName.trim(),
+          purpose: visitForm.purpose || null,
+          notes: visitForm.notes || null,
+        }),
+      });
+      setShowVisitForm(false);
+      setVisitForm({ visitorName: '', purpose: '', notes: '' });
+      loadTabData('visits', selectedLead.id);
+      fetchLeads();
+    } catch { /* silently fail */ }
+    setVisitSaving(false);
+  };
+
   // ── Send message ──
   const handleSendMessage = async () => {
     if (!selectedLead || !messageBody.trim()) return;
@@ -732,15 +759,15 @@ export default function AdminLeadsPage() {
             {filtered.map(lead => {
               const activeProjects = lead.projects?.filter(p => p.status === 'active') ?? [];
               const totalQuotes = activeProjects.reduce((sum, p) => sum + p.quotes.length, 0);
-              const rowCls = `cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition`;
-              const selectedCls = selectedId === lead.id ? 'bg-brand-50 dark:bg-brand-900/30' : '';
+              const rowCls = `cursor-pointer hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition`;
+              const contactSelected = selectedId === lead.id && editMode === 'contact' ? 'bg-blue-50/60 dark:bg-blue-900/15' : '';
 
               // ── Row 1: Contact row ──
               const contactRow = (
                 <tr
                   key={`${lead.id}-contact`}
                   onClick={() => openContact(lead.id)}
-                  className={`${rowCls} ${selectedCls}`}
+                  className={`${rowCls} ${contactSelected}`}
                 >
                   <td className="px-4 py-3 text-center overflow-hidden">
                     <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
@@ -783,19 +810,19 @@ export default function AdminLeadsPage() {
               // ── Row 2+: Project rows ──
               const projectRows = activeProjects.map(proj => {
                 const prodArr = parseProducts(proj.suggestedProducts);
+                const projSelected = selectedId === lead.id && editMode === 'project' && selectedProjectId === proj.id ? 'bg-blue-50/60 dark:bg-blue-900/15' : '';
                 return (
                   <tr
                     key={`${lead.id}-proj-${proj.id}`}
                     onClick={(e) => { e.stopPropagation(); openProject(lead.id, proj.id); }}
-                    className={`${rowCls} ${selectedCls} border-t border-dashed border-gray-200 dark:border-gray-700`}
+                    className={`${rowCls} ${projSelected} border-t border-dashed border-gray-200 dark:border-gray-700`}
                   >
                     <td className="px-4 py-2 text-center overflow-hidden">
-                      <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">X</span>
+                      <span className="inline-block w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600" />
                     </td>
                     <td className="px-4 py-2 text-gray-600 dark:text-gray-400 overflow-hidden" />
                     <td className="px-4 py-2 text-gray-700 dark:text-gray-300 overflow-hidden">
-                      <div className="flex items-center gap-1.5 text-[12px]">
-                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-400" />
+                      <div className="flex items-center text-[12px]">
                         <span className="truncate">{proj.name}</span>
                       </div>
                     </td>
@@ -937,6 +964,265 @@ export default function AdminLeadsPage() {
 
     const currentProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : null;
 
+    // ── Shared activity tabs (calls, visits, messages) ──
+    const renderActivityTabs = () => (
+      <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+        <div className="flex border-b dark:border-gray-700">
+          {(['activity', 'calls', 'visits', 'messages'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-3 text-sm font-medium text-center transition border-b-2 ${
+                activeTab === tab
+                  ? 'border-brand-600 text-brand-600 dark:text-brand-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              {t('leads', tab)}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-4 min-h-[250px]">
+          {tabLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600" />
+            </div>
+          ) : (
+            <>
+              {/* ── Activity Tab ── */}
+              {activeTab === 'activity' && (
+                <div className="space-y-3">
+                  {activities.length === 0 ? (
+                    <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noActivity')}</p>
+                  ) : (
+                    <div className="relative pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
+                      {activities.map(act => (
+                        <div key={act.id} className="relative">
+                          <div className={`absolute -left-[21px] w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
+                            act.type === 'stage_change' ? 'bg-brand-600' :
+                            act.type === 'call_logged' ? 'bg-blue-500' :
+                            act.type === 'visit_logged' ? 'bg-orange-500' :
+                            act.type === 'message_sent' ? 'bg-green-500' :
+                            act.type === 'assignment_change' ? 'bg-purple-500' :
+                            'bg-gray-400'
+                          }`} />
+                          <div className="ml-2">
+                            <p className="text-sm text-gray-700 dark:text-gray-300">{act.description}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(act.createdAt)}</span>
+                              {(act.actorName || act.actor?.name) && (
+                                <span className="text-[10px] text-gray-400 dark:text-gray-500">{act.actorName || act.actor?.name}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Calls Tab ── */}
+              {activeTab === 'calls' && (
+                <div className="space-y-3">
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => setShowCallForm(!showCallForm)}
+                      className="text-sm font-medium text-brand-600 hover:text-brand-700 transition"
+                    >
+                      {showCallForm ? t('leads', 'cancel') : t('leads', 'logCall')}
+                    </button>
+                  </div>
+
+                  {showCallForm && (
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callType')}</label>
+                          <select value={callForm.type} onChange={e => setCallForm({ ...callForm, type: e.target.value as 'inbound' | 'outbound' })} className={INPUT_CLS}>
+                            <option value="outbound">{t('leads', 'callOutbound')}</option>
+                            <option value="inbound">{t('leads', 'callInbound')}</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'clientType')}</label>
+                          <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => setCallForm({ ...callForm, clientType: 'new' })}
+                              className={`flex-1 px-3 py-2 text-sm font-medium transition ${
+                                callForm.clientType === 'new' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              {t('leads', 'clientNew')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCallForm({ ...callForm, clientType: 'existing' })}
+                              className={`flex-1 px-3 py-2 text-sm font-medium transition ${
+                                callForm.clientType === 'existing' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              {t('leads', 'clientExisting')}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callDuration')}</label>
+                        <input type="number" placeholder={t('leads', 'durationSeconds')} value={callForm.duration} onChange={e => setCallForm({ ...callForm, duration: e.target.value })} className={INPUT_CLS} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callOutcome')}</label>
+                        <input type="text" value={callForm.outcome} onChange={e => setCallForm({ ...callForm, outcome: e.target.value })} className={INPUT_CLS} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
+                        <textarea value={callForm.notes} onChange={e => setCallForm({ ...callForm, notes: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
+                      </div>
+                      <div className="flex justify-end">
+                        <button onClick={handleLogCall} disabled={callSaving} className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50">
+                          {callSaving ? t('leads', 'saving') : t('leads', 'logCall')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {calls.length === 0 ? (
+                    <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noCalls')}</p>
+                  ) : (
+                    calls.map(call => (
+                      <div key={call.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                              call.type === 'inbound' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                            }`}>
+                              {t('leads', `call${call.type.charAt(0).toUpperCase() + call.type.slice(1)}`)}
+                            </span>
+                            {(call as any).clientType && (
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                (call as any).clientType === 'existing' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                              }`}>
+                                {(call as any).clientType === 'existing' ? t('leads', 'clientExisting') : t('leads', 'clientNew')}
+                              </span>
+                            )}
+                            {call.outcome && <span className="text-xs text-gray-600 dark:text-gray-400">{call.outcome}</span>}
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500">
+                            {call.duration != null && <span>{formatDuration(call.duration)}</span>}
+                            <span>{formatDate(call.calledAt)}</span>
+                          </div>
+                        </div>
+                        {call.notes && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{call.notes}</p>}
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{call.loggedBy?.name || ''}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* ── Visits Tab ── */}
+              {activeTab === 'visits' && (
+                <div className="space-y-3">
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => setShowVisitForm(!showVisitForm)}
+                      className="text-sm font-medium text-brand-600 hover:text-brand-700 transition"
+                    >
+                      {showVisitForm ? t('leads', 'cancel') : t('leads', 'logVisit')}
+                    </button>
+                  </div>
+
+                  {showVisitForm && (
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'visitorName')}</label>
+                        <input type="text" value={visitForm.visitorName} onChange={e => setVisitForm({ ...visitForm, visitorName: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'visitorNamePlaceholder')} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'visitPurpose')}</label>
+                        <input type="text" value={visitForm.purpose} onChange={e => setVisitForm({ ...visitForm, purpose: e.target.value })} className={INPUT_CLS} placeholder={t('leads', 'visitPurposePlaceholder')} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
+                        <textarea value={visitForm.notes} onChange={e => setVisitForm({ ...visitForm, notes: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
+                      </div>
+                      <div className="flex justify-end">
+                        <button onClick={handleLogVisit} disabled={visitSaving || !visitForm.visitorName.trim()} className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50">
+                          {visitSaving ? t('leads', 'saving') : t('leads', 'logVisit')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {visits.length === 0 ? (
+                    <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noVisits')}</p>
+                  ) : (
+                    visits.map(visit => (
+                      <div key={visit.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{visit.visitorName}</p>
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(visit.visitedAt)}</span>
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">{visit.purpose}</p>
+                        {visit.notes && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{visit.notes}</p>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* ── Messages Tab ── */}
+              {activeTab === 'messages' && (
+                <div className="flex flex-col h-[300px]">
+                  <div className="flex-1 overflow-y-auto space-y-3 mb-3">
+                    {messages.length === 0 ? (
+                      <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noMessages')}</p>
+                    ) : (
+                      messages.map(msg => (
+                        <div key={msg.id} className="flex gap-2">
+                          <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
+                            <span className="text-[10px] font-bold text-brand-700 dark:text-brand-300">{msg.senderName.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-2.5 border dark:border-gray-700 max-w-[80%]">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{msg.senderName}</span>
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(msg.sentAt)}</span>
+                            </div>
+                            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{msg.content}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+                  <div className="flex gap-2 border-t dark:border-gray-700 pt-3">
+                    <textarea
+                      value={messageBody}
+                      onChange={e => setMessageBody(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                      placeholder={t('leads', 'messagePlaceholder')}
+                      rows={1}
+                      className={`flex-1 ${INPUT_CLS} resize-none`}
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={messageSending || !messageBody.trim()}
+                      className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50"
+                    >
+                      {t('leads', 'send')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+
     // ── Contact edit panel ──
     const renderContactPanel = () => (
       <div className="p-5 space-y-5">
@@ -1049,231 +1335,7 @@ export default function AdminLeadsPage() {
 
         <hr className="border-gray-100 dark:border-gray-700" />
 
-        {/* Tabbed section: Activity, Calls, Visits, Messages */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700">
-          <div className="flex border-b dark:border-gray-700">
-            {(['activity', 'calls', 'visits', 'messages'] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-3 text-sm font-medium text-center transition border-b-2 ${
-                  activeTab === tab
-                    ? 'border-brand-600 text-brand-600 dark:text-brand-400'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
-              >
-                {t('leads', tab)}
-              </button>
-            ))}
-          </div>
-
-          <div className="p-4 min-h-[250px]">
-            {tabLoading ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600" />
-              </div>
-            ) : (
-              <>
-                {/* ── Activity Tab ── */}
-                {activeTab === 'activity' && (
-                  <div className="space-y-3">
-                    {activities.length === 0 ? (
-                      <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noActivity')}</p>
-                    ) : (
-                      <div className="relative pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
-                        {activities.map(act => (
-                          <div key={act.id} className="relative">
-                            <div className={`absolute -left-[21px] w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
-                              act.type === 'stage_change' ? 'bg-brand-600' :
-                              act.type === 'call_logged' ? 'bg-blue-500' :
-                              act.type === 'visit_logged' ? 'bg-orange-500' :
-                              act.type === 'message_sent' ? 'bg-green-500' :
-                              act.type === 'assignment_change' ? 'bg-purple-500' :
-                              'bg-gray-400'
-                            }`} />
-                            <div className="ml-2">
-                              <p className="text-sm text-gray-700 dark:text-gray-300">{act.description}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(act.createdAt)}</span>
-                                {(act.actorName || act.actor?.name) && (
-                                  <span className="text-[10px] text-gray-400 dark:text-gray-500">{act.actorName || act.actor?.name}</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Calls Tab ── */}
-                {activeTab === 'calls' && (
-                  <div className="space-y-3">
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => setShowCallForm(!showCallForm)}
-                        className="text-sm font-medium text-brand-600 hover:text-brand-700 transition"
-                      >
-                        {showCallForm ? t('leads', 'cancel') : t('leads', 'logCall')}
-                      </button>
-                    </div>
-
-                    {showCallForm && (
-                      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-3 border dark:border-gray-700">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callType')}</label>
-                            <select value={callForm.type} onChange={e => setCallForm({ ...callForm, type: e.target.value as 'inbound' | 'outbound' })} className={INPUT_CLS}>
-                              <option value="outbound">{t('leads', 'callOutbound')}</option>
-                              <option value="inbound">{t('leads', 'callInbound')}</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'clientType')}</label>
-                            <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
-                              <button
-                                type="button"
-                                onClick={() => setCallForm({ ...callForm, clientType: 'new' })}
-                                className={`flex-1 px-3 py-2 text-sm font-medium transition ${
-                                  callForm.clientType === 'new' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
-                                }`}
-                              >
-                                {t('leads', 'clientNew')}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setCallForm({ ...callForm, clientType: 'existing' })}
-                                className={`flex-1 px-3 py-2 text-sm font-medium transition ${
-                                  callForm.clientType === 'existing' ? 'bg-brand-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
-                                }`}
-                              >
-                                {t('leads', 'clientExisting')}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callDuration')}</label>
-                          <input type="number" placeholder={t('leads', 'durationSeconds')} value={callForm.duration} onChange={e => setCallForm({ ...callForm, duration: e.target.value })} className={INPUT_CLS} />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'callOutcome')}</label>
-                          <input type="text" value={callForm.outcome} onChange={e => setCallForm({ ...callForm, outcome: e.target.value })} className={INPUT_CLS} />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'notes')}</label>
-                          <textarea value={callForm.notes} onChange={e => setCallForm({ ...callForm, notes: e.target.value })} rows={2} className={`${INPUT_CLS} resize-none`} />
-                        </div>
-                        <div className="flex justify-end">
-                          <button onClick={handleLogCall} disabled={callSaving} className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50">
-                            {callSaving ? t('leads', 'saving') : t('leads', 'logCall')}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {calls.length === 0 ? (
-                      <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noCalls')}</p>
-                    ) : (
-                      calls.map(call => (
-                        <div key={call.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                call.type === 'inbound' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                              }`}>
-                                {t('leads', `call${call.type.charAt(0).toUpperCase() + call.type.slice(1)}`)}
-                              </span>
-                              {(call as any).clientType && (
-                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                  (call as any).clientType === 'existing' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                                }`}>
-                                  {(call as any).clientType === 'existing' ? t('leads', 'clientExisting') : t('leads', 'clientNew')}
-                                </span>
-                              )}
-                              {call.outcome && <span className="text-xs text-gray-600 dark:text-gray-400">{call.outcome}</span>}
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500">
-                              {call.duration != null && <span>{formatDuration(call.duration)}</span>}
-                              <span>{formatDate(call.calledAt)}</span>
-                            </div>
-                          </div>
-                          {call.notes && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{call.notes}</p>}
-                          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{call.loggedBy?.name || ''}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-
-                {/* ── Visits Tab ── */}
-                {activeTab === 'visits' && (
-                  <div className="space-y-3">
-                    {visits.length === 0 ? (
-                      <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noVisits')}</p>
-                    ) : (
-                      visits.map(visit => (
-                        <div key={visit.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border dark:border-gray-700">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{visit.visitorName}</p>
-                            <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(visit.visitedAt)}</span>
-                          </div>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">{visit.purpose}</p>
-                          {visit.notes && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{visit.notes}</p>}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-
-                {/* ── Messages Tab ── */}
-                {activeTab === 'messages' && (
-                  <div className="flex flex-col h-[300px]">
-                    <div className="flex-1 overflow-y-auto space-y-3 mb-3">
-                      {messages.length === 0 ? (
-                        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('leads', 'noMessages')}</p>
-                      ) : (
-                        messages.map(msg => (
-                          <div key={msg.id} className="flex gap-2">
-                            <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
-                              <span className="text-[10px] font-bold text-brand-700 dark:text-brand-300">{msg.senderName.charAt(0).toUpperCase()}</span>
-                            </div>
-                            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-2.5 border dark:border-gray-700 max-w-[80%]">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{msg.senderName}</span>
-                                <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDate(msg.sentAt)}</span>
-                              </div>
-                              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{msg.content}</p>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                      <div ref={messagesEndRef} />
-                    </div>
-                    <div className="flex gap-2 border-t dark:border-gray-700 pt-3">
-                      <textarea
-                        value={messageBody}
-                        onChange={e => setMessageBody(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                        placeholder={t('leads', 'messagePlaceholder')}
-                        rows={1}
-                        className={`flex-1 ${INPUT_CLS} resize-none`}
-                      />
-                      <button
-                        onClick={handleSendMessage}
-                        disabled={messageSending || !messageBody.trim()}
-                        className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm font-medium transition disabled:opacity-50"
-                      >
-                        {t('leads', 'send')}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
+        {renderActivityTabs()}
       </div>
     );
 
@@ -1495,6 +1557,10 @@ export default function AdminLeadsPage() {
           )}
         </div>
 
+        <hr className="border-gray-100 dark:border-gray-700" />
+
+        {renderActivityTabs()}
+
         {/* Refuse project button */}
         {selectedProjectId && currentProject && currentProject.status !== 'lost' && (
           <>
@@ -1531,7 +1597,7 @@ export default function AdminLeadsPage() {
           onClick={() => { setSelectedId(null); setEditMode('contact'); setSelectedProjectId(null); }}
         />
         {/* Panel */}
-        <div className="fixed top-0 right-0 h-full w-full max-w-[500px] z-50 bg-white dark:bg-gray-800 shadow-xl border-l dark:border-gray-700 overflow-y-auto">
+        <div className="fixed top-0 right-0 h-full w-2/3 z-50 bg-white dark:bg-gray-800 shadow-xl border-l dark:border-gray-700 overflow-y-auto">
           {/* Header */}
           <div className="sticky top-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-5 py-4 flex items-center justify-between z-10">
             <div className="flex items-center gap-3 min-w-0">
@@ -1692,7 +1758,7 @@ export default function AdminLeadsPage() {
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto p-6">
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />

@@ -765,6 +765,11 @@ const translations = {
     // Empty states
     noCalls: { fr: 'Aucun appel enregistré', en: 'No calls recorded' },
     noVisits: { fr: 'Aucune visite enregistrée', en: 'No visits recorded' },
+    logVisit: { fr: 'Journaliser une visite', en: 'Log Visit' },
+    visitorName: { fr: 'Nom du visiteur', en: 'Visitor Name' },
+    visitorNamePlaceholder: { fr: 'Nom du visiteur...', en: 'Visitor name...' },
+    visitPurpose: { fr: 'Motif de la visite', en: 'Visit Purpose' },
+    visitPurposePlaceholder: { fr: 'Raison de la visite...', en: 'Reason for visit...' },
     noMessages: { fr: 'Aucun message', en: 'No messages' },
     noActivity: { fr: 'Aucune activité', en: 'No activity' },
     // Send message
