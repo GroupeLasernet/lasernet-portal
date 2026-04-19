@@ -88,37 +88,19 @@ interface QBEstimate {
   Line: any[];
 }
 
+interface QBTaxCodeOption {
+  id: string;
+  name: string;
+  description: string;
+  taxable: boolean;
+  totalRate: number;  // e.g. 14.975
+  rateDetails: { name: string; rate: number }[];
+}
+
 // ── Constants ────────────────────────────────────────────────────────────
 
 const PRODUCT_SERVICES = ['Piece', 'Service', 'Notes', "Main d'oeuvre", 'Autre'];
-const PRODUCT_SERVICE_LABELS: Record<string, string> = {
-  'Piece': 'Piece',
-  'Service': 'Service',
-  'Notes': 'Notes',
-  "Main d'oeuvre": "Main d'oeuvre",
-  'Autre': 'Autre',
-};
 
-const TAX_CODES = ['TPS/TVQ', 'TPS', 'Exempt'] as const;
-const TAX_CODE_LABELS_FR: Record<string, string> = {
-  'TPS/TVQ': 'TPS/TVQ QC',
-  'TPS': 'TPS seulement',
-  'Exempt': 'Hors champ',
-};
-const TAX_CODE_LABELS_EN: Record<string, string> = {
-  'TPS/TVQ': 'GST/QST QC',
-  'TPS': 'GST only',
-  'Exempt': 'Exempt',
-};
-
-const TAX_MAP: Record<string, { tps: boolean; tvq: boolean }> = {
-  'TPS/TVQ': { tps: true, tvq: true },
-  'TPS': { tps: true, tvq: false },
-  'Exempt': { tps: false, tvq: false },
-};
-
-const TPS_RATE = 0.05;
-const TVQ_RATE = 0.09975;
 
 const DEFAULT_QUOTE_MESSAGE =
   "Les prix peuvent fluctuer, sans pr\u00e9avis,\nen fonction des tarifs internationaux en vigueur.\nDevis valide 15 jours";
@@ -175,6 +157,9 @@ export default function QuotesPage() {
   const [pushError, setPushError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  // Amount display mode: 'excl' = tax excluded, 'incl' = tax included, 'none' = no tax
+  const [amountDisplay, setAmountDisplay] = useState<'excl' | 'incl' | 'none'>('excl');
+
   // ── Formatting ──
   const fmtDate = useCallback(
     (d: string) => new Date(d).toLocaleDateString(fr ? 'fr-CA' : 'en-CA'),
@@ -186,12 +171,44 @@ export default function QuotesPage() {
     [fr],
   );
 
+  // QB tax codes (dynamic from QuickBooks) — empty until connected
+  const [qbTaxCodes, setQbTaxCodes] = useState<QBTaxCodeOption[]>([]);
+  const [qbConnected, setQbConnected] = useState<boolean | null>(null); // null = loading
+
+  // ── Load QB tax codes ──
+  const loadQBTaxCodes = useCallback(async () => {
+    try {
+      const res = await fetch('/api/quotes/qb-tax-codes');
+      const data = await res.json();
+      if (data.error) {
+        setQbConnected(false);
+        return;
+      }
+      if (data.taxCodes && data.taxCodes.length > 0) {
+        setQbTaxCodes(data.taxCodes);
+        setQbConnected(true);
+      } else {
+        setQbConnected(false);
+      }
+    } catch {
+      setQbConnected(false);
+    }
+  }, []);
+
   // ── Load managed clients ──
   const loadManagedClients = useCallback(async () => {
     try {
       const res = await fetch('/api/managed-clients');
       const data = await res.json();
-      setManagedClients(data.clients || data.managedClients || data || []);
+      const raw: any[] = data.clients || data.managedClients || data || [];
+      // API returns { id, qbClient: { id, displayName, companyName } } — flatten for our interface
+      const mapped: ManagedClient[] = raw.map((c: any) => ({
+        id: c.id,
+        displayName: c.qbClient?.displayName || c.displayName || '',
+        companyName: c.qbClient?.companyName || c.companyName || null,
+        qbId: c.qbClient?.id || c.qbId || null,
+      }));
+      setManagedClients(mapped);
     } catch {
       // ignore
     }
@@ -243,7 +260,8 @@ export default function QuotesPage() {
     loadQuotes();
     loadManagedClients();
     loadProjects();
-  }, [loadQuotes, loadManagedClients, loadProjects]);
+    loadQBTaxCodes();
+  }, [loadQuotes, loadManagedClients, loadProjects, loadQBTaxCodes]);
 
   // When business changes, load QB estimates
   useEffect(() => {
@@ -284,23 +302,31 @@ export default function QuotesPage() {
     items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
 
   // ── Tax calculations ──
-  const calcTaxes = (items: QuoteItemData[]) => {
+  const calcTaxes = useCallback((items: QuoteItemData[]) => {
+    // Build a lookup from tax code id/name to its rate details
+    const codeMap = new Map<string, QBTaxCodeOption>();
+    for (const tc of qbTaxCodes) {
+      codeMap.set(tc.id, tc);
+      codeMap.set(tc.name, tc);
+    }
+
     let subtotal = 0;
-    let tpsBase = 0;
-    let tvqBase = 0;
+    const taxTotals: Record<string, number> = {}; // rateName → total tax amount
 
     for (const item of items) {
       const amount = item.quantity * item.unitPrice;
       subtotal += amount;
-      const tax = TAX_MAP[item.taxCode] || TAX_MAP['Exempt'];
-      if (tax.tps) tpsBase += amount;
-      if (tax.tvq) tvqBase += amount;
+      const tc = codeMap.get(item.taxCode);
+      if (tc) {
+        for (const rd of tc.rateDetails) {
+          taxTotals[rd.name] = (taxTotals[rd.name] || 0) + amount * (rd.rate / 100);
+        }
+      }
     }
 
-    const tps = tpsBase * TPS_RATE;
-    const tvq = tvqBase * TVQ_RATE;
-    return { subtotal, tps, tvq, total: subtotal + tps + tvq };
-  };
+    const totalTax = Object.values(taxTotals).reduce((s, v) => s + v, 0);
+    return { subtotal, taxBreakdown: taxTotals, totalTax, total: subtotal + totalTax };
+  }, [qbTaxCodes]);
 
   // ── Open editor for existing quote ──
   const openEditor = (q: Quote) => {
@@ -682,15 +708,32 @@ export default function QuotesPage() {
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                   {fr ? 'Items' : 'Line Items'}
                 </h3>
-                <button
-                  onClick={addItem}
-                  className="flex items-center gap-1 px-2.5 py-1 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 text-xs font-medium rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/40 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  {fr ? 'Ajouter' : 'Add'}
-                </button>
+                <div className="flex items-center gap-3">
+                  {/* Amount display mode */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {fr ? 'Affichage des montants' : 'Amount display'}
+                    </span>
+                    <select
+                      value={amountDisplay}
+                      onChange={(e) => setAmountDisplay(e.target.value as 'excl' | 'incl' | 'none')}
+                      className="px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-xs text-gray-700 dark:text-gray-200"
+                    >
+                      <option value="excl">{fr ? 'Taxe non comprise' : 'Tax excluded'}</option>
+                      <option value="incl">{fr ? 'Taxe comprise' : 'Tax included'}</option>
+                      <option value="none">{fr ? 'Hors champ de la taxe' : 'No tax'}</option>
+                    </select>
+                  </div>
+                  <button
+                    onClick={addItem}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 text-xs font-medium rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/40 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    {fr ? 'Ajouter' : 'Add'}
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto -mx-6 px-6">
@@ -699,18 +742,20 @@ export default function QuotesPage() {
                     <tr className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-600">
                       <th className="text-left py-2 pr-2 w-8">#</th>
                       <th className="text-left py-2 px-2 w-28">
-                        {fr ? 'Date du Service' : 'Service Date'}
+                        {fr ? 'Date' : 'Date'}
                       </th>
                       <th className="text-left py-2 px-2 w-32">
                         {fr ? 'Produit/Service' : 'Product/Service'}
                       </th>
                       <th className="text-left py-2 px-2">Description</th>
                       <th className="text-right py-2 px-2 w-16">{fr ? 'Qt\u00e9' : 'Qty'}</th>
-                      <th className="text-right py-2 px-2 w-24">{fr ? 'Taux' : 'Rate'}</th>
+                      <th className="text-right py-2 px-2 w-24">{fr ? 'Prix' : 'Price'}</th>
                       <th className="text-right py-2 px-2 w-24">{fr ? 'Montant' : 'Amount'}</th>
-                      <th className="text-left py-2 px-2 w-32">
-                        {fr ? 'Taxe de vente' : 'Sales Tax'}
-                      </th>
+                      {amountDisplay !== 'none' && (
+                        <th className="text-left py-2 px-2 w-32">
+                          {fr ? 'Taxe de vente' : 'Sales Tax'}
+                        </th>
+                      )}
                       <th className="w-8 py-2" />
                     </tr>
                   </thead>
@@ -775,21 +820,31 @@ export default function QuotesPage() {
                           />
                         </td>
                         <td className="py-2 px-2 text-right font-medium text-gray-700 dark:text-gray-200 text-xs whitespace-nowrap">
-                          {fmtMoney(item.quantity * item.unitPrice)}
+                          {(() => {
+                            const base = item.quantity * item.unitPrice;
+                            if (amountDisplay === 'incl') {
+                              const tc = qbTaxCodes.find((t) => t.id === item.taxCode || t.name === item.taxCode);
+                              const rate = tc ? tc.totalRate / 100 : 0;
+                              return fmtMoney(base * (1 + rate));
+                            }
+                            return fmtMoney(base);
+                          })()}
                         </td>
-                        <td className="py-2 px-2">
-                          <select
-                            value={item.taxCode}
-                            onChange={(e) => updateItem(idx, 'taxCode', e.target.value)}
-                            className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md text-xs text-gray-900 dark:text-gray-100"
-                          >
-                            {TAX_CODES.map((tc) => (
-                              <option key={tc} value={tc}>
-                                {fr ? TAX_CODE_LABELS_FR[tc] : TAX_CODE_LABELS_EN[tc]}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
+                        {amountDisplay !== 'none' && (
+                          <td className="py-2 px-2">
+                            <select
+                              value={item.taxCode}
+                              onChange={(e) => updateItem(idx, 'taxCode', e.target.value)}
+                              className="w-full px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md text-xs text-gray-900 dark:text-gray-100"
+                            >
+                              {qbTaxCodes.map((tc) => (
+                                <option key={tc.id} value={tc.id}>
+                                  {tc.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        )}
                         <td className="py-2 pl-1">
                           <button
                             onClick={() => removeItem(idx)}
@@ -826,9 +881,9 @@ export default function QuotesPage() {
             </div>
 
             {/* Quote message */}
-            <div>
+            <div className="max-w-[45%]">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {fr ? 'Message affich\u00e9 sur le devis' : 'Message displayed on quote'}
+                {fr ? 'Message affiché sur le devis' : 'Message displayed on quote'}
               </label>
               <textarea
                 value={quoteMessage}
@@ -839,22 +894,31 @@ export default function QuotesPage() {
             </div>
 
             {/* Tax summary */}
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-2">
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-2 max-w-sm ml-auto">
               <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
                 <span>{fr ? 'Total partiel' : 'Subtotal'}</span>
                 <span className="font-medium">{fmtMoney(taxes.subtotal)}</span>
               </div>
-              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
-                <span>{fr ? 'TPS \u00e0 5\u00a0%' : 'GST at 5%'}</span>
-                <span className="font-medium">{fmtMoney(taxes.tps)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
-                <span>{fr ? 'TVQ \u00e0 9,975\u00a0%' : 'QST at 9.975%'}</span>
-                <span className="font-medium">{fmtMoney(taxes.tvq)}</span>
-              </div>
+              {amountDisplay !== 'none' && Object.entries(taxes.taxBreakdown).map(([name, amount]) => (
+                <div key={name} className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
+                  <span>
+                    {name}{' '}
+                    {(() => {
+                      // Find the rate percentage for display
+                      for (const tc of qbTaxCodes) {
+                        const rd = tc.rateDetails.find((r) => r.name === name);
+                        if (rd) return `${rd.rate}\u00a0%`;
+                      }
+                      return '';
+                    })()}
+                    {' '}{fr ? 'sur' : 'on'} {fmtMoney(taxes.subtotal)}
+                  </span>
+                  <span className="font-medium">{fmtMoney(amount)}</span>
+                </div>
+              ))}
               <div className="flex justify-between text-base font-bold text-gray-900 dark:text-gray-100 pt-2 border-t border-gray-200 dark:border-gray-600">
                 <span>Total</span>
-                <span>{fmtMoney(taxes.total)}</span>
+                <span>{fmtMoney(amountDisplay === 'none' ? taxes.subtotal : taxes.total)}</span>
               </div>
             </div>
 
@@ -1018,7 +1082,13 @@ export default function QuotesPage() {
         </div>
         <button
           onClick={openNew}
-          className="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl transition-colors shadow-sm"
+          disabled={!qbConnected}
+          title={!qbConnected ? (fr ? 'QuickBooks doit être connecté pour créer des soumissions' : 'QuickBooks must be connected to create quotes') : ''}
+          className={`flex items-center gap-2 px-4 py-2.5 text-white text-sm font-medium rounded-xl transition-colors shadow-sm ${
+            qbConnected
+              ? 'bg-brand-600 hover:bg-brand-700'
+              : 'bg-gray-400 cursor-not-allowed opacity-60'
+          }`}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1026,6 +1096,18 @@ export default function QuotesPage() {
           {fr ? 'Nouvelle soumission' : 'New Quote'}
         </button>
       </div>
+
+      {/* QB not connected warning */}
+      {qbConnected === false && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl text-sm text-amber-800 dark:text-amber-200">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {fr
+            ? 'QuickBooks n\'est pas connecté. La création de soumissions est désactivée tant que la connexion n\'est pas établie.'
+            : 'QuickBooks is not connected. Quote creation is disabled until the connection is established.'}
+        </div>
+      )}
 
       {/* Business / Project selectors */}
       <div className="flex flex-col sm:flex-row gap-3">

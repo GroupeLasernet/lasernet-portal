@@ -385,6 +385,50 @@ export interface QBEstimate {
   }[];
 }
 
+// ============================================================
+// TAX CODE FUNCTIONS
+// ============================================================
+
+export interface QBTaxCode {
+  Id: string;
+  Name: string;
+  Description: string;
+  Active: boolean;
+  Taxable: boolean;
+  TaxGroup: boolean;
+  SalesTaxRateList?: {
+    TaxRateDetail: {
+      TaxRateRef: { value: string; name: string };
+      TaxTypeApplicable: string;
+      TaxOrder: number;
+    }[];
+  };
+}
+
+export interface QBTaxRate {
+  Id: string;
+  Name: string;
+  Description: string;
+  RateValue: number;
+  Active: boolean;
+}
+
+export async function fetchTaxCodes(tokens: QBTokens): Promise<{ taxCodes: QBTaxCode[]; updatedTokens: QBTokens | null }> {
+  const { data, updatedTokens } = await queryQuickBooks(
+    "SELECT * FROM TaxCode WHERE Active = true MAXRESULTS 100",
+    tokens
+  );
+  return { taxCodes: data?.QueryResponse?.TaxCode || [], updatedTokens };
+}
+
+export async function fetchTaxRates(tokens: QBTokens): Promise<{ taxRates: QBTaxRate[]; updatedTokens: QBTokens | null }> {
+  const { data, updatedTokens } = await queryQuickBooks(
+    "SELECT * FROM TaxRate WHERE Active = true MAXRESULTS 100",
+    tokens
+  );
+  return { taxRates: data?.QueryResponse?.TaxRate || [], updatedTokens };
+}
+
 /** Create or update an Estimate in QuickBooks */
 export async function createEstimate(
   estimate: {
