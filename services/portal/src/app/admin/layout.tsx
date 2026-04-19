@@ -2,6 +2,7 @@
 
 import DashboardShell from '@/components/DashboardShell';
 import type { SidebarLink } from '@/components/Sidebar';
+import { QuickBooksProvider } from '@/lib/QuickBooksContext';
 
 const adminLinks: SidebarLink[] = [
   {
@@ -217,8 +218,10 @@ const adminBottomLinks: SidebarLink[] = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <DashboardShell requiredRole="admin" links={adminLinks} bottomLinks={adminBottomLinks}>
-      {children}
-    </DashboardShell>
+    <QuickBooksProvider>
+      <DashboardShell requiredRole="admin" links={adminLinks} bottomLinks={adminBottomLinks}>
+        {children}
+      </DashboardShell>
+    </QuickBooksProvider>
   );
 }

@@ -1,7 +1,7 @@
 # Prisma — Backlog & Task List
 
 > Living list of everything on deck. Maintained jointly with Claude.
-> Last updated: 2026-04-14 (late — Station / StationPC / Machine three-entity foundation shipped)
+> Last updated: 2026-04-19 (late evening — QuickBooks status consolidated behind a single context + flashing sidebar chip with Connect button)
 
 Commands when talking to Claude:
 - **LIST** — show what's in this file / in memory
@@ -13,6 +13,18 @@ Commands when talking to Claude:
 ## In Progress (portal)
 
 *(none)*
+
+## Recently Shipped (2026-04-19 late evening)
+
+- [x] **QuickBooks connection — single source of truth** — new `QuickBooksContext` (`src/lib/QuickBooksContext.tsx`) polls `/api/quickbooks/status` every 60 s and exposes `{status, realmId, missingCredentials, refresh, connect}`. `QuickBooksProvider` mounted in `src/app/admin/layout.tsx`. Sidebar chip (`QuickBooksStatus.tsx`) and quotes page (`/admin/quotes`) both read from it — no more contradictions between "Connected" chip and "not connected" page.
+- [x] **Sidebar chip flashes + inline Connect button** — when `status` is `disconnected` the chip gets a red pulsing ring + a red "Connecter/Connect" pill that starts the OAuth flow; `missing-creds` gets the amber treatment. Translation key `qbConnectAction` added (FR: "Connecter", EN: "Connect").
+- [x] **Quotes page Connect button** — amber banner now shows a "Connecter QuickBooks" button (when tokens are missing-but-expected) that calls `qbConnect()` from context. Skipped during loading to avoid a flash.
+
+## Recently Shipped (2026-04-19 evening)
+
+- [x] **Quote printer / Save-as-PDF** — new `/admin/quotes/[id]/print` page (letterhead + line items + tax breakdown + customer memo, auto `window.print()`). Print button in editor footer opens it in a new tab.
+- [x] **Quote file attachments** — `QuoteAttachment` Prisma model (base64 in DB, 10 MB/file cap), migration `20260419_quote_attachments.sql`, `GET/POST /api/quotes/[id]/attachments` + `GET/DELETE /api/quotes/[id]/attachments/[attachmentId]`. Drop zone wired (drag-drop + click), list with download + delete.
+- [x] **Push-to-QB with taxes** — server route forwards `TaxCodeRef` on each line, `ServiceDate`, `CustomerMemo` (quote message), and `GlobalTaxCalculation: 'TaxExcluded'` so QB Estimates match our local tax math. UI shows "Synced to QuickBooks" banner on success.
 
 ## Recently Shipped (2026-04-14)
 

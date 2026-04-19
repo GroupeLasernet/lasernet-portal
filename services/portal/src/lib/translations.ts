@@ -96,6 +96,7 @@ const translations = {
     qbDisconnected: { fr: 'Non connecté', en: 'Not connected' },
     qbNotConfigured: { fr: 'Non configuré', en: 'Not configured' },
     qbUnavailable: { fr: 'Indisponible', en: 'Unavailable' },
+    qbConnectAction: { fr: 'Connecter', en: 'Connect' },
   },
 
   // ============================================================

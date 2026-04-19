@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useQuickBooks } from '@/lib/QuickBooksContext';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -123,6 +124,11 @@ const emptyItem = (): QuoteItemData => ({
 export default function QuotesPage() {
   const { lang } = useLanguage();
   const fr = lang === 'fr';
+  // QB connection — single source of truth lives in QuickBooksContext.
+  // `status === 'connected'` means DB-persisted tokens are live. We never
+  // infer connection state from an individual data-fetch result anymore.
+  const { status: qbStatus, connect: qbConnect } = useQuickBooks();
+  const qbConnected = qbStatus === 'connected';
 
   // ── State ──
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -155,7 +161,15 @@ export default function QuotesPage() {
   const [saving, setSaving] = useState(false);
   const [pushing, setPushing] = useState(false);
   const [pushError, setPushError] = useState('');
+  const [pushSuccess, setPushSuccess] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  // Attachments (existing quote only)
+  interface Attachment { id: string; filename: string; mimeType: string; size: number; createdAt: string }
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [dragOver, setDragOver] = useState(false);
 
   // Amount display mode: 'excl' = tax excluded, 'incl' = tax included, 'none' = no tax
   const [amountDisplay, setAmountDisplay] = useState<'excl' | 'incl' | 'none'>('excl');
@@ -171,27 +185,21 @@ export default function QuotesPage() {
     [fr],
   );
 
-  // QB tax codes (dynamic from QuickBooks) — empty until connected
+  // QB tax codes (dynamic from QuickBooks) — empty until connected.
+  // NOTE: connection status comes from QuickBooksContext (see top of component).
+  // A tax-code fetch failure is a *data* error, not a connection error.
   const [qbTaxCodes, setQbTaxCodes] = useState<QBTaxCodeOption[]>([]);
-  const [qbConnected, setQbConnected] = useState<boolean | null>(null); // null = loading
 
   // ── Load QB tax codes ──
   const loadQBTaxCodes = useCallback(async () => {
     try {
       const res = await fetch('/api/quotes/qb-tax-codes');
       const data = await res.json();
-      if (data.error) {
-        setQbConnected(false);
-        return;
-      }
-      if (data.taxCodes && data.taxCodes.length > 0) {
+      if (data.taxCodes && Array.isArray(data.taxCodes)) {
         setQbTaxCodes(data.taxCodes);
-        setQbConnected(true);
-      } else {
-        setQbConnected(false);
       }
     } catch {
-      setQbConnected(false);
+      // swallow — connection truth lives in QuickBooksContext
     }
   }, []);
 
@@ -328,6 +336,47 @@ export default function QuotesPage() {
     return { subtotal, taxBreakdown: taxTotals, totalTax, total: subtotal + totalTax };
   }, [qbTaxCodes]);
 
+  // ── Attachments ──
+  const loadAttachments = useCallback(async (quoteId: string) => {
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/attachments`);
+      const data = await res.json();
+      setAttachments(data.attachments || []);
+    } catch {
+      setAttachments([]);
+    }
+  }, []);
+
+  const uploadFile = async (file: File) => {
+    if (!editingQuote) return;
+    setUploadingFile(true);
+    setUploadError('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`/api/quotes/${editingQuote.id}/attachments`, {
+        method: 'POST',
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setUploadError(data.error || 'Upload failed');
+        return;
+      }
+      await loadAttachments(editingQuote.id);
+    } catch (e: any) {
+      setUploadError(e.message || 'Upload failed');
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const deleteAttachment = async (attId: string) => {
+    if (!editingQuote) return;
+    await fetch(`/api/quotes/${editingQuote.id}/attachments/${attId}`, { method: 'DELETE' });
+    await loadAttachments(editingQuote.id);
+  };
+
   // ── Open editor for existing quote ──
   const openEditor = (q: Quote) => {
     setEditingQuote(q);
@@ -352,6 +401,9 @@ export default function QuotesPage() {
         : [emptyItem()],
     );
     setPushError('');
+    setPushSuccess(false);
+    setUploadError('');
+    loadAttachments(q.id);
   };
 
   // ── Open QB estimate (read-only) ──
@@ -372,6 +424,9 @@ export default function QuotesPage() {
     setQuoteExpiry('');
     setLineItems([emptyItem()]);
     setPushError('');
+    setPushSuccess(false);
+    setUploadError('');
+    setAttachments([]);
   };
 
   // ── Close editor ──
@@ -452,6 +507,7 @@ export default function QuotesPage() {
   const handlePushQB = async (quoteId: string) => {
     setPushing(true);
     setPushError('');
+    setPushSuccess(false);
     try {
       const res = await fetch(`/api/quotes/${quoteId}/push-qb`, { method: 'POST' });
       if (!res.ok) {
@@ -459,8 +515,18 @@ export default function QuotesPage() {
         setPushError(data.error || 'Failed');
         return;
       }
+      const data = await res.json();
+      setPushSuccess(true);
+      // Refresh list + keep editor open so the user sees the synced chip
       await loadQuotes();
-      closeEditor();
+      // Patch the current editingQuote so the QB chip appears without closing
+      if (editingQuote && data.qbEstimateId) {
+        setEditingQuote({
+          ...editingQuote,
+          qbEstimateId: data.qbEstimateId,
+          qbSyncedAt: new Date().toISOString(),
+        });
+      }
     } catch (e: any) {
       setPushError(e.message || 'Failed');
     } finally {
@@ -927,29 +993,114 @@ export default function QuotesPage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 {fr ? 'Pi\u00e8ces jointes' : 'Attachments'}
               </label>
-              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:border-brand-400 dark:hover:border-brand-500 transition-colors cursor-pointer">
-                <svg
-                  className="w-10 h-10 text-gray-300 dark:text-gray-500 mb-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+
+              {!editingQuote ? (
+                <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-6 text-center text-xs text-gray-400 dark:text-gray-500">
                   {fr
-                    ? 'Glissez et d\u00e9posez des fichiers ici'
-                    : 'Drag and drop files here'}
-                </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  {fr ? 'ou cliquez pour parcourir' : 'or click to browse'}
-                </p>
-              </div>
+                    ? 'Sauvegardez d\'abord la soumission pour joindre des fichiers.'
+                    : 'Save the quote first to attach files.'}
+                </div>
+              ) : (
+                <>
+                  <label
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOver(false);
+                      const files = Array.from(e.dataTransfer.files);
+                      files.forEach((f) => { void uploadFile(f); });
+                    }}
+                    className={`block border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center transition-colors cursor-pointer ${
+                      dragOver
+                        ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-brand-400 dark:hover:border-brand-500'
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        files.forEach((f) => { void uploadFile(f); });
+                        e.target.value = '';
+                      }}
+                    />
+                    {uploadingFile ? (
+                      <>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mb-2" />
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {fr ? 'Envoi en cours...' : 'Uploading...'}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="w-10 h-10 text-gray-300 dark:text-gray-500 mb-2"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                          />
+                        </svg>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {fr ? 'Glissez et d\u00e9posez des fichiers ici' : 'Drag and drop files here'}
+                        </p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          {fr ? 'ou cliquez pour parcourir (max 10 Mo)' : 'or click to browse (max 10 MB)'}
+                        </p>
+                      </>
+                    )}
+                  </label>
+
+                  {uploadError && (
+                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">{uploadError}</p>
+                  )}
+
+                  {attachments.length > 0 && (
+                    <ul className="mt-3 divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                      {attachments.map((att) => (
+                        <li key={att.id} className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-gray-700/30">
+                          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                          </svg>
+                          <a
+                            href={`/api/quotes/${editingQuote.id}/attachments/${att.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 min-w-0 text-sm text-gray-800 dark:text-gray-200 hover:text-brand-600 dark:hover:text-brand-400 truncate"
+                          >
+                            {att.filename}
+                          </a>
+                          <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                            {(att.size / 1024).toFixed(1)} KB
+                          </span>
+                          <button
+                            onClick={() => deleteAttachment(att.id)}
+                            className="p-1 text-gray-300 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
+                            title={fr ? 'Supprimer' : 'Delete'}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Internal notes */}
@@ -966,10 +1117,18 @@ export default function QuotesPage() {
               />
             </div>
 
-            {/* Push error */}
+            {/* Push feedback */}
             {pushError && (
               <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
                 {pushError}
+              </div>
+            )}
+            {pushSuccess && !pushError && (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg text-sm text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {fr ? 'Synchronisé avec QuickBooks.' : 'Synced to QuickBooks.'}
               </div>
             )}
           </div>
@@ -1004,6 +1163,25 @@ export default function QuotesPage() {
                   {fr ? 'Supprimer' : 'Delete'}
                 </button>
               ))}
+
+            {/* Print / Save as PDF (existing quote only) */}
+            {editingQuote && (
+              <button
+                onClick={() => window.open(`/admin/quotes/${editingQuote.id}/print`, '_blank')}
+                title={fr ? 'Imprimer / Enregistrer en PDF' : 'Print / Save as PDF'}
+                className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                  />
+                </svg>
+                {fr ? 'Imprimer' : 'Print'}
+              </button>
+            )}
 
             {/* Push to QB (existing only, needs QB customer) */}
             {editingQuote && hasQBCustomer && (
@@ -1097,15 +1275,33 @@ export default function QuotesPage() {
         </button>
       </div>
 
-      {/* QB not connected warning */}
-      {qbConnected === false && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl text-sm text-amber-800 dark:text-amber-200">
-          <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {fr
-            ? 'QuickBooks n\'est pas connecté. La création de soumissions est désactivée tant que la connexion n\'est pas établie.'
-            : 'QuickBooks is not connected. Quote creation is disabled until the connection is established.'}
+      {/* QB not connected warning — only show when we've actually resolved
+          to a non-connected state (skip 'loading' to avoid a flash). */}
+      {(qbStatus === 'disconnected' || qbStatus === 'missing-creds' || qbStatus === 'error') && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl text-sm text-amber-800 dark:text-amber-200">
+          <div className="flex items-center gap-3 min-w-0">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="truncate">
+              {qbStatus === 'missing-creds'
+                ? fr
+                  ? 'Les identifiants QuickBooks ne sont pas configurés. La création de soumissions est désactivée.'
+                  : 'QuickBooks credentials are not configured. Quote creation is disabled.'
+                : fr
+                  ? 'QuickBooks n\'est pas connecté. La création de soumissions est désactivée tant que la connexion n\'est pas établie.'
+                  : 'QuickBooks is not connected. Quote creation is disabled until the connection is established.'}
+            </span>
+          </div>
+          {qbStatus !== 'missing-creds' && (
+            <button
+              type="button"
+              onClick={() => { void qbConnect(); }}
+              className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 transition-colors"
+            >
+              {fr ? 'Connecter QuickBooks' : 'Connect QuickBooks'}
+            </button>
+          )}
         </div>
       )}
 

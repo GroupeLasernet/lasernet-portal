@@ -436,6 +436,8 @@ export async function createEstimate(
     DocNumber?: string;
     TxnDate?: string;
     ExpirationDate?: string;
+    CustomerMemo?: { value: string };
+    GlobalTaxCalculation?: 'TaxExcluded' | 'TaxInclusive' | 'NotApplicable';
     Line: {
       Description?: string;
       Amount: number;
@@ -444,6 +446,8 @@ export async function createEstimate(
         Qty?: number;
         UnitPrice?: number;
         ItemRef?: { value: string; name?: string };
+        TaxCodeRef?: { value: string };
+        ServiceDate?: string;
       };
     }[];
     Id?: string;       // include for updates

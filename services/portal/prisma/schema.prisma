@@ -987,8 +987,26 @@ model Quote {
   updatedAt       DateTime @updatedAt
 
   items           QuoteItem[]
+  attachments     QuoteAttachment[]
 
   @@index([projectId])
+}
+
+// File attachments for a quote (stored base64 in DB to keep deploy simple on Vercel)
+model QuoteAttachment {
+  id          String   @id @default(cuid())
+  quoteId     String
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  filename    String
+  mimeType    String
+  size        Int        // bytes
+  data        String     @db.Text // base64-encoded file content
+  uploadedById String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([quoteId])
 }
 
 model QuoteItem {

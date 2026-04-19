@@ -28,3 +28,68 @@
     @apply flex items-center gap-3 px-4 py-2.5 rounded-lg bg-brand-50 text-brand-700 font-medium dark:bg-brand-900/30 dark:text-brand-300;
   }
 }
+
+/* ============================================================
+   PrismaLogo animations
+   Used by <PrismaLogo /> component: breathe + aura + bees-close
+   orbital particles. Keep edits here so we only have one source
+   of truth for the logo motion.
+   ============================================================ */
+@keyframes prisma-breathe {
+  0%, 100% { transform: rotate(-0.7deg) scale(1.000); }
+  50%      { transform: rotate(0.7deg)  scale(1.035); }
+}
+@keyframes prisma-aura {
+  0%, 100% { opacity: .75; transform: translate(-50%, -50%) scale(1.00); }
+  50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.06); }
+}
+@keyframes prisma-orbit      { to { transform: rotate(360deg); } }
+@keyframes prisma-orbit-rev  { to { transform: rotate(-360deg); } }
+@keyframes prisma-bob {
+  0%, 100% { transform: translate(var(--r, 120px), 0) scale(1); }
+  50%      { transform: translate(calc(var(--r, 120px) + 6px), 0) scale(1.15); }
+}
+
+.prisma-breathe { animation: prisma-breathe 6s ease-in-out infinite; transform-origin: 50% 55%; }
+.prisma-aura {
+  position: absolute;
+  width: 180%; height: 180%;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle,
+    rgba(244, 114, 182, 0.22) 0%,
+    rgba(251, 146, 60, 0.08) 35%,
+    transparent 65%);
+  filter: blur(8px);
+  animation: prisma-aura 9s ease-in-out infinite;
+  z-index: 0;
+  pointer-events: none;
+}
+.dark .prisma-aura {
+  background: radial-gradient(circle,
+    rgba(244, 114, 182, 0.34) 0%,
+    rgba(251, 146, 60, 0.10) 35%,
+    transparent 65%);
+}
+.prisma-orbits {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 0; height: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.prisma-orbit       { position: absolute; top: 0; left: 0; width: 0; height: 0; animation: prisma-orbit      var(--dur, 60s) linear infinite; animation-delay: var(--delay, 0s); }
+.prisma-orbit--rev  { position: absolute; top: 0; left: 0; width: 0; height: 0; animation: prisma-orbit-rev  var(--dur, 60s) linear infinite; animation-delay: var(--delay, 0s); }
+.prisma-dot {
+  position: absolute;
+  border-radius: 50%;
+  background: #f472b6;
+  box-shadow: 0 0 6px #f472b6, 0 0 12px rgba(244,114,182,0.55);
+  transform: translate(var(--r, 120px), 0);
+  animation: prisma-bob var(--bob, 6s) ease-in-out infinite;
+  animation-delay: var(--bobDelay, 0s);
+}
+.dark .prisma-dot {
+  background: #fbcfe8;
+  box-shadow: 0 0 6px #fbcfe8, 0 0 14px rgba(251,207,232,0.7);
+}

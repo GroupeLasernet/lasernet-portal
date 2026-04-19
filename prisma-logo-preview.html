@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Prisma logo — light + dark preview</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: #e9eaef;
+    min-height: 100vh;
+    color: #0a0a0a;
+  }
+
+  header {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    background: rgba(233,234,239,0.85);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+  header h1 { font-size: 14px; font-weight: 600; margin: 0; }
+  header .sub { font-size: 12px; color: #6b7280; }
+
+  main {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+    gap: 24px;
+    padding: 28px 20px 80px;
+    max-width: 1200px; margin: 0 auto;
+  }
+
+  .card {
+    position: relative;
+    border-radius: 24px;
+    overflow: hidden;
+    min-height: 520px;
+    display: flex; flex-direction: column;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+  .card.light { background: #ffffff; color: #0a0a0a; }
+  .card.dark  { background: #0b0d14; color: #f8fafc; border-color: rgba(255,255,255,0.08); }
+
+  .card .label {
+    position: absolute; top: 18px; left: 20px; z-index: 5;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .16em;
+    opacity: .55;
+  }
+  .card .name {
+    position: absolute; top: 18px; right: 20px; z-index: 5;
+    font-size: 12px; font-weight: 600;
+  }
+
+  .stage {
+    position: relative; flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  /* Soft aura behind the logo */
+  .stage::before {
+    content: "";
+    position: absolute;
+    width: 560px; height: 560px;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle,
+      rgba(244, 114, 182, 0.22) 0%,
+      rgba(251, 146, 60, 0.08) 35%,
+      transparent 65%);
+    filter: blur(8px);
+    animation: auraPulse 9s ease-in-out infinite;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .card.dark .stage::before {
+    background: radial-gradient(circle,
+      rgba(244, 114, 182, 0.34) 0%,
+      rgba(251, 146, 60, 0.10) 35%,
+      transparent 65%);
+  }
+  @keyframes auraPulse {
+    0%, 100% { opacity: .75; transform: translate(-50%, -50%) scale(1.00); }
+    50%      { opacity: 1;    transform: translate(-50%, -50%) scale(1.06); }
+  }
+
+  /* Each .orbit is anchored at the center of the stage, rotates slowly.
+     The .dot inside is offset by a radius so it traces a circle. */
+  .orbits {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 0; height: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .orbit {
+    position: absolute;
+    top: 0; left: 0;
+    width: 0; height: 0;
+    animation: orbit var(--dur, 50s) linear infinite;
+    animation-delay: var(--delay, 0s);
+  }
+  .orbit.reverse { animation-direction: reverse; }
+  @keyframes orbit {
+    to { transform: rotate(360deg); }
+  }
+  .dot {
+    position: absolute;
+    border-radius: 50%;
+    background: #f472b6;
+    box-shadow:
+      0 0 6px #f472b6,
+      0 0 12px rgba(244,114,182,0.55);
+    transform: translate(var(--radius, 160px), 0) scale(1);
+    opacity: var(--opacity, 0.75);
+    animation: bob var(--bobDur, 5s) ease-in-out infinite;
+    animation-delay: var(--bobDelay, 0s);
+  }
+  .card.dark .dot {
+    background: #fbcfe8;
+    box-shadow:
+      0 0 6px #fbcfe8,
+      0 0 14px rgba(251,207,232,0.7);
+  }
+  /* Gentle radial "breath" so particles don't look like a clock */
+  @keyframes bob {
+    0%, 100% { transform: translate(var(--radius, 160px), 0) scale(1); }
+    50%      { transform: translate(calc(var(--radius, 160px) + 8px), 0) scale(1.15); }
+  }
+
+  .logoWrap {
+    position: relative;
+    z-index: 3;
+  }
+  .prism {
+    width: 300px; height: auto; display: block;
+    animation: breathe 6s ease-in-out infinite;
+    filter: drop-shadow(0 18px 26px rgba(225,29,72,0.22));
+    transform-origin: 50% 55%;
+  }
+  .card.dark .prism {
+    filter: drop-shadow(0 22px 38px rgba(225,29,72,0.45));
+  }
+  @keyframes breathe {
+    0%, 100% { transform: rotate(-0.7deg) scale(1.000); }
+    50%      { transform: rotate(0.7deg)  scale(1.035); }
+  }
+  .prism text { fill: currentColor; }
+
+  footer {
+    padding: 20px; text-align: center; color: #6b7280; font-size: 12px;
+  }
+  footer code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 6px; }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Prisma logo — final look</h1>
+      <div class="sub">Light + dark side by side. Particles orbit slowly, close to the logo. No glare.</div>
+    </div>
+  </header>
+
+  <main>
+    <!-- LIGHT MODE -->
+    <section class="card light">
+      <div class="label">Light mode</div>
+      <div class="name">Prisma</div>
+      <div class="stage" data-stage="light">
+        <div class="orbits" data-orbits></div>
+        <div class="logoWrap">
+          <svg class="prism" viewBox="0 0 800 700" aria-hidden="true">
+            <defs>
+              <linearGradient id="L_b0" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f472b6"/><stop offset="100%" stop-color="#9d174d"/></linearGradient>
+              <linearGradient id="L_h0" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fbcfe8"/><stop offset="100%" stop-color="#be185d"/></linearGradient>
+              <linearGradient id="L_b1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fb923c"/><stop offset="100%" stop-color="#b91c1c"/></linearGradient>
+              <linearGradient id="L_h1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fed7aa"/><stop offset="100%" stop-color="#dc2626"/></linearGradient>
+              <linearGradient id="L_b2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e11d48"/><stop offset="100%" stop-color="#881337"/></linearGradient>
+              <linearGradient id="L_h2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fda4af"/><stop offset="100%" stop-color="#9f1239"/></linearGradient>
+            </defs>
+            <polygon points="400,-3.32 680,481.66 515.46,386.66 400,186.68" fill="url(#L_b0)"/>
+            <polygon points="680,481.66 120,481.66 284.54,386.66 515.46,386.66" fill="url(#L_b1)"/>
+            <polygon points="120,481.66 400,-3.32 400,186.68 284.54,386.66" fill="url(#L_b2)"/>
+            <polygon points="680,481.66 550,481.66 385.46,386.66 515.46,386.66" fill="url(#L_h0)"/>
+            <polygon points="120,481.66 185,369.07 349.54,274.07 284.54,386.66" fill="url(#L_h1)"/>
+            <polygon points="400,-3.32 465,109.27 465,299.27 400,186.68" fill="url(#L_h2)"/>
+            <polygon points="673.5,481.66 556.5,481.66 540.91,472.66 657.91,472.66" fill="#ffffff" opacity="0.35"/>
+            <polygon points="123.25,476.03 181.75,374.70 197.34,365.70 138.84,467.03" fill="#ffffff" opacity="0.35"/>
+            <polygon points="403.25,2.31 461.75,103.64 461.75,121.64 403.25,20.31" fill="#ffffff" opacity="0.35"/>
+            <text x="400" y="525.86" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="130" font-weight="100" letter-spacing="16" fill="currentColor">PRISMA</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- DARK MODE -->
+    <section class="card dark">
+      <div class="label">Dark mode</div>
+      <div class="name">Prisma</div>
+      <div class="stage" data-stage="dark">
+        <div class="orbits" data-orbits></div>
+        <div class="logoWrap">
+          <svg class="prism" viewBox="0 0 800 700" aria-hidden="true">
+            <defs>
+              <linearGradient id="D_b0" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f472b6"/><stop offset="100%" stop-color="#9d174d"/></linearGradient>
+              <linearGradient id="D_h0" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fbcfe8"/><stop offset="100%" stop-color="#be185d"/></linearGradient>
+              <linearGradient id="D_b1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fb923c"/><stop offset="100%" stop-color="#b91c1c"/></linearGradient>
+              <linearGradient id="D_h1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fed7aa"/><stop offset="100%" stop-color="#dc2626"/></linearGradient>
+              <linearGradient id="D_b2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e11d48"/><stop offset="100%" stop-color="#881337"/></linearGradient>
+              <linearGradient id="D_h2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fda4af"/><stop offset="100%" stop-color="#9f1239"/></linearGradient>
+            </defs>
+            <polygon points="400,-3.32 680,481.66 515.46,386.66 400,186.68" fill="url(#D_b0)"/>
+            <polygon points="680,481.66 120,481.66 284.54,386.66 515.46,386.66" fill="url(#D_b1)"/>
+            <polygon points="120,481.66 400,-3.32 400,186.68 284.54,386.66" fill="url(#D_b2)"/>
+            <polygon points="680,481.66 550,481.66 385.46,386.66 515.46,386.66" fill="url(#D_h0)"/>
+            <polygon points="120,481.66 185,369.07 349.54,274.07 284.54,386.66" fill="url(#D_h1)"/>
+            <polygon points="400,-3.32 465,109.27 465,299.27 400,186.68" fill="url(#D_h2)"/>
+            <polygon points="673.5,481.66 556.5,481.66 540.91,472.66 657.91,472.66" fill="#ffffff" opacity="0.35"/>
+            <polygon points="123.25,476.03 181.75,374.70 197.34,365.70 138.84,467.03" fill="#ffffff" opacity="0.35"/>
+            <polygon points="403.25,2.31 461.75,103.64 461.75,121.64 403.25,20.31" fill="#ffffff" opacity="0.35"/>
+            <text x="400" y="525.86" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="130" font-weight="100" letter-spacing="16" fill="currentColor">PRISMA</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Breathe + aura + close orbital particles. No glare or sheen. Reply <code>ship it</code> and I'll drop this into <code>&lt;PrismaLogo /&gt;</code> and wire <code>Sidebar.tsx</code> + <code>DashboardShell.tsx</code>.
+  </footer>
+
+  <script>
+    // Seed particles orbiting close to the logo in each card
+    // Logo is ~300px wide; radii 150–210px keep them hugging the logo like bees.
+    const rand = (min, max) => min + Math.random() * (max - min);
+
+    document.querySelectorAll('[data-orbits]').forEach((host) => {
+      const N = 14; // not too many — stays calm
+      for (let i = 0; i < N; i++) {
+        const orbit = document.createElement('div');
+        orbit.className = 'orbit' + (Math.random() < 0.5 ? ' reverse' : '');
+        orbit.style.setProperty('--dur',  rand(55, 95) + 's'); // very slow
+        orbit.style.setProperty('--delay', (-rand(0, 80)) + 's'); // desync
+
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+
+        // Close to the logo: radius 115–170 (tighter — hugging like bees)
+        const radius = rand(115, 170);
+        const size = rand(3, 6);
+        dot.style.setProperty('--radius', radius + 'px');
+        dot.style.setProperty('--opacity', rand(0.55, 0.95));
+        dot.style.setProperty('--bobDur', rand(4, 9) + 's');
+        dot.style.setProperty('--bobDelay', (-rand(0, 8)) + 's');
+        dot.style.width = size + 'px';
+        dot.style.height = size + 'px';
+
+        orbit.appendChild(dot);
+        host.appendChild(orbit);
+
+        // Initial rotation offset via inline style so they don't all start at 3 o'clock
+        orbit.style.transform = `rotate(${rand(0, 360)}deg)`;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar, { type SidebarLink } from './Sidebar';
+import PrismaLogo from './PrismaLogo';
 import { useTheme } from '@/lib/ThemeContext';
 
 interface DashboardShellProps {
@@ -89,10 +90,10 @@ export default function DashboardShell({ children, requiredRole, links, bottomLi
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <img
-              src="/prisma-logo.svg"
-              alt="Prisma"
-              className="h-8 object-contain md:hidden"
+            <PrismaLogo
+              animated={false}
+              showParticles={false}
+              className="h-8 w-auto md:hidden text-gray-900 dark:text-white"
             />
           </div>
 

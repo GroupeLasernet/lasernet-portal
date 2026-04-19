@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/lib/LanguageContext';
+import PrismaLogo from '@/components/PrismaLogo';
 
 export default function ForgotPasswordPage() {
   const { t } = useLanguage();
@@ -39,8 +40,8 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 px-4">
       <div className="w-full max-w-md">
-        <div className="text-center">
-          <img src="/prisma-logo-light.svg" alt="Prisma" className="h-40 w-auto mx-auto" />
+        <div className="text-center flex justify-center">
+          <PrismaLogo className="h-40 w-40 text-white" />
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mt-2">

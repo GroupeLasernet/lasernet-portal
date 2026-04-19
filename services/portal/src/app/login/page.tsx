@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useLanguage } from '@/lib/LanguageContext';
+import PrismaLogo from '@/components/PrismaLogo';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -49,12 +50,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 px-4">
       <div className="w-full max-w-md">
         {/* Prisma logo */}
-        <div className="text-center">
-          <img
-            src="/prisma-logo-light.svg"
-            alt="Prisma"
-            className="h-56 w-auto mx-auto"
-          />
+        <div className="text-center flex justify-center">
+          <PrismaLogo className="h-56 w-56 text-white" />
         </div>
 
         {/* Partner logos */}

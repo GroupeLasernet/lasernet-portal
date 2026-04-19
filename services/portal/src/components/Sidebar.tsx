@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import QuickBooksStatus from '@/components/QuickBooksStatus';
+import PrismaLogo from '@/components/PrismaLogo';
 import SidebarReorderModal, { loadSidebarOrder, applySidebarOrder, applyChildOrder, type SidebarOrder } from './SidebarReorderModal';
 
 export interface SidebarLink {
@@ -167,11 +168,7 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
       {/* Brand Header */}
       <div className="p-4 border-b border-gray-100 dark:border-gray-700">
         <div className="flex flex-col items-center justify-center">
-          <img
-            src="/prisma-logo.svg"
-            alt="Prisma"
-            className="w-full h-auto max-h-[120px] object-contain"
-          />
+          <PrismaLogo className="w-full max-h-[120px] text-gray-900 dark:text-white" />
         </div>
         <div className="flex items-center justify-center gap-1.5 mt-1">
           <p className="text-xs text-gray-500 dark:text-gray-400">{portalLabel}</p>
