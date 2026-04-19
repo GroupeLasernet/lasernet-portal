@@ -83,16 +83,20 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
         <div key={link.labelKey}>
           <button
             onClick={() => toggleGroup(link.labelKey)}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
               isChildActive
                 ? 'text-brand-700 bg-brand-50 dark:text-brand-300 dark:bg-brand-900/30'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700/50'
+                : isExpanded
+                  ? 'text-gray-800 bg-gray-50/80 dark:text-gray-200 dark:bg-gray-700/40'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700/50'
             }`}
           >
-            {link.icon}
+            <span className={`transition-transform duration-300 ${isExpanded ? 'scale-110' : 'scale-100'}`}>
+              {link.icon}
+            </span>
             <span className="flex-1 text-left">{t('nav', link.labelKey)}</span>
             <svg
-              className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+              className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isExpanded ? 'rotate-90' : ''}`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -101,28 +105,45 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
             </svg>
           </button>
 
-          {isExpanded && (
-            <div className="ml-4 pl-3 border-l border-gray-100 dark:border-gray-700 mt-0.5 mb-1 space-y-0.5">
-              {link.children.map(child => {
-                const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
-                return (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    onClick={onLinkClick}
-                    className={`flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors ${
-                      childActive
-                        ? 'text-brand-700 bg-brand-50 font-medium dark:text-brand-300 dark:bg-brand-900/30'
-                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/50'
-                    }`}
-                  >
-                    {child.icon}
-                    <span>{t('nav', child.labelKey)}</span>
-                  </Link>
-                );
-              })}
+          {/* Animated collapsible children — CSS grid trick for height:auto animation */}
+          <div
+            className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
+            style={{ gridTemplateRows: isExpanded ? '1fr' : '0fr' }}
+          >
+            <div className="overflow-hidden">
+              <div
+                className={`ml-4 pl-3 mt-0.5 mb-1 space-y-0.5 border-l-2 transition-colors duration-300 ${
+                  isExpanded
+                    ? (isChildActive ? 'border-brand-400 dark:border-brand-500' : 'border-gray-200 dark:border-gray-600')
+                    : 'border-transparent'
+                }`}
+              >
+                {link.children.map((child, idx) => {
+                  const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
+                  return (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      onClick={onLinkClick}
+                      style={{
+                        transitionDelay: isExpanded ? `${idx * 50}ms` : '0ms',
+                        opacity: isExpanded ? 1 : 0,
+                        transform: isExpanded ? 'translateX(0)' : 'translateX(-8px)',
+                      }}
+                      className={`flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
+                        childActive
+                          ? 'text-brand-700 bg-brand-50 font-medium dark:text-brand-300 dark:bg-brand-900/30'
+                          : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/50'
+                      }`}
+                    >
+                      {child.icon}
+                      <span>{t('nav', child.labelKey)}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          )}
+          </div>
         </div>
       );
     }
