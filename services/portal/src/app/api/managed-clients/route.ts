@@ -25,9 +25,9 @@ export async function GET() {
         province: mc.province || '',
         postalCode: mc.postalCode || '',
       },
+      // Legacy single field — first active main contact (for backwards compat)
       responsiblePerson: (() => {
-        // Contact.type: "maincontact" (new) | "responsible" (legacy pre-2026-04-13)
-        const r = mc.contacts.find((c) => c.type === 'maincontact' || c.type === 'responsible');
+        const r = mc.contacts.find((c) => (c.type === 'maincontact' || c.type === 'responsible') && !c.archivedAt);
         if (!r) return null;
         return {
           id: r.id, name: r.name, email: r.email,
@@ -35,12 +35,29 @@ export async function GET() {
           trainingPhoto: r.trainingPhoto || null, trainingInvoiceId: r.trainingInvoiceId || null, trainingCompleted: r.trainingCompleted || false,
         };
       })(),
-      subEmployees: mc.contacts
-        .filter((c) => c.type === 'staff' || c.type === 'employee')
+      // Multiple main contacts (new)
+      mainContacts: mc.contacts
+        .filter((c) => (c.type === 'maincontact' || c.type === 'responsible') && !c.archivedAt)
         .map((c) => ({
           id: c.id, name: c.name, email: c.email,
           phone: c.phone || '', role: c.role || '', photo: c.photo || null,
           trainingPhoto: c.trainingPhoto || null, trainingInvoiceId: c.trainingInvoiceId || null, trainingCompleted: c.trainingCompleted || false,
+        })),
+      subEmployees: mc.contacts
+        .filter((c) => (c.type === 'staff' || c.type === 'employee') && !c.archivedAt)
+        .map((c) => ({
+          id: c.id, name: c.name, email: c.email,
+          phone: c.phone || '', role: c.role || '', photo: c.photo || null,
+          trainingPhoto: c.trainingPhoto || null, trainingInvoiceId: c.trainingInvoiceId || null, trainingCompleted: c.trainingCompleted || false,
+        })),
+      // Archived contacts (all types)
+      archivedContacts: mc.contacts
+        .filter((c) => !!c.archivedAt)
+        .map((c) => ({
+          id: c.id, name: c.name, email: c.email, type: c.type,
+          phone: c.phone || '', role: c.role || '', photo: c.photo || null,
+          trainingPhoto: c.trainingPhoto || null, trainingInvoiceId: c.trainingInvoiceId || null, trainingCompleted: c.trainingCompleted || false,
+          archivedAt: c.archivedAt!.toISOString(),
         })),
       addedAt: mc.addedAt.toISOString().split('T')[0],
     }));

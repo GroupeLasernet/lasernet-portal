@@ -77,6 +77,7 @@ const translations = {
     inventory: { fr: 'Inventaire', en: 'Inventory' },
     people: { fr: 'Personnes', en: 'People' },
     improvements: { fr: 'Améliorations', en: 'Improvements' },
+    projects: { fr: 'Projets', en: 'Projects' },
     signOut: { fr: 'Déconnexion', en: 'Sign Out' },
     signingOut: { fr: 'Déconnexion...', en: 'Signing out...' },
     adminPortal: { fr: 'Portail Admin', en: 'Admin Portal' },
@@ -1048,7 +1049,7 @@ const translations = {
     endMeetingTitle: { fr: 'Terminer la réunion', en: 'End Meeting' },
     endMeetingConfirmMsg: { fr: 'Voulez-vous terminer cette réunion ?', en: 'Do you want to end this meeting?' },
     businessRequired: { fr: 'Une entreprise doit être liée avant de terminer la réunion.', en: 'A business must be linked before ending the meeting.' },
-    linkBusinessFirst: { fr: 'Lier une entreprise', en: 'Link a business' },
+    linkBusinessFirst: { fr: 'Relier une entreprise', en: 'Link a business' },
     confirmEnd: { fr: 'Confirmer', en: 'Confirm' },
   },
 

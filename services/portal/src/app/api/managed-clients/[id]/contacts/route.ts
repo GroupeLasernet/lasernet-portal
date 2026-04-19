@@ -44,12 +44,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Only one Main Contact per client: remove any existing one (new or legacy value) first.
-    if (type === 'maincontact') {
-      await prisma.contact.deleteMany({
-        where: { managedClientId: id, type: { in: ['maincontact', 'responsible'] } },
-      });
-    }
+    // Multiple main contacts are now allowed per client.
+    // (Single-main-contact enforcement removed 2026-04-19.)
 
     const contact = await prisma.contact.create({
       data: {

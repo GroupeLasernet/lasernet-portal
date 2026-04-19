@@ -10,7 +10,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { contactId } = params;
     const body = await request.json();
-    const { name, email, phone, role, photo, trainingPhoto, trainingInvoiceId, trainingCompleted } = body;
+    const { name, email, phone, role, photo, trainingPhoto, trainingInvoiceId, trainingCompleted, archivedAt } = body;
     let { type, managedClientId } = body as { type?: string; managedClientId?: string };
 
     // Check email uniqueness if email is being changed
@@ -48,21 +48,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // If this contact will be the Main Contact on the target client, remove that client's existing main first.
-    if (type === 'maincontact' || managedClientId !== undefined) {
-      const currentContact = await prisma.contact.findUnique({ where: { id: contactId } });
-      const effectiveClientId = managedClientId ?? currentContact?.managedClientId;
-      const effectiveType = type ?? currentContact?.type;
-      if (effectiveClientId && (effectiveType === 'maincontact' || effectiveType === 'responsible')) {
-        await prisma.contact.deleteMany({
-          where: {
-            managedClientId: effectiveClientId,
-            type: { in: ['maincontact', 'responsible'] },
-            id: { not: contactId },
-          },
-        });
-      }
-    }
+    // Multiple main contacts are now allowed per client.
+    // (Single-main-contact enforcement removed 2026-04-19.)
 
     const contact = await prisma.contact.update({
       where: { id: contactId },
@@ -74,6 +61,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ...(photo !== undefined && { photo: photo || null }),
         ...(type !== undefined && { type }),
         ...(managedClientId !== undefined && { managedClientId }),
+        // archivedAt: send ISO string to archive, send null to restore
+        ...(archivedAt !== undefined && { archivedAt: archivedAt ? new Date(archivedAt) : null }),
         ...(trainingPhoto !== undefined && { trainingPhoto: trainingPhoto || null }),
         ...(trainingInvoiceId !== undefined && { trainingInvoiceId: trainingInvoiceId || null }),
         ...(trainingCompleted !== undefined && { trainingCompleted }),
@@ -91,6 +80,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         trainingPhoto: contact.trainingPhoto || null,
         trainingInvoiceId: contact.trainingInvoiceId || null,
         trainingCompleted: contact.trainingCompleted || false,
+        archivedAt: contact.archivedAt ? contact.archivedAt.toISOString() : null,
+        type: contact.type,
       },
     });
   } catch (error) {

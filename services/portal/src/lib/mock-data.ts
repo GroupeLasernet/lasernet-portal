@@ -25,16 +25,20 @@ export interface ContactPerson {
   email: string;
   phone: string;
   role: string;
+  type?: string;
   trainingPhoto?: string | null;
   trainingInvoiceId?: string | null;
   trainingCompleted?: boolean;
+  archivedAt?: string | null;
 }
 
 export interface ManagedClient {
   id: string;
   qbClient: QBClient;
-  responsiblePerson: ContactPerson | null;
+  responsiblePerson: ContactPerson | null; // legacy single (first main contact)
+  mainContacts: ContactPerson[];           // all active main contacts
   subEmployees: ContactPerson[];
+  archivedContacts: ContactPerson[];       // archived (any type)
   addedAt: string;
 }
 

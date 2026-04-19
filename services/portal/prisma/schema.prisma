@@ -116,6 +116,9 @@ model Contact {
   trainingInvoiceId String?  // QB invoice ID linked to training
   trainingCompleted Boolean  @default(false)
 
+  // Soft-delete: null = active, set = archived timestamp
+  archivedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

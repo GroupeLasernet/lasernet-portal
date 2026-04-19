@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { type QBClient, type ManagedClient, type ContactPerson } from '@/lib/mock-data';
 import { useLanguage } from '@/lib/LanguageContext';
 import Avatar from '@/components/Avatar';
@@ -106,9 +106,12 @@ interface Station {
   createdAt: string;
 }
 
-export default function AdminClientsPage() {
-  const { t } = useLanguage();
+function AdminClientsPageInner() {
+  const { t, lang } = useLanguage();
+  const fr = lang === 'fr';
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pulseMainContact = searchParams.get('pulse') === 'maincontact';
   const [qbClients, setQbClients] = useState<QBClient[]>([]);
   const [qbSearch, setQbSearch] = useState('');
   const [qbConnected, setQbConnected] = useState(false);
@@ -134,6 +137,7 @@ export default function AdminClientsPage() {
   const [streetViewOpen, setStreetViewOpen] = useState(true);
   const [mainContactOpen, setMainContactOpen] = useState(true);
   const [staffOpen, setStaffOpen] = useState(true);
+  const [archivesOpen, setArchivesOpen] = useState(false);
 
   const [clientInvoices, setClientInvoices] = useState<QBInvoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
@@ -205,9 +209,14 @@ export default function AdminClientsPage() {
   useEffect(() => {
     fetch('/api/managed-clients').then(r => r.json()).then(data => {
       if (data.clients) setManagedClients(data.clients);
+      // Auto-select client from URL param (e.g. from Projects orphan link)
+      const clientParam = searchParams.get('client');
+      if (clientParam && data.clients?.some((mc: ManagedClient) => mc.id === clientParam)) {
+        setSelectedClientId(clientParam);
+      }
       setHasLoaded(true);
     }).catch(() => setHasLoaded(true));
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     fetch('/api/quickbooks/status').then(r => r.json()).then(data => {
@@ -402,35 +411,19 @@ export default function AdminClientsPage() {
         const res = await fetch(`/api/managed-clients/${selectedClient.id}/contacts/${editingContactId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(reassigning ? { ...contactForm, managedClientId: reassignTargetId } : contactForm),
+          body: JSON.stringify(reassigning ? { ...contactForm, type: contactFormType, managedClientId: reassignTargetId } : { ...contactForm, type: contactFormType }),
         });
         const data = await res.json();
         if (res.status === 409) { setContactError(data.error); return; }
         if (data.contact) {
           const updatedContact = { ...data.contact, id: editingContactId };
-          if (reassigning) {
-            // Remove from source client, add to target client.
-            setManagedClients(managedClients.map((mc) => {
-              if (mc.id === selectedClient.id) {
-                if (contactFormType === 'maincontact' && mc.responsiblePerson?.id === editingContactId) {
-                  return { ...mc, responsiblePerson: null };
-                }
-                return { ...mc, subEmployees: mc.subEmployees.filter(e => e.id !== editingContactId) };
-              }
-              if (mc.id === reassignTargetId) {
-                if (contactFormType === 'maincontact') return { ...mc, responsiblePerson: updatedContact };
-                return { ...mc, subEmployees: [...mc.subEmployees, updatedContact] };
-              }
-              return mc;
-            }));
-            setSelectedClientId(reassignTargetId);
-          } else {
-            setManagedClients(managedClients.map((mc) => {
-              if (mc.id !== selectedClient.id) return mc;
-              if (contactFormType === 'maincontact' && mc.responsiblePerson?.id === editingContactId) return { ...mc, responsiblePerson: updatedContact };
-              return { ...mc, subEmployees: mc.subEmployees.map(e => e.id === editingContactId ? updatedContact : e) };
-            }));
-          }
+          // Refetch to get clean state with mainContacts/archivedContacts
+          try {
+            const freshRes = await fetch('/api/managed-clients');
+            const freshData = await freshRes.json();
+            if (freshData.clients) setManagedClients(freshData.clients);
+          } catch { /* fallback: optimistic update */ }
+          if (reassigning) setSelectedClientId(reassignTargetId);
         }
       } catch (error) { console.error('Error updating contact:', error); }
       setShowContactForm(false); setEditingContactId(null); setReassignTargetId('');
@@ -443,11 +436,12 @@ export default function AdminClientsPage() {
         const data = await res.json();
         if (res.status === 409) { setContactError(data.error); return; }
         if (data.contact) {
-          setManagedClients(managedClients.map((mc) => {
-            if (mc.id !== selectedClient.id) return mc;
-            if (contactFormType === 'maincontact') return { ...mc, responsiblePerson: data.contact };
-            return { ...mc, subEmployees: [...mc.subEmployees, data.contact] };
-          }));
+          // Refetch to get clean state with mainContacts/archivedContacts
+          try {
+            const freshRes = await fetch('/api/managed-clients');
+            const freshData = await freshRes.json();
+            if (freshData.clients) setManagedClients(freshData.clients);
+          } catch { /* fallback */ }
         }
       } catch (error) { console.error('Error adding contact:', error); }
       try {
@@ -463,23 +457,75 @@ export default function AdminClientsPage() {
   const handleRemoveEmployee = async (clientId: string, employeeId: string) => {
     try {
       await fetch(`/api/managed-clients/${clientId}/contacts/${employeeId}`, { method: 'DELETE' });
-      setManagedClients(managedClients.map((mc) => {
-        if (mc.id !== clientId) return mc;
-        return { ...mc, subEmployees: mc.subEmployees.filter(e => e.id !== employeeId) };
-      }));
+      const freshRes = await fetch('/api/managed-clients');
+      const freshData = await freshRes.json();
+      if (freshData.clients) setManagedClients(freshData.clients);
     } catch (error) { console.error('Error removing staff member:', error); }
   };
 
-  const handleRemoveResponsible = async (clientId: string) => {
+  const handleRemoveResponsible = async (clientId: string, contactId?: string) => {
     const client = managedClients.find((mc) => mc.id === clientId);
-    if (!client?.responsiblePerson) return;
+    if (!client) return;
+    const targetId = contactId || client.responsiblePerson?.id;
+    if (!targetId) return;
     try {
-      await fetch(`/api/managed-clients/${clientId}/contacts/${client.responsiblePerson.id}`, { method: 'DELETE' });
-      setManagedClients(managedClients.map((mc) => {
-        if (mc.id !== clientId) return mc;
-        return { ...mc, responsiblePerson: null };
-      }));
+      await fetch(`/api/managed-clients/${clientId}/contacts/${targetId}`, { method: 'DELETE' });
+      const freshRes = await fetch('/api/managed-clients');
+      const freshData = await freshRes.json();
+      if (freshData.clients) setManagedClients(freshData.clients);
     } catch (error) { console.error('Error removing main contact:', error); }
+  };
+
+  const handleArchiveContact = async (clientId: string, contactId: string) => {
+    try {
+      await fetch(`/api/managed-clients/${clientId}/contacts/${contactId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archivedAt: new Date().toISOString() }),
+      });
+      const freshRes = await fetch('/api/managed-clients');
+      const freshData = await freshRes.json();
+      if (freshData.clients) setManagedClients(freshData.clients);
+    } catch (error) { console.error('Error archiving contact:', error); }
+  };
+
+  const handleRestoreContact = async (clientId: string, contactId: string) => {
+    try {
+      await fetch(`/api/managed-clients/${clientId}/contacts/${contactId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archivedAt: null }),
+      });
+      const freshRes = await fetch('/api/managed-clients');
+      const freshData = await freshRes.json();
+      if (freshData.clients) setManagedClients(freshData.clients);
+    } catch (error) { console.error('Error restoring contact:', error); }
+  };
+
+  const handlePromoteToMain = async (clientId: string, contactId: string) => {
+    try {
+      await fetch(`/api/managed-clients/${clientId}/contacts/${contactId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'maincontact' }),
+      });
+      const freshRes = await fetch('/api/managed-clients');
+      const freshData = await freshRes.json();
+      if (freshData.clients) setManagedClients(freshData.clients);
+    } catch (error) { console.error('Error promoting contact:', error); }
+  };
+
+  const handleDemoteToStaff = async (clientId: string, contactId: string) => {
+    try {
+      await fetch(`/api/managed-clients/${clientId}/contacts/${contactId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'staff' }),
+      });
+      const freshRes = await fetch('/api/managed-clients');
+      const freshData = await freshRes.json();
+      if (freshData.clients) setManagedClients(freshData.clients);
+    } catch (error) { console.error('Error demoting contact:', error); }
   };
 
   // Invoice preview handlers
@@ -636,7 +682,7 @@ export default function AdminClientsPage() {
     switch (confirmDelete.type) {
       case 'station': handleDeleteStation(confirmDelete.id); break;
       case 'client': handleRemoveClient(confirmDelete.id); break;
-      case 'maincontact': handleRemoveResponsible(confirmDelete.id); break;
+      case 'maincontact': handleRemoveResponsible(confirmDelete.id, confirmDelete.id2); break;
       case 'staff': handleRemoveEmployee(confirmDelete.id, confirmDelete.id2 || ''); break;
       case 'training': handleDeleteTraining(confirmDelete.id); break;
     }
@@ -963,8 +1009,8 @@ export default function AdminClientsPage() {
                       <p className="text-sm font-medium truncate">{mc.qbClient.displayName}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{mc.qbClient.companyName}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        {mc.responsiblePerson && (
-                          <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded-full">Main Contact set</span>
+                        {(mc.mainContacts?.length || 0) > 0 && (
+                          <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded-full">{mc.mainContacts.length} {fr ? 'principal' : 'main'}{mc.mainContacts.length > 1 ? (fr ? 'aux' : 's') : ''}</span>
                         )}
                         {mc.subEmployees.length > 0 && (
                           <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded-full">{mc.subEmployees.length} staff</span>
@@ -1038,55 +1084,77 @@ export default function AdminClientsPage() {
                   </div>
                 )}
 
-                {/* Main Contact — Collapsible */}
+                {/* Main Contacts — Collapsible (multiple) */}
                 <div className="border-b border-gray-100 dark:border-gray-700">
                   <div className="flex items-center justify-between px-5">
                     <button onClick={() => setMainContactOpen(!mainContactOpen)} className="flex items-center gap-2 py-3 hover:opacity-80 transition-opacity">
                       <ChevronIcon open={mainContactOpen} />
-                      <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" />
                       </svg>
                       <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('clients', 'mainContact')}</span>
+                      {(selectedClient.mainContacts?.length || 0) > 0 && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">({selectedClient.mainContacts.length})</span>}
                     </button>
-                    {!selectedClient.responsiblePerson && mainContactOpen && (
-                      <button onClick={() => openContactForm('maincontact')} className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ {t('clients', 'setMainContact')}</button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {mainContactOpen && (
+                        <>
+                          <button onClick={() => openContactForm('maincontact')} className={`text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors ${pulseMainContact ? 'animate-pulse ring-2 ring-green-400 ring-offset-2 dark:ring-offset-gray-800' : ''}`}>{t('clients', 'setMainContact')}</button>
+                          <button onClick={() => setArchivesOpen(!archivesOpen)} className="text-xs bg-gray-500 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg transition-colors">{fr ? 'Archives' : 'Archives'}</button>
+                        </>
+                      )}
+                    </div>
                   </div>
                   {mainContactOpen && (
                     <div className="px-5 pb-4">
-                      {selectedClient.responsiblePerson ? (
-                        <div className="flex items-center gap-4 bg-green-50 dark:bg-green-900/30 rounded-xl p-4">
-                          <Avatar photo={selectedClient.responsiblePerson.photo} name={selectedClient.responsiblePerson.name} size="lg" />
-                          <div className="flex-1">
-                            <p className="font-semibold">{selectedClient.responsiblePerson.name}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{selectedClient.responsiblePerson.role}</p>
-                            <div className="flex items-center gap-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
-                              <span>{selectedClient.responsiblePerson.email}</span>
-                              <span>{selectedClient.responsiblePerson.phone}</span>
+                      {(selectedClient.mainContacts?.length || 0) > 0 ? (
+                        <div className="space-y-2">
+                          {selectedClient.mainContacts.map((mc) => (
+                            <div key={mc.id} className="bg-green-50 dark:bg-green-900/30 rounded-xl p-4">
+                              <div className="flex items-center gap-4">
+                                <Avatar photo={mc.photo} name={mc.name} size="lg" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <svg className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" /></svg>
+                                    <p className="font-semibold truncate">{mc.name}</p>
+                                  </div>
+                                  <p className="text-sm text-gray-600 dark:text-gray-400">{mc.role}</p>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    <span>{mc.email}</span>
+                                    {mc.phone && <span className="ml-3">{mc.phone}</span>}
+                                  </div>
+                                  {/* Training tree under email */}
+                                  <div className="mt-1.5 ml-0.5">
+                                    <div className="flex items-center text-[11px]">
+                                      <span className="flex-shrink-0 w-5 flex items-center text-gray-300 dark:text-gray-600">
+                                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2v16M6 10h8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                      </span>
+                                      <span className={`${mc.trainingCompleted ? 'text-green-600 dark:text-green-400' : 'text-red-400 dark:text-red-500'}`}>
+                                        {mc.trainingCompleted ? (fr ? 'Formation complétée' : 'Training completed') : (fr ? 'Formation non complétée' : 'Training not completed')}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center text-[11px]">
+                                      <span className="flex-shrink-0 w-5 flex items-center text-gray-300 dark:text-gray-600">
+                                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2v8h8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                      </span>
+                                      <span className={`${mc.trainingPhoto ? 'text-green-600 dark:text-green-400' : 'text-red-400 dark:text-red-500'}`}>
+                                        {mc.trainingPhoto ? (fr ? 'Livret reçu' : 'Booklet received') : (fr ? 'Livret non reçu' : 'No booklet')}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <button onClick={() => handleDemoteToStaff(selectedClient.id, mc.id)} className="text-gray-400 dark:text-gray-500 hover:text-amber-500 dark:hover:text-amber-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={fr ? 'Rétrograder' : 'Demote to staff'}>
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                                  </button>
+                                  <button onClick={() => handleArchiveContact(selectedClient.id, mc.id)} className="text-gray-400 dark:text-gray-500 hover:text-orange-500 dark:hover:text-orange-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={fr ? 'Archiver' : 'Archive'}>
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                                  </button>
+                                  <button onClick={() => openEditForm('maincontact', mc)} className="text-gray-400 dark:text-gray-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={t('common', 'edit')}><EditIcon /></button>
+                                  <button onClick={() => setConfirmDelete({ type: 'maincontact', id: selectedClient.id, id2: mc.id, label: t('clients', 'removeMainContact') })} className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={t('common', 'remove')}><TrashIcon /></button>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="w-14 flex flex-col items-center gap-1">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium leading-none">{t('clients', 'trainingCol')}</span>
-                              {selectedClient.responsiblePerson.trainingCompleted ? (
-                                <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                              ) : (
-                                <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                              )}
-                            </div>
-                            <div className="w-14 flex flex-col items-center gap-1">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium leading-none">{t('clients', 'bookletCol')}</span>
-                              {selectedClient.responsiblePerson.trainingPhoto ? (
-                                <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                              ) : (
-                                <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => openEditForm('maincontact', selectedClient.responsiblePerson!)} className="text-gray-400 dark:text-gray-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={t('common', 'edit')}><EditIcon /></button>
-                            <button onClick={() => setConfirmDelete({ type: 'maincontact', id: selectedClient.id, label: t('clients', 'removeMainContact') })} className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={t('common', 'remove')}><TrashIcon /></button>
-                          </div>
+                          ))}
                         </div>
                       ) : (
                         <p className="text-sm text-gray-400 dark:text-gray-500 italic">{t('clients', 'noMainContact')}</p>
@@ -1096,7 +1164,7 @@ export default function AdminClientsPage() {
                 </div>
 
                 {/* Staff — Collapsible */}
-                <div>
+                <div className="border-b border-gray-100 dark:border-gray-700">
                   <div className="flex items-center justify-between px-5">
                     <button onClick={() => setStaffOpen(!staffOpen)} className="flex items-center gap-2 py-3 hover:opacity-80 transition-opacity">
                       <ChevronIcon open={staffOpen} />
@@ -1106,9 +1174,11 @@ export default function AdminClientsPage() {
                       <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('clients', 'staff')}</span>
                       {selectedClient.subEmployees.length > 0 && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">({selectedClient.subEmployees.length})</span>}
                     </button>
-                    {staffOpen && (
-                      <button onClick={() => openContactForm('staff')} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors">+ {t('clients', 'addStaff')}</button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {staffOpen && (
+                        <button onClick={() => openContactForm('staff')} className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors">{t('clients', 'addStaff')}</button>
+                      )}
+                    </div>
                   </div>
                   {staffOpen && (
                     <div className="px-5 pb-4">
@@ -1120,29 +1190,37 @@ export default function AdminClientsPage() {
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-sm">{emp.name}</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">{emp.role}</p>
-                                <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-                                  <span>{emp.email}</span><span>{emp.phone}</span>
+                                <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                  <span>{emp.email}</span>
+                                  {emp.phone && <span className="ml-3">{emp.phone}</span>}
+                                </div>
+                                {/* Training tree under email */}
+                                <div className="mt-1.5 ml-0.5">
+                                  <div className="flex items-center text-[11px]">
+                                    <span className="flex-shrink-0 w-5 flex items-center text-gray-300 dark:text-gray-600">
+                                      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2v16M6 10h8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                    </span>
+                                    <span className={`${emp.trainingCompleted ? 'text-green-600 dark:text-green-400' : 'text-red-400 dark:text-red-500'}`}>
+                                      {emp.trainingCompleted ? (fr ? 'Formation complétée' : 'Training completed') : (fr ? 'Formation non complétée' : 'Training not completed')}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center text-[11px]">
+                                    <span className="flex-shrink-0 w-5 flex items-center text-gray-300 dark:text-gray-600">
+                                      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2v8h8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                    </span>
+                                    <span className={`${emp.trainingPhoto ? 'text-green-600 dark:text-green-400' : 'text-red-400 dark:text-red-500'}`}>
+                                      {emp.trainingPhoto ? (fr ? 'Livret reçu' : 'Booklet received') : (fr ? 'Livret non reçu' : 'No booklet')}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
-                                <div className="w-14 flex flex-col items-center gap-1">
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium leading-none">{t('clients', 'trainingCol')}</span>
-                                  {emp.trainingCompleted ? (
-                                    <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                  ) : (
-                                    <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                  )}
-                                </div>
-                                <div className="w-14 flex flex-col items-center gap-1">
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-medium leading-none">{t('clients', 'bookletCol')}</span>
-                                  {emp.trainingPhoto ? (
-                                    <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                  ) : (
-                                    <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <button onClick={() => handlePromoteToMain(selectedClient.id, emp.id)} className="text-gray-400 dark:text-gray-500 hover:text-yellow-500 dark:hover:text-yellow-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={fr ? 'Promouvoir' : 'Promote to main contact'}>
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                                </button>
+                                <button onClick={() => handleArchiveContact(selectedClient.id, emp.id)} className="text-gray-400 dark:text-gray-500 hover:text-orange-500 dark:hover:text-orange-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={fr ? 'Archiver' : 'Archive'}>
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                                </button>
                                 <button onClick={() => openEditForm('staff', emp)} className="text-gray-400 dark:text-gray-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={t('common', 'edit')}><EditIcon /></button>
                                 <button onClick={() => setConfirmDelete({ type: 'staff', id: selectedClient.id, id2: emp.id, label: t('clients', 'removeStaff') })} className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-gray-700" title={t('common', 'remove')}><TrashIcon size="w-4 h-4" /></button>
                               </div>
@@ -1155,6 +1233,48 @@ export default function AdminClientsPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Archives — Collapsible */}
+                {archivesOpen && (
+                  <div className="border-b border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center justify-between px-5">
+                      <div className="flex items-center gap-2 py-3">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Archives</span>
+                        {(selectedClient.archivedContacts?.length || 0) > 0 && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">({selectedClient.archivedContacts.length})</span>}
+                      </div>
+                      <button onClick={() => setArchivesOpen(false)} className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-2 py-1 rounded transition-colors">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                    <div className="px-5 pb-4">
+                      {(selectedClient.archivedContacts?.length || 0) > 0 ? (
+                        <div className="space-y-2">
+                          {selectedClient.archivedContacts.map((arc) => (
+                            <div key={arc.id} className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-xl p-3 opacity-70">
+                              <Avatar photo={arc.photo} name={arc.name} size="md" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-sm text-gray-600 dark:text-gray-400">{arc.name}</p>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                                    {(arc.type === 'maincontact' || arc.type === 'responsible') ? (fr ? 'Contact principal' : 'Main contact') : (fr ? 'Personnel' : 'Staff')}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-400 dark:text-gray-500">{arc.email}</p>
+                                {arc.archivedAt && <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{fr ? 'Archivé le' : 'Archived'} {new Date(arc.archivedAt).toLocaleDateString(fr ? 'fr-CA' : 'en-CA')}</p>}
+                              </div>
+                              <button onClick={() => handleRestoreContact(selectedClient.id, arc.id)} className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 px-3 py-1.5 rounded-lg transition-colors">
+                                {fr ? 'Restaurer' : 'Restore'}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400 dark:text-gray-500 italic">{fr ? 'Aucun contact archivé' : 'No archived contacts'}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* INVOICES BOX */}
@@ -1625,6 +1745,31 @@ export default function AdminClientsPage() {
                 <input className="input-field" value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} placeholder="e.g. IT Manager, Receptionist, Owner" />
               </div>
 
+              {/* Type toggle (maincontact / staff) */}
+              {editingContactId && (
+                <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{fr ? 'Type de contact' : 'Contact type'}</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setContactFormType('maincontact')}
+                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${contactFormType === 'maincontact' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 ring-2 ring-yellow-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" /></svg>
+                      {fr ? 'Contact principal' : 'Main contact'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setContactFormType('staff')}
+                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${contactFormType === 'staff' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                      {fr ? 'Personnel' : 'Staff'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* QR Code for self-edit profile */}
               {editingContactId && contactForm.email && (
                 <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
@@ -1781,23 +1926,23 @@ export default function AdminClientsPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('clients', 'attendees')}</label>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t('clients', 'addStaffFrom')} {selectedClient.qbClient.companyName}</p>
                 <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {/* Main contact */}
-                  {selectedClient.responsiblePerson && (
-                    <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
+                  {/* Main contacts */}
+                  {(selectedClient.mainContacts || []).map(mc => (
+                    <div key={mc.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
                       <div className="flex items-center gap-2">
-                        <Avatar photo={selectedClient.responsiblePerson.photo} name={selectedClient.responsiblePerson.name} size="sm" />
+                        <Avatar photo={mc.photo} name={mc.name} size="sm" />
                         <div>
-                          <p className="text-sm font-medium">{selectedClient.responsiblePerson.name}</p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">{selectedClient.responsiblePerson.role || 'Main Contact'}</p>
+                          <p className="text-sm font-medium">{mc.name}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">{mc.role || 'Main Contact'}</p>
                         </div>
                       </div>
-                      {trainingAttendees.some(a => a.contactId === selectedClient.responsiblePerson!.id) ? (
-                        <button onClick={() => setTrainingAttendees(prev => prev.filter(a => a.contactId !== selectedClient.responsiblePerson!.id))} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30">Remove</button>
+                      {trainingAttendees.some(a => a.contactId === mc.id) ? (
+                        <button onClick={() => setTrainingAttendees(prev => prev.filter(a => a.contactId !== mc.id))} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30">Remove</button>
                       ) : (
-                        <button onClick={() => setTrainingAttendees(prev => [...prev, { contactId: selectedClient.responsiblePerson!.id, name: selectedClient.responsiblePerson!.name, email: selectedClient.responsiblePerson!.email }])} className="text-xs text-teal-600 hover:text-teal-700 px-2 py-1 rounded hover:bg-teal-50 dark:hover:bg-teal-900/30 font-medium">+ Add</button>
+                        <button onClick={() => setTrainingAttendees(prev => [...prev, { contactId: mc.id, name: mc.name, email: mc.email }])} className="text-xs text-teal-600 hover:text-teal-700 px-2 py-1 rounded hover:bg-teal-50 dark:hover:bg-teal-900/30 font-medium">+ Add</button>
                       )}
                     </div>
-                  )}
+                  ))}
                   {/* Staff employees */}
                   {selectedClient.subEmployees.map(emp => (
                     <div key={emp.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
@@ -1815,7 +1960,7 @@ export default function AdminClientsPage() {
                       )}
                     </div>
                   ))}
-                  {!selectedClient.responsiblePerson && selectedClient.subEmployees.length === 0 && (
+                  {(selectedClient.mainContacts || []).length === 0 && selectedClient.subEmployees.length === 0 && (
                     <p className="text-xs text-gray-400 dark:text-gray-500 italic py-2">{t('clients', 'noContactsToAdd')}</p>
                   )}
                 </div>
@@ -1962,5 +2107,13 @@ export default function AdminClientsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminClientsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500" /></div>}>
+      <AdminClientsPageInner />
+    </Suspense>
   );
 }
