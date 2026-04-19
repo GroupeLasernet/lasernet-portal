@@ -73,18 +73,27 @@ export default function VisitsPage() {
   const [peopleSearching, setPeopleSearching] = useState(false);
   const draggedPersonRef = useRef<{ id: string; name: string; email: string | null; company: string | null } | null>(null);
 
-  // Hover-expand for grid view (with 500ms delay)
+  // Hover-expand for grid view (500ms enter delay + 300ms leave delay to prevent reflow flicker)
   const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
-  const hoverGridTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverGridEnterRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverGridLeaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleGridMouseEnter = useCallback((groupId: string) => {
-    if (hoverGridTimerRef.current) clearTimeout(hoverGridTimerRef.current);
-    hoverGridTimerRef.current = setTimeout(() => setHoveredGroupId(groupId), 500);
-  }, []);
+    // Cancel any pending leave (mouse moved back onto a card before leave fired)
+    if (hoverGridLeaveRef.current) { clearTimeout(hoverGridLeaveRef.current); hoverGridLeaveRef.current = null; }
+    // If already hovering this card, do nothing
+    if (hoveredGroupId === groupId) return;
+    // Clear any previous enter timer
+    if (hoverGridEnterRef.current) clearTimeout(hoverGridEnterRef.current);
+    hoverGridEnterRef.current = setTimeout(() => setHoveredGroupId(groupId), 500);
+  }, [hoveredGroupId]);
 
   const handleGridMouseLeave = useCallback(() => {
-    if (hoverGridTimerRef.current) { clearTimeout(hoverGridTimerRef.current); hoverGridTimerRef.current = null; }
-    setHoveredGroupId(null);
+    // Cancel any pending enter
+    if (hoverGridEnterRef.current) { clearTimeout(hoverGridEnterRef.current); hoverGridEnterRef.current = null; }
+    // Delay the collapse to absorb brief mouse-outs during CSS reflow
+    if (hoverGridLeaveRef.current) clearTimeout(hoverGridLeaveRef.current);
+    hoverGridLeaveRef.current = setTimeout(() => setHoveredGroupId(null), 300);
   }, []);
 
   // Business linking per group
@@ -509,10 +518,11 @@ export default function VisitsPage() {
     } catch { /* silently fail */ }
   };
 
-  // Cleanup grid hover timer on unmount
+  // Cleanup grid hover timers on unmount
   useEffect(() => {
     return () => {
-      if (hoverGridTimerRef.current) clearTimeout(hoverGridTimerRef.current);
+      if (hoverGridEnterRef.current) clearTimeout(hoverGridEnterRef.current);
+      if (hoverGridLeaveRef.current) clearTimeout(hoverGridLeaveRef.current);
     };
   }, []);
 
@@ -850,7 +860,6 @@ export default function VisitsPage() {
                     style={{
                       width: isHov ? '100%' : isCollapsedByHover ? '100%' : 'calc(50% - 8px)',
                       maxHeight: isCollapsedByHover ? 48 : 1200,
-                      order: isHov ? -1 : 0,
                     }}
                     onMouseEnter={() => { handleGridMouseEnter(vg.id); }}
                     onMouseLeave={() => { handleGridMouseLeave(); }}
