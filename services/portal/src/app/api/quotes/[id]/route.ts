@@ -53,7 +53,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const { status, notes, expiresAt, items } = body;
+    const { status, notes, quoteMessage, expiresAt, items } = body;
 
     const existing = await prisma.quote.findUnique({ where: { id: params.id } });
     if (!existing) {
@@ -69,6 +69,7 @@ export async function PATCH(
       if (status === 'pending') updateData.sentAt = new Date();
     }
     if (notes !== undefined) updateData.notes = notes || null;
+    if (quoteMessage !== undefined) updateData.quoteMessage = quoteMessage || null;
     if (expiresAt !== undefined) updateData.expiresAt = expiresAt ? new Date(expiresAt) : null;
 
     // If items are provided, replace all items
@@ -82,6 +83,9 @@ export async function PATCH(
             quantity: item.quantity ?? 1,
             unitPrice: item.unitPrice ?? 0,
             unit: item.unit || null,
+            serviceDate: item.serviceDate ? new Date(item.serviceDate) : null,
+            productService: item.productService || null,
+            taxCode: item.taxCode || 'TPS/TVQ',
             notes: item.notes || null,
             sortOrder: idx,
           })),

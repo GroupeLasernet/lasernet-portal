@@ -43,7 +43,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { projectId, notes, expiresAt, items } = body;
+    const { projectId, notes, quoteMessage, expiresAt, items } = body;
 
     if (!projectId) {
       return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
         quoteNumber,
         status: 'draft',
         notes: notes || null,
+        quoteMessage: quoteMessage || null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         items: Array.isArray(items) && items.length > 0
           ? {
@@ -73,6 +74,9 @@ export async function POST(request: NextRequest) {
                 quantity: item.quantity ?? 1,
                 unitPrice: item.unitPrice ?? 0,
                 unit: item.unit || null,
+                serviceDate: item.serviceDate ? new Date(item.serviceDate) : null,
+                productService: item.productService || null,
+                taxCode: item.taxCode || 'TPS/TVQ',
                 notes: item.notes || null,
                 sortOrder: idx,
               })),

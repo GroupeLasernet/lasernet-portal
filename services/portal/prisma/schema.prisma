@@ -968,6 +968,9 @@ model Quote {
   status          String   @default("draft") // "draft" | "pending" | "accepted" | "refused"
   notes           String?  @db.Text
 
+  // Customer-facing message shown on the quote PDF
+  quoteMessage    String?  @db.Text // "Message affiché sur le devis"
+
   // Set when this quote was duplicated from another
   parentQuoteId   String?
 
@@ -993,10 +996,13 @@ model QuoteItem {
   quoteId         String
   quote           Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
-  description     String             // line item description
+  description     String   @db.Text   // line item description (multi-line)
   quantity        Float    @default(1)
   unitPrice       Float    @default(0)
   unit            String?            // "each" | "hour" | "month" | etc.
+  serviceDate     DateTime?          // "Date du service" per line
+  productService  String?            // "Pièce" | "Notes" | "Service" | etc. (Produit/Service)
+  taxCode         String   @default("TPS/TVQ") // "TPS/TVQ" | "TPS" | "TVQ" | "Exempt"
   notes           String?  @db.Text
   sortOrder       Int      @default(0)
 
