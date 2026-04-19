@@ -13,10 +13,10 @@ const adminLinks: SidebarLink[] = [
       </svg>
     ),
   },
-  // ── Integration (expandable) ──
+  // ── Follow-up (expandable) — was "Integration", renamed 2026-04-19 ──
   {
-    labelKey: 'integration',
-    href: '#integration',
+    labelKey: 'followUp',
+    href: '#followUp',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -111,35 +111,57 @@ const adminLinks: SidebarLink[] = [
           </svg>
         ),
       },
+      {
+        labelKey: 'inventory',
+        href: '/admin/inventory',
+        icon: (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+        ),
+      },
     ],
   },
   // Clients tab removed — merged into Businesses page (2026-04-19)
+  // ── Integration (expandable) — stations, PCs, machines ──
   {
-    labelKey: 'stations',
-    href: '/admin/stations',
+    labelKey: 'integration',
+    href: '#integration',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     ),
-  },
-  {
-    labelKey: 'stationPCs',
-    href: '/admin/station-pcs',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: 'machines',
-    href: '/admin/machines',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.42 15.17l-5.1-3.26a2 2 0 01-.94-1.64V4.41a2 2 0 012.94-1.76l5.1 3.26a2 2 0 01.94 1.64v5.86a2 2 0 01-2.94 1.76zM20.16 12.83l-5.1 3.26a2 2 0 01-2.94-1.76V8.47a2 2 0 01.94-1.64l5.1-3.26a2 2 0 012.94 1.76v5.86a2 2 0 01-.94 1.64z" />
-      </svg>
-    ),
+    children: [
+      {
+        labelKey: 'stations',
+        href: '/admin/stations',
+        icon: (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+          </svg>
+        ),
+      },
+      {
+        labelKey: 'stationPCs',
+        href: '/admin/station-pcs',
+        icon: (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        ),
+      },
+      {
+        labelKey: 'machines',
+        href: '/admin/machines',
+        icon: (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.42 15.17l-5.1-3.26a2 2 0 01-.94-1.64V4.41a2 2 0 012.94-1.76l5.1 3.26a2 2 0 01.94 1.64v5.86a2 2 0 01-2.94 1.76zM20.16 12.83l-5.1 3.26a2 2 0 01-2.94-1.76V8.47a2 2 0 01.94-1.64l5.1-3.26a2 2 0 012.94 1.76v5.86a2 2 0 01-.94 1.64z" />
+          </svg>
+        ),
+      },
+    ],
   },
   {
     labelKey: 'training',
@@ -150,15 +172,7 @@ const adminLinks: SidebarLink[] = [
       </svg>
     ),
   },
-  {
-    labelKey: 'inventory',
-    href: '/admin/inventory',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-      </svg>
-    ),
-  },
+  // Inventory moved into Accounting group (2026-04-19)
   {
     labelKey: 'tickets',
     href: '/admin/tickets',

@@ -71,6 +71,7 @@ const translations = {
     businesses: { fr: 'Entreprises', en: 'Businesses' },
     onboarding: { fr: 'Intégration', en: 'Onboarding' },
     integration: { fr: 'Intégration', en: 'Integration' },
+    followUp: { fr: 'Suivi', en: 'Follow-up' },
     search: { fr: 'Recherche', en: 'Search' },
     accounting: { fr: 'Comptabilité', en: 'Accounting' },
     quotes: { fr: 'Soumissions', en: 'Quotes' },
