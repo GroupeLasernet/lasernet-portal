@@ -52,6 +52,21 @@ const MONTH_NAMES_EN = ['January', 'February', 'March', 'April', 'May', 'June', 
 
 // ── Component ────────────────────────────────────────────────────────────────
 
+// Animated glow keyframes (injected once)
+const glowStyleId = 'live-visits-glow-style';
+if (typeof document !== 'undefined' && !document.getElementById(glowStyleId)) {
+  const style = document.createElement('style');
+  style.id = glowStyleId;
+  style.textContent = `
+    @keyframes aura-glow {
+      0%, 100% { box-shadow: 0 0 15px 2px rgba(99,102,241,0.4), 0 0 30px 4px rgba(99,102,241,0.15); }
+      50% { box-shadow: 0 0 25px 6px rgba(99,102,241,0.6), 0 0 50px 10px rgba(99,102,241,0.25); }
+    }
+    .aura-selected { animation: aura-glow 2.5s ease-in-out infinite; }
+  `;
+  document.head.appendChild(style);
+}
+
 export default function VisitsPage() {
   const { t, lang } = useLanguage();
 
@@ -715,7 +730,44 @@ export default function VisitsPage() {
           <div className="flex h-full" style={{ minHeight: isFullscreen ? undefined : 'calc(75vh - 48px)' }}>
 
             {/* ── Left: unassigned visitors + people search ── */}
-            <div className="w-48 flex-shrink-0 flex flex-col">
+            <div
+              className={`w-48 flex-shrink-0 flex flex-col rounded-xl transition-colors ${dragOverGroupId === '__unassigned__' ? 'bg-amber-500/10 border-2 border-dashed border-amber-500/40' : ''}`}
+              onDragOver={(e) => {
+                // Only accept visitor drags (not person search or sidebar items)
+                if (draggedVisitIdRef.current) {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setDragOverGroupId('__unassigned__');
+                }
+              }}
+              onDragLeave={() => { if (dragOverGroupId === '__unassigned__') setDragOverGroupId(null); }}
+              onDrop={async (e) => {
+                e.preventDefault();
+                setDragOverGroupId(null);
+                const visitId = draggedVisitIdRef.current;
+                if (!visitId) return;
+                // Create a new empty group, then move the visitor into it
+                try {
+                  const res = await fetch('/api/visit-groups', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'active' }),
+                  });
+                  const newGroup = await res.json();
+                  const newGroupId = newGroup.id || newGroup.visitGroup?.id;
+                  if (newGroupId) {
+                    await fetch(`/api/visits/${visitId}/move`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ targetGroupId: newGroupId }),
+                    });
+                  }
+                  await fetchVisitGroups();
+                } catch { /* silently fail */ }
+                draggedVisitIdRef.current = null;
+                draggedSourceGroupRef.current = null;
+              }}
+            >
 
               {/* Unassigned visitors (walk-ins who didn't pick a group) */}
               {unassignedVisitors.length > 0 && (
@@ -825,7 +877,7 @@ export default function VisitsPage() {
                   <div
                     key={vg.id}
                     className={`bg-gray-900 border rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer ${
-                      isDragOver ? 'border-brand-500 bg-brand-500/5' : isSelected ? 'border-brand-400/50 shadow-lg shadow-brand-500/10' : 'border-white/10 hover:border-white/20'
+                      isDragOver ? 'border-brand-500 bg-brand-500/5' : isSelected ? 'border-indigo-400/60 aura-selected' : 'border-white/10 hover:border-white/20'
                     }`}
                     style={{
                       width: isSelected ? '100%' : isCollapsed ? '100%' : 'calc(50% - 8px)',
@@ -861,7 +913,7 @@ export default function VisitsPage() {
                         <p className="text-xs text-white/30 flex-shrink-0">{vg.visitors.length} {t('liveVisits', 'visitors').toLowerCase()}</p>
                       </div>
                     ) : (
-                      <>
+                      <div className={!isSelected ? 'pointer-events-none' : ''}>
                     {/* ── Container header ── */}
                     <div className="p-4 border-b border-white/10" onClick={(e) => e.stopPropagation()}>
                       {/* Row 1: Business name + type badge + end visit */}
@@ -1225,7 +1277,7 @@ export default function VisitsPage() {
                       </div>
                       <span>{vg.visitors.length} {t('liveVisits', 'visitors').toLowerCase()}</span>
                     </div>
-                    </>
+                    </div>
                     )}
                   </div>
                 );
