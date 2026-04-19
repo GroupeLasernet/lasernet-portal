@@ -70,6 +70,9 @@ const translations = {
     liveVisits: { fr: 'Visites', en: 'Visits' },
     businesses: { fr: 'Entreprises', en: 'Businesses' },
     onboarding: { fr: 'Intégration', en: 'Onboarding' },
+    integration: { fr: 'Intégration', en: 'Integration' },
+    search: { fr: 'Recherche', en: 'Search' },
+    accounting: { fr: 'Comptabilité', en: 'Accounting' },
     quotes: { fr: 'Soumissions', en: 'Quotes' },
     inventory: { fr: 'Inventaire', en: 'Inventory' },
     people: { fr: 'Personnes', en: 'People' },
@@ -983,7 +986,7 @@ const translations = {
     qbClient: { fr: 'Client QB', en: 'QB Client' },
     localBusiness: { fr: 'Local', en: 'Local' },
     // Drag-and-drop / grouping
-    linkBusiness: { fr: 'Lier une entreprise', en: 'Link Business' },
+    linkBusiness: { fr: 'Relier', en: 'Link' },
     createBusiness: { fr: 'Créer une entreprise', en: 'Create Business' },
     unnamedGroup: { fr: 'Groupe sans nom', en: 'Unnamed Group' },
     editName: { fr: 'Renommer', en: 'Rename' },
@@ -1039,7 +1042,7 @@ const translations = {
     collapse: { fr: 'Réduire', en: 'Collapse' },
     // Meeting banner + business display
     meetingPrefix: { fr: 'Réunion', en: 'Meeting' },
-    businessNotRegistered: { fr: 'Entreprise non enregistrée', en: 'Business not registered yet' },
+    businessNotRegistered: { fr: 'Entreprise non liée', en: 'Business not linked' },
     linkedBusiness: { fr: 'Entreprise liée', en: 'Linked business' },
     // End meeting modal
     endMeetingTitle: { fr: 'Terminer la réunion', en: 'End Meeting' },
