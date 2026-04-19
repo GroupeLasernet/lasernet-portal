@@ -109,6 +109,14 @@ export default function VisitsPage() {
   // Fullscreen mode for the live visits dark container
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // End meeting modal
+  const [endingGroupId, setEndingGroupId] = useState<string | null>(null);
+  const [endModalBizSearch, setEndModalBizSearch] = useState('');
+  const [endModalBizResults, setEndModalBizResults] = useState<BusinessSearchResult[]>([]);
+  const [endModalSearching, setEndModalSearching] = useState(false);
+  const [endModalCreating, setEndModalCreating] = useState(false);
+  const [endModalNewBiz, setEndModalNewBiz] = useState({ name: '', address: '', city: '', province: '', phone: '', email: '' });
+
   // Mobile move dropdown
   const [mobileMovingVisitId, setMobileMovingVisitId] = useState<string | null>(null);
 
@@ -551,6 +559,79 @@ export default function VisitsPage() {
     } catch { /* silently fail */ }
   };
 
+  // ── End meeting modal: business search ──
+  useEffect(() => {
+    if (!endingGroupId) return;
+    if (endModalBizSearch.length < 2) { setEndModalBizResults([]); return; }
+    const timer = setTimeout(async () => {
+      setEndModalSearching(true);
+      try {
+        const res = await fetch(`/api/kiosk/businesses?q=${encodeURIComponent(endModalBizSearch)}`);
+        const data = await res.json();
+        const raw: any[] = Array.isArray(data) ? data : data.results || data.businesses || [];
+        setEndModalBizResults(raw.map((b: any) => ({
+          id: b.id, name: b.name,
+          type: b.type === 'managed' ? 'qb' as const : b.type,
+          managedClientId: b.type === 'managed' ? b.id : b.managedClientId,
+          localBusinessId: b.type === 'local' ? b.id : b.localBusinessId,
+        })));
+      } catch { setEndModalBizResults([]); }
+      setEndModalSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [endModalBizSearch, endingGroupId]);
+
+  // Link business from end-meeting modal, then complete the meeting
+  const handleEndModalLinkAndComplete = useCallback(async (biz: BusinessSearchResult) => {
+    if (!endingGroupId) return;
+    const body: Record<string, string> = {};
+    if (biz.type === 'qb' && biz.managedClientId) body.managedClientId = biz.managedClientId;
+    else if (biz.localBusinessId) body.localBusinessId = biz.localBusinessId;
+    else body.localBusinessId = biz.id;
+    try {
+      await fetch(`/api/visit-groups/${endingGroupId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      await handleEndVisit(endingGroupId);
+      setEndingGroupId(null);
+      setEndModalBizSearch(''); setEndModalBizResults([]); setEndModalCreating(false);
+    } catch { /* silently fail */ }
+  }, [endingGroupId, handleEndVisit]);
+
+  // Create business from end-meeting modal, link, then complete
+  const handleEndModalCreateAndComplete = useCallback(async () => {
+    if (!endingGroupId || !endModalNewBiz.name.trim()) return;
+    try {
+      const res = await fetch('/api/local-businesses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(endModalNewBiz),
+      });
+      const data = await res.json();
+      const bizId = data.id || data.localBusiness?.id;
+      if (bizId) {
+        await fetch(`/api/visit-groups/${endingGroupId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ localBusinessId: bizId }),
+        });
+        await handleEndVisit(endingGroupId);
+      }
+      setEndingGroupId(null);
+      setEndModalBizSearch(''); setEndModalBizResults([]); setEndModalCreating(false);
+      setEndModalNewBiz({ name: '', address: '', city: '', province: '', phone: '', email: '' });
+    } catch { /* silently fail */ }
+  }, [endingGroupId, endModalNewBiz, handleEndVisit]);
+
+  // Confirm end when business is already linked
+  const handleEndModalConfirm = useCallback(async () => {
+    if (!endingGroupId) return;
+    await handleEndVisit(endingGroupId);
+    setEndingGroupId(null);
+  }, [endingGroupId, handleEndVisit]);
+
   // ── Agenda month data ──
   const monthNames = lang === 'fr' ? MONTH_NAMES_FR : MONTH_NAMES_EN;
   const dayHeaders = lang === 'fr'
@@ -766,7 +847,8 @@ export default function VisitsPage() {
         </div>
 
         {/* Live visit containers — split layout: left people | divider | right grid */}
-        <div className={`p-6 ${isFullscreen ? 'flex-1 overflow-y-auto' : ''}`} style={{ minHeight: isFullscreen ? undefined : '75vh' }}>
+        {/* Extra padding (p-8) so the animated glow aura has breathing room around cards */}
+        <div className={`p-8 ${isFullscreen ? 'flex-1 overflow-y-auto' : ''}`} style={{ minHeight: isFullscreen ? undefined : '75vh' }}>
           <div className="flex h-full" style={{ minHeight: isFullscreen ? undefined : 'calc(75vh - 48px)' }}>
 
             {/* ── Left: unassigned visitors + people search ── */}
@@ -966,18 +1048,22 @@ export default function VisitsPage() {
                       handleDrop(e, vg.id);
                     }}
                   >
-                    {/* Collapsed: just name + visitor count */}
+                    {/* Collapsed: "Meeting : [name]" + visitor count */}
                     {isCollapsed ? (
                       <div className="px-4 py-3 flex items-center justify-between">
-                        <p className="text-sm font-semibold text-white/60 truncate">{bizName}</p>
+                        <p className="text-sm text-white/60 truncate">
+                          <span className="font-semibold text-brand-400">{t('liveVisits', 'meetingPrefix')} : </span>
+                          <span className="font-semibold">{bizName}</span>
+                        </p>
                         <p className="text-xs text-white/30 flex-shrink-0">{vg.visitors.length} {t('liveVisits', 'visitors').toLowerCase()}</p>
                       </div>
                     ) : (
                       <div className={!isSelected ? 'pointer-events-none' : ''}>
                     {/* ── Container header ── */}
                     <div className="p-4 border-b border-white/10" onClick={(e) => e.stopPropagation()}>
-                      {/* Row 1: Business name + type badge + end visit */}
+                      {/* Row 1: "Meeting : [name]" + end visit button */}
                       <div className="flex items-center gap-2 min-w-0">
+                        <span className="flex-shrink-0 text-lg font-bold text-brand-400">{t('liveVisits', 'meetingPrefix')} :</span>
                         {isEditingName ? (
                           <input
                             type="text"
@@ -995,12 +1081,19 @@ export default function VisitsPage() {
                         ) : (
                           <h3 className="text-lg font-bold text-white truncate flex-1 min-w-0">{bizName}</h3>
                         )}
-                        {bizType && (
-                          <span className={`flex-shrink-0 inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
-                            bizType === 'qb' ? 'bg-blue-500/20 text-blue-300' : 'bg-amber-500/20 text-amber-300'
-                          }`}>
-                            {bizType === 'qb' ? 'QB' : 'Local'}
-                          </span>
+                        {!isEditingName && (
+                          <button
+                            onClick={() => {
+                              setEditingNameGroupId(vg.id);
+                              setEditingNameValue(vg.displayName || getBusinessName(vg));
+                            }}
+                            className="flex-shrink-0 p-1 rounded text-white/30 hover:text-white/60 transition-colors"
+                            title={t('liveVisits', 'editName')}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
                         )}
                         {/* End Visit button */}
                         <button
@@ -1009,41 +1102,51 @@ export default function VisitsPage() {
                             const group = visitGroups.find(g => g.id === vg.id);
                             const hasMain = group?.visitors.some(v => v.isMainContact);
                             if (!hasMain) { alert(t('liveVisits', 'selectMainContactFirst')); return; }
-                            if (confirm(t('liveVisits', 'endVisitConfirm'))) handleEndVisit(vg.id);
+                            setEndingGroupId(vg.id);
                           }}
                           className="flex-shrink-0 px-3 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 text-xs font-semibold transition-colors"
                         >
                           {t('liveVisits', 'endVisit')}
                         </button>
-                        {/* collapse button removed — grid hover controls expand/collapse */}
                       </div>
 
-                      {/* Row 2: Action buttons — aligned row */}
-                      <div className="flex items-center gap-3 mt-2">
-                        {!linked && (
-                          <button
-                            onClick={() => {
-                              setLinkingGroupId(isLinking ? null : vg.id);
-                              setBusinessSearch(''); setBusinessResults([]); setCreatingBusiness(false);
-                            }}
-                            className="text-xs text-brand-400 hover:text-brand-300 font-medium transition-colors"
-                          >
-                            {t('liveVisits', 'linkBusiness')}
-                          </button>
-                        )}
-                        {!isEditingName && (
-                          <button
-                            onClick={() => {
-                              setEditingNameGroupId(vg.id);
-                              setEditingNameValue(vg.displayName || getBusinessName(vg));
-                            }}
-                            className="text-xs text-white/40 hover:text-white/70 font-medium transition-colors flex items-center gap-1"
-                          >
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      {/* Row 2: Linked business display */}
+                      <div className="flex items-center gap-2 mt-2">
+                        {linked ? (
+                          <>
+                            <svg className="w-3.5 h-3.5 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                             </svg>
-                            {t('liveVisits', 'editName')}
-                          </button>
+                            <span className="text-xs text-white/60">
+                              {vg.managedClient?.companyName || vg.managedClient?.displayName || vg.localBusiness?.name}
+                            </span>
+                            {bizType && (
+                              <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${
+                                bizType === 'qb' ? 'bg-blue-500/20 text-blue-300' : 'bg-amber-500/20 text-amber-300'
+                              }`}>
+                                {bizType === 'qb' ? 'QB' : 'Local'}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                            <span className="text-xs text-amber-400/70">{t('liveVisits', 'businessNotRegistered')}</span>
+                            <button
+                              onClick={() => {
+                                setLinkingGroupId(isLinking ? null : vg.id);
+                                setBusinessSearch(''); setBusinessResults([]); setCreatingBusiness(false);
+                              }}
+                              className="text-xs text-brand-400 hover:text-brand-300 font-medium transition-colors flex items-center gap-1"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                              {t('liveVisits', 'linkBusiness')}
+                            </button>
+                          </>
                         )}
                       </div>
 
@@ -1449,6 +1552,151 @@ export default function VisitsPage() {
           </div>
         </div>
       </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          END MEETING MODAL
+          ════════════════════════════════════════════════════════════════════════ */}
+      {endingGroupId && (() => {
+        const endGroup = visitGroups.find(g => g.id === endingGroupId);
+        if (!endGroup) return null;
+        const hasLinkedBiz = !!(endGroup.managedClient || endGroup.localBusiness);
+        const endBizName = endGroup.managedClient?.companyName || endGroup.managedClient?.displayName || endGroup.localBusiness?.name;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setEndingGroupId(null)}>
+            <div className="bg-gray-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              {/* Modal header */}
+              <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">{t('liveVisits', 'endMeetingTitle')}</h3>
+                <button onClick={() => setEndingGroupId(null)} className="p-1 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal body */}
+              <div className="px-6 py-5 space-y-4">
+                {/* Meeting info */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-brand-400">{t('liveVisits', 'meetingPrefix')} :</span>
+                  <span className="text-sm font-semibold text-white">{getBusinessName(endGroup)}</span>
+                  <span className="text-xs text-white/30">({endGroup.visitors.length} {t('liveVisits', 'visitors').toLowerCase()})</span>
+                </div>
+
+                {hasLinkedBiz ? (
+                  <>
+                    {/* Business already linked — show confirmation */}
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+                      <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-sm text-green-300">{endBizName}</span>
+                    </div>
+                    <p className="text-sm text-white/50">{t('liveVisits', 'endMeetingConfirmMsg')}</p>
+                  </>
+                ) : (
+                  <>
+                    {/* No business — must link one */}
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                      <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <span className="text-sm text-amber-300">{t('liveVisits', 'businessRequired')}</span>
+                    </div>
+
+                    {!endModalCreating ? (
+                      <div className="space-y-3">
+                        {/* Search input */}
+                        <input
+                          type="text"
+                          value={endModalBizSearch}
+                          onChange={(e) => setEndModalBizSearch(e.target.value)}
+                          placeholder={t('liveVisits', 'searchBusiness')}
+                          className="w-full bg-gray-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-500"
+                          autoFocus
+                        />
+                        {endModalSearching && (
+                          <div className="flex justify-center py-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-500" />
+                          </div>
+                        )}
+                        {endModalBizResults.length > 0 && (
+                          <div className="max-h-48 overflow-y-auto space-y-1 rounded-xl border border-white/5 p-1">
+                            {endModalBizResults.map(biz => (
+                              <button
+                                key={biz.id}
+                                onClick={() => handleEndModalLinkAndComplete(biz)}
+                                className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors flex items-center gap-2"
+                              >
+                                <span className="text-sm text-white flex-1 truncate">{biz.name}</span>
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${
+                                  biz.type === 'qb' ? 'bg-blue-500/20 text-blue-300'
+                                  : biz.type === 'local' ? 'bg-amber-500/20 text-amber-300'
+                                  : 'bg-purple-500/20 text-purple-300'
+                                }`}>
+                                  {biz.type === 'qb' ? 'QB' : biz.type === 'local' ? 'Local' : t('liveVisits', 'lead')}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => setEndModalCreating(true)}
+                          className="w-full text-sm text-brand-400 hover:text-brand-300 font-medium py-1.5 transition-colors"
+                        >
+                          + {t('liveVisits', 'createBusiness')}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <input type="text" value={endModalNewBiz.name} onChange={(e) => setEndModalNewBiz(f => ({ ...f, name: e.target.value }))} placeholder={t('liveVisits', 'businessName') + ' *'} className="w-full bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-500" autoFocus />
+                        <input type="text" value={endModalNewBiz.address} onChange={(e) => setEndModalNewBiz(f => ({ ...f, address: e.target.value }))} placeholder={t('liveVisits', 'address')} className="w-full bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-500" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="text" value={endModalNewBiz.city} onChange={(e) => setEndModalNewBiz(f => ({ ...f, city: e.target.value }))} placeholder={t('liveVisits', 'city')} className="bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-500" />
+                          <input type="text" value={endModalNewBiz.province} onChange={(e) => setEndModalNewBiz(f => ({ ...f, province: e.target.value }))} placeholder={t('liveVisits', 'province')} className="bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-500" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="text" value={endModalNewBiz.phone} onChange={(e) => setEndModalNewBiz(f => ({ ...f, phone: e.target.value }))} placeholder={t('liveVisits', 'phone')} className="bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-500" />
+                          <input type="email" value={endModalNewBiz.email} onChange={(e) => setEndModalNewBiz(f => ({ ...f, email: e.target.value }))} placeholder={t('liveVisits', 'email')} className="bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-500" />
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <button onClick={() => setEndModalCreating(false)} className="flex-1 text-sm text-white/50 hover:text-white/70 py-2 transition-colors">{t('liveVisits', 'cancel')}</button>
+                          <button
+                            onClick={handleEndModalCreateAndComplete}
+                            disabled={!endModalNewBiz.name.trim()}
+                            className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm font-semibold py-2 rounded-lg transition-colors"
+                          >
+                            {t('liveVisits', 'create')} & {t('liveVisits', 'endVisit')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Modal footer */}
+              <div className="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
+                <button
+                  onClick={() => { setEndingGroupId(null); setEndModalBizSearch(''); setEndModalBizResults([]); setEndModalCreating(false); setEndModalNewBiz({ name: '', address: '', city: '', province: '', phone: '', email: '' }); }}
+                  className="px-4 py-2 rounded-lg text-sm text-white/50 hover:text-white/70 hover:bg-white/5 transition-colors"
+                >
+                  {t('liveVisits', 'cancel')}
+                </button>
+                {hasLinkedBiz && (
+                  <button
+                    onClick={handleEndModalConfirm}
+                    className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors"
+                  >
+                    {t('liveVisits', 'confirmEnd')}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

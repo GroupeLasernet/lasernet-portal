@@ -1037,6 +1037,16 @@ const translations = {
     loadingItems: { fr: 'Chargement...', en: 'Loading...' },
     notConnected: { fr: 'QuickBooks non connecté', en: 'QuickBooks not connected' },
     collapse: { fr: 'Réduire', en: 'Collapse' },
+    // Meeting banner + business display
+    meetingPrefix: { fr: 'Réunion', en: 'Meeting' },
+    businessNotRegistered: { fr: 'Entreprise non enregistrée', en: 'Business not registered yet' },
+    linkedBusiness: { fr: 'Entreprise liée', en: 'Linked business' },
+    // End meeting modal
+    endMeetingTitle: { fr: 'Terminer la réunion', en: 'End Meeting' },
+    endMeetingConfirmMsg: { fr: 'Voulez-vous terminer cette réunion ?', en: 'Do you want to end this meeting?' },
+    businessRequired: { fr: 'Une entreprise doit être liée avant de terminer la réunion.', en: 'A business must be linked before ending the meeting.' },
+    linkBusinessFirst: { fr: 'Lier une entreprise', en: 'Link a business' },
+    confirmEnd: { fr: 'Confirmer', en: 'Confirm' },
   },
 
   // ============================================================
