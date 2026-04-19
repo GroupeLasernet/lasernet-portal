@@ -395,8 +395,13 @@ export default function VisitsPage() {
 
   const handleDragOver = (e: React.DragEvent, groupId: string) => {
     e.preventDefault();
-    // Use 'copy' when dragging sidebar items, 'move' when dragging visitors
-    e.dataTransfer.dropEffect = draggedSidebarItemRef.current ? 'copy' : 'move';
+    // dropEffect MUST match the source's effectAllowed or the browser silently blocks the drop
+    // Person search drags use 'copy', visitor drags use 'move', sidebar items use 'copyMove'
+    if (draggedPersonRef.current || draggedSidebarItemRef.current) {
+      e.dataTransfer.dropEffect = 'copy';
+    } else {
+      e.dataTransfer.dropEffect = 'move';
+    }
     setDragOverGroupId(groupId);
   };
 
@@ -968,12 +973,7 @@ export default function VisitsPage() {
                         <p className="text-xs text-white/30 flex-shrink-0">{vg.visitors.length} {t('liveVisits', 'visitors').toLowerCase()}</p>
                       </div>
                     ) : (
-                      <div className="relative">
-                    {/* Overlay: blocks clicks on inner elements when card is not selected,
-                        but drag events bubble through to the parent card's handlers */}
-                    {!isSelected && (
-                      <div className="absolute inset-0 z-10 cursor-pointer" />
-                    )}
+                      <div className={!isSelected ? 'pointer-events-none' : ''}>
                     {/* ── Container header ── */}
                     <div className="p-4 border-b border-white/10" onClick={(e) => e.stopPropagation()}>
                       {/* Row 1: Business name + type badge + end visit */}
@@ -1170,7 +1170,12 @@ export default function VisitsPage() {
                         onDragOver={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          e.dataTransfer.dropEffect = draggedSidebarItemRef.current ? 'copy' : 'move';
+                          // Must match source effectAllowed or browser blocks the drop
+                          if (draggedPersonRef.current || draggedSidebarItemRef.current) {
+                            e.dataTransfer.dropEffect = 'copy';
+                          } else {
+                            e.dataTransfer.dropEffect = 'move';
+                          }
                         }}
                         onDrop={(e) => {
                           const sidebarItem = draggedSidebarItemRef.current;
