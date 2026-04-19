@@ -73,28 +73,8 @@ export default function VisitsPage() {
   const [peopleSearching, setPeopleSearching] = useState(false);
   const draggedPersonRef = useRef<{ id: string; name: string; email: string | null; company: string | null } | null>(null);
 
-  // Hover-expand for grid view (500ms enter delay + 300ms leave delay to prevent reflow flicker)
-  const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
-  const hoverGridEnterRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hoverGridLeaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleGridMouseEnter = useCallback((groupId: string) => {
-    // Cancel any pending leave (mouse moved back onto a card before leave fired)
-    if (hoverGridLeaveRef.current) { clearTimeout(hoverGridLeaveRef.current); hoverGridLeaveRef.current = null; }
-    // If already hovering this card, do nothing
-    if (hoveredGroupId === groupId) return;
-    // Clear any previous enter timer
-    if (hoverGridEnterRef.current) clearTimeout(hoverGridEnterRef.current);
-    hoverGridEnterRef.current = setTimeout(() => setHoveredGroupId(groupId), 500);
-  }, [hoveredGroupId]);
-
-  const handleGridMouseLeave = useCallback(() => {
-    // Cancel any pending enter
-    if (hoverGridEnterRef.current) { clearTimeout(hoverGridEnterRef.current); hoverGridEnterRef.current = null; }
-    // Delay the collapse to absorb brief mouse-outs during CSS reflow
-    if (hoverGridLeaveRef.current) clearTimeout(hoverGridLeaveRef.current);
-    hoverGridLeaveRef.current = setTimeout(() => setHoveredGroupId(null), 300);
-  }, []);
+  // Click-to-select: click a group card to expand it, click again to deselect
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
   // Business linking per group
   const [linkingGroupId, setLinkingGroupId] = useState<string | null>(null);
@@ -109,8 +89,6 @@ export default function VisitsPage() {
   // Inline name editing per group
   const [editingNameGroupId, setEditingNameGroupId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState('');
-
-  // (old expandedGroupId system removed — hoveredGroupId controls card sizing)
 
   // Fullscreen mode for the live visits dark container
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -518,14 +496,6 @@ export default function VisitsPage() {
     } catch { /* silently fail */ }
   };
 
-  // Cleanup grid hover timers on unmount
-  useEffect(() => {
-    return () => {
-      if (hoverGridEnterRef.current) clearTimeout(hoverGridEnterRef.current);
-      if (hoverGridLeaveRef.current) clearTimeout(hoverGridLeaveRef.current);
-    };
-  }, []);
-
   // ── Agenda month data ──
   const monthNames = lang === 'fr' ? MONTH_NAMES_FR : MONTH_NAMES_EN;
   const dayHeaders = lang === 'fr'
@@ -846,23 +816,22 @@ export default function VisitsPage() {
                 const isLinking = linkingGroupId === vg.id;
                 const isDragOver = dragOverGroupId === vg.id;
                 const isEditingName = editingNameGroupId === vg.id;
-                const isHov = hoveredGroupId === vg.id;
-                const someoneHovered = hoveredGroupId !== null;
-                const isCollapsedByHover = someoneHovered && !isHov;
+                const isSelected = selectedGroupId === vg.id;
+                const someoneSelected = selectedGroupId !== null;
+                const isCollapsed = someoneSelected && !isSelected;
                 const currentNeeds = groupNeeds[vg.id] || [];
 
                 return (
                   <div
                     key={vg.id}
-                    className={`bg-gray-900 border rounded-2xl overflow-hidden transition-all duration-300 ${
-                      isDragOver ? 'border-brand-500 bg-brand-500/5' : isHov ? 'border-white/30 shadow-lg shadow-brand-500/10' : 'border-white/10'
+                    className={`bg-gray-900 border rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer ${
+                      isDragOver ? 'border-brand-500 bg-brand-500/5' : isSelected ? 'border-brand-400/50 shadow-lg shadow-brand-500/10' : 'border-white/10 hover:border-white/20'
                     }`}
                     style={{
-                      width: isHov ? '100%' : isCollapsedByHover ? '100%' : 'calc(50% - 8px)',
-                      maxHeight: isCollapsedByHover ? 48 : 1200,
+                      width: isSelected ? '100%' : isCollapsed ? '100%' : 'calc(50% - 8px)',
+                      maxHeight: isCollapsed ? 48 : 1200,
                     }}
-                    onMouseEnter={() => { handleGridMouseEnter(vg.id); }}
-                    onMouseLeave={() => { handleGridMouseLeave(); }}
+                    onClick={() => setSelectedGroupId(isSelected ? null : vg.id)}
                     onDragOver={(e) => { handleDragOver(e, vg.id); }}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => {
@@ -885,8 +854,8 @@ export default function VisitsPage() {
                       handleDrop(e, vg.id);
                     }}
                   >
-                    {/* Collapsed-by-hover: just name + visitor count */}
-                    {isCollapsedByHover ? (
+                    {/* Collapsed: just name + visitor count */}
+                    {isCollapsed ? (
                       <div className="px-4 py-3 flex items-center justify-between">
                         <p className="text-sm font-semibold text-white/60 truncate">{bizName}</p>
                         <p className="text-xs text-white/30 flex-shrink-0">{vg.visitors.length} {t('liveVisits', 'visitors').toLowerCase()}</p>
@@ -1034,10 +1003,10 @@ export default function VisitsPage() {
                     </div>
 
                     {/* ── Body: sidebar (expanded only) + visitor cards ── */}
-                    <div className={`flex-1 flex ${isHov ? 'flex-row' : 'flex-col'}`} onClick={(e) => e.stopPropagation()}>
+                    <div className={`flex-1 flex ${isSelected ? 'flex-row' : 'flex-col'}`} onClick={(e) => e.stopPropagation()}>
 
-                      {/* ── SIDEBAR (only visible when hovered/expanded) ── */}
-                      {isHov && (
+                      {/* ── SIDEBAR (only visible when selected) ── */}
+                      {isSelected && (
                         <div className="w-[220px] flex-shrink-0 border-r border-white/10 p-3 overflow-y-auto">
                           <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-2">{t('liveVisits', 'documents')}</p>
                           {sidebarSections.map(section => (
