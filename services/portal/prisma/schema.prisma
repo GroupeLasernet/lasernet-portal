@@ -965,11 +965,15 @@ model Quote {
   project         LeadProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   quoteNumber     String?          // human-readable quote reference (e.g. "Q-2026-042")
-  status          String   @default("pending") // "pending" | "accepted" | "refused"
+  status          String   @default("draft") // "draft" | "pending" | "accepted" | "refused"
   notes           String?  @db.Text
 
   // Set when this quote was duplicated from another
   parentQuoteId   String?
+
+  // QuickBooks sync
+  qbEstimateId    String?          // QB Estimate Id once pushed
+  qbSyncedAt      DateTime?        // last time this was pushed to QB
 
   sentAt          DateTime?
   acceptedAt      DateTime?

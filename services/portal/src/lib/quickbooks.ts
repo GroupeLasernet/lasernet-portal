@@ -385,6 +385,32 @@ export interface QBEstimate {
   }[];
 }
 
+/** Create or update an Estimate in QuickBooks */
+export async function createEstimate(
+  estimate: {
+    CustomerRef: { value: string };
+    DocNumber?: string;
+    TxnDate?: string;
+    ExpirationDate?: string;
+    Line: {
+      Description?: string;
+      Amount: number;
+      DetailType: 'SalesItemLineDetail';
+      SalesItemLineDetail: {
+        Qty?: number;
+        UnitPrice?: number;
+        ItemRef?: { value: string; name?: string };
+      };
+    }[];
+    Id?: string;       // include for updates
+    SyncToken?: string; // include for updates
+  },
+  tokens: QBTokens,
+): Promise<{ estimate: QBEstimate; updatedTokens: QBTokens | null }> {
+  const { data, updatedTokens } = await createQBEntity('estimate', estimate, tokens);
+  return { estimate: data.Estimate, updatedTokens };
+}
+
 export async function fetchEstimates(tokens: QBTokens, customerId?: string): Promise<{ estimates: QBEstimate[]; updatedTokens: QBTokens | null }> {
   let query = "SELECT * FROM Estimate MAXRESULTS 1000";
   if (customerId) {
