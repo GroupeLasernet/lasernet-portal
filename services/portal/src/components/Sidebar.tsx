@@ -168,7 +168,7 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
       {/* Brand Header */}
       <div className="p-4 border-b border-gray-100 dark:border-gray-700">
         <div className="flex flex-col items-center justify-center">
-          <PrismaLogo className="w-full max-h-[120px] text-gray-900 dark:text-white" />
+          <PrismaLogo className="w-36 text-gray-900 dark:text-white" />
         </div>
         <div className="flex items-center justify-center gap-1.5 mt-1">
           <p className="text-xs text-gray-500 dark:text-gray-400">{portalLabel}</p>

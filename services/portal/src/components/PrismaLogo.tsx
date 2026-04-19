@@ -84,7 +84,7 @@ export default function PrismaLogo({
   return (
     <div
       ref={ref}
-      className={`relative inline-block ${className}`}
+      className={`relative inline-block overflow-hidden ${className}`}
       role="img"
       aria-label={alt}
     >
