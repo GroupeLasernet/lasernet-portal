@@ -391,17 +391,37 @@ export default function VisitsPage() {
 
   const handleDragLeave = () => setDragOverGroupId(null);
 
+  // Auto-delete source group if it becomes empty + has no name/business
+  const cleanupEmptySourceGroup = useCallback(async (sourceGroupId: string | null) => {
+    if (!sourceGroupId) return;
+    const sourceGroup = visitGroups.find(g => g.id === sourceGroupId);
+    if (!sourceGroup) return;
+    // Only auto-delete if it had exactly 1 visitor (now 0 after the move) and has no name/business
+    if (sourceGroup.visitors.length <= 1 && !sourceGroup.managedClient && !sourceGroup.localBusiness && !sourceGroup.displayName) {
+      try {
+        await fetch(`/api/visit-groups/${sourceGroupId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'cancelled' }),
+        });
+      } catch { /* silently fail */ }
+    }
+  }, [visitGroups]);
+
   const handleDrop = async (e: React.DragEvent, targetGroupId: string) => {
     e.preventDefault();
     setDragOverGroupId(null);
     const visitId = draggedVisitIdRef.current || e.dataTransfer.getData('text/plain');
-    if (!visitId || draggedSourceGroupRef.current === targetGroupId) return;
+    const sourceGroupId = draggedSourceGroupRef.current;
+    if (!visitId || sourceGroupId === targetGroupId) return;
     try {
       await fetch(`/api/visits/${visitId}/move`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetGroupId }),
       });
+      // Clean up the now-empty source group if it was unnamed
+      await cleanupEmptySourceGroup(sourceGroupId);
       await fetchVisitGroups();
     } catch { /* silently fail */ }
     draggedVisitIdRef.current = null;
@@ -733,11 +753,14 @@ export default function VisitsPage() {
             <div
               className={`w-48 flex-shrink-0 flex flex-col rounded-xl transition-colors ${dragOverGroupId === '__unassigned__' ? 'bg-amber-500/10 border-2 border-dashed border-amber-500/40' : ''}`}
               onDragOver={(e) => {
-                // Only accept visitor drags (not person search or sidebar items)
-                if (draggedVisitIdRef.current) {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  setDragOverGroupId('__unassigned__');
+                // Only accept visitor drags from assigned groups (not from unassigned, not person search)
+                if (draggedVisitIdRef.current && draggedSourceGroupRef.current) {
+                  const isFromUnassigned = unassignedVisitors.some(v => v.groupId === draggedSourceGroupRef.current);
+                  if (!isFromUnassigned) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    setDragOverGroupId('__unassigned__');
+                  }
                 }
               }}
               onDragLeave={() => { if (dragOverGroupId === '__unassigned__') setDragOverGroupId(null); }}
@@ -745,22 +768,24 @@ export default function VisitsPage() {
                 e.preventDefault();
                 setDragOverGroupId(null);
                 const visitId = draggedVisitIdRef.current;
+                const sourceGroupId = draggedSourceGroupRef.current;
                 if (!visitId) return;
-                // Create a new empty group, then move the visitor into it
+                // Create a new solo group, move the visitor into it, clean up source
                 try {
                   const res = await fetch('/api/visit-groups', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: 'active' }),
+                    body: JSON.stringify({}),
                   });
-                  const newGroup = await res.json();
-                  const newGroupId = newGroup.id || newGroup.visitGroup?.id;
+                  const data = await res.json();
+                  const newGroupId = data.visitGroup?.id || data.id;
                   if (newGroupId) {
                     await fetch(`/api/visits/${visitId}/move`, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ targetGroupId: newGroupId }),
                     });
+                    await cleanupEmptySourceGroup(sourceGroupId);
                   }
                   await fetchVisitGroups();
                 } catch { /* silently fail */ }
@@ -778,9 +803,11 @@ export default function VisitsPage() {
                       <div
                         key={visitor.id}
                         draggable
-                        onDragStart={() => {
+                        onDragStart={(e) => {
                           draggedVisitIdRef.current = visitor.id;
                           draggedSourceGroupRef.current = visitor.groupId;
+                          e.dataTransfer.effectAllowed = 'move';
+                          e.dataTransfer.setData('text/plain', visitor.id);
                         }}
                         onDragEnd={() => { draggedVisitIdRef.current = null; draggedSourceGroupRef.current = null; }}
                         className="px-2 py-1.5 rounded-lg text-xs flex items-center gap-2 border border-amber-500/30 bg-amber-500/5 cursor-grab active:cursor-grabbing hover:border-amber-400/50 hover:bg-amber-500/10 transition"
@@ -1292,21 +1319,23 @@ export default function VisitsPage() {
                 onDrop={async (e) => {
                   e.preventDefault();
                   const visitId = draggedVisitIdRef.current || e.dataTransfer.getData('text/plain');
+                  const sourceGroupId = draggedSourceGroupRef.current;
                   if (!visitId) return;
                   try {
                     const res = await fetch('/api/visit-groups', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ status: 'active' }),
+                      body: JSON.stringify({}),
                     });
                     const data = await res.json();
-                    const newGroupId = data.id || data.visitGroup?.id;
+                    const newGroupId = data.visitGroup?.id || data.id;
                     if (newGroupId) {
                       await fetch(`/api/visits/${visitId}/move`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ targetGroupId: newGroupId }),
                       });
+                      await cleanupEmptySourceGroup(sourceGroupId);
                     }
                     await fetchVisitGroups();
                   } catch { /* silently fail */ }
