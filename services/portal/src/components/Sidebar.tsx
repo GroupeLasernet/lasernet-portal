@@ -2,9 +2,10 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import QuickBooksStatus from '@/components/QuickBooksStatus';
+import SidebarReorderModal, { loadSidebarOrder, applySidebarOrder, applyChildOrder, type SidebarOrder } from './SidebarReorderModal';
 
 export interface SidebarLink {
   labelKey: string; // translation key in 'nav' section
@@ -25,7 +26,20 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
   const pathname = usePathname();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [reorderOpen, setReorderOpen] = useState(false);
   const { t } = useLanguage();
+
+  // ── Sidebar order from localStorage ──
+  const [savedOrder, setSavedOrder] = useState<SidebarOrder | null>(null);
+  useEffect(() => {
+    setSavedOrder(loadSidebarOrder());
+  }, []);
+
+  const orderedLinks = applyChildOrder(
+    applySidebarOrder(links, savedOrder?.top),
+    savedOrder?.children
+  );
+  const orderedBottom = applySidebarOrder(bottomLinks || [], savedOrder?.bottom);
 
   // Track which expandable groups are open
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
@@ -138,19 +152,32 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
             className="w-full h-auto max-h-[120px] object-contain"
           />
         </div>
-        <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-1">{portalLabel}</p>
+        <div className="flex items-center justify-center gap-1.5 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400">{portalLabel}</p>
+          {userRole === 'admin' && (
+            <button
+              onClick={() => setReorderOpen(true)}
+              className="p-0.5 text-gray-400 hover:text-brand-600 dark:text-gray-500 dark:hover:text-brand-400 rounded transition-colors"
+              title={t('nav', 'reorderSidebar')}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Navigation Links */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {links.map(renderLink)}
+        {orderedLinks.map(renderLink)}
       </nav>
 
       {/* Bottom Navigation Links */}
-      {bottomLinks && bottomLinks.length > 0 && (
+      {orderedBottom.length > 0 && (
         <div className="px-4 pb-2 space-y-1">
           <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
-            {bottomLinks.map((link) => {
+            {orderedBottom.map((link) => {
               const isActive = pathname === link.href;
               return (
                 <Link
@@ -199,6 +226,16 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
           <span>{loggingOut ? t('nav', 'signingOut') : t('nav', 'signOut')}</span>
         </button>
       </div>
+      {/* Reorder modal (admin only) */}
+      {userRole === 'admin' && (
+        <SidebarReorderModal
+          links={links}
+          bottomLinks={bottomLinks || []}
+          open={reorderOpen}
+          onClose={() => setReorderOpen(false)}
+          onSave={(order) => setSavedOrder(order)}
+        />
+      )}
     </aside>
   );
 }

@@ -82,6 +82,10 @@ const translations = {
     signingOut: { fr: 'Déconnexion...', en: 'Signing out...' },
     adminPortal: { fr: 'Portail Admin', en: 'Admin Portal' },
     clientPortal: { fr: 'Portail Client', en: 'Client Portal' },
+    reorderSidebar: { fr: 'Réorganiser le menu', en: 'Reorder sidebar' },
+    reorderTitle: { fr: 'Réorganiser le menu', en: 'Reorder Sidebar' },
+    reorderDone: { fr: 'Terminé', en: 'Done' },
+    reorderReset: { fr: 'Réinitialiser', en: 'Reset' },
     // QuickBooksStatus chip
     clientDataServer: { fr: 'Serveur de données clients', en: 'Client data server' },
     clientDataServerTitle: { fr: 'Aller à la connexion du serveur de données clients', en: 'Go to client data server connection' },
