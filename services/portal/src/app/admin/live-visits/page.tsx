@@ -215,6 +215,7 @@ export default function VisitsPage() {
   }, [peopleSearch]);
 
   // Handle person drop on a visit group (add as visitor via kiosk API)
+  // Also auto-names unnamed groups so they don't get classified as "unassigned"
   const handlePersonDropOnGroup = useCallback(async (groupId: string) => {
     const person = draggedPersonRef.current;
     if (!person) return;
@@ -223,17 +224,26 @@ export default function VisitsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          leadId: person.id,
           name: person.name,
           email: person.email || '',
           company: person.company || '',
           visitGroupId: groupId,
         }),
       });
+      // Auto-name the group if it has no name/business — prevents it from
+      // being classified as "unassigned" (solo walk-in) in the left panel
+      const group = visitGroups.find(g => g.id === groupId);
+      if (group && !group.displayName && !group.managedClient && !group.localBusiness) {
+        await fetch(`/api/visit-groups/${groupId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ displayName: person.company || person.name }),
+        });
+      }
       await fetchVisitGroups();
     } catch { /* silently fail */ }
     draggedPersonRef.current = null;
-  }, [fetchVisitGroups]);
+  }, [fetchVisitGroups, visitGroups]);
 
   // ── End visit → moves to follow-up (blocked if no main contact) ──
   const handleEndVisit = useCallback(async (groupId: string) => {
@@ -393,21 +403,25 @@ export default function VisitsPage() {
   const handleDragLeave = () => setDragOverGroupId(null);
 
   // Auto-delete source group if it becomes empty + has no name/business
+  // Fetches LIVE data from the API to avoid stale-state bugs
   const cleanupEmptySourceGroup = useCallback(async (sourceGroupId: string | null) => {
     if (!sourceGroupId) return;
-    const sourceGroup = visitGroups.find(g => g.id === sourceGroupId);
-    if (!sourceGroup) return;
-    // Only auto-delete if it had exactly 1 visitor (now 0 after the move) and has no name/business
-    if (sourceGroup.visitors.length <= 1 && !sourceGroup.managedClient && !sourceGroup.localBusiness && !sourceGroup.displayName) {
-      try {
+    try {
+      const res = await fetch(`/api/visit-groups/${sourceGroupId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const group = data.visitGroup || data;
+      if (!group || group.status !== 'active') return;
+      const visitorCount = group.visits?.length ?? 0;
+      if (visitorCount === 0 && !group.managedClientId && !group.localBusinessId && !group.displayName) {
         await fetch(`/api/visit-groups/${sourceGroupId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'cancelled' }),
         });
-      } catch { /* silently fail */ }
-    }
-  }, [visitGroups]);
+      }
+    } catch { /* silently fail */ }
+  }, []);
 
   const handleDrop = async (e: React.DragEvent, targetGroupId: string) => {
     e.preventDefault();
@@ -954,7 +968,12 @@ export default function VisitsPage() {
                         <p className="text-xs text-white/30 flex-shrink-0">{vg.visitors.length} {t('liveVisits', 'visitors').toLowerCase()}</p>
                       </div>
                     ) : (
-                      <div className={!isSelected ? 'pointer-events-none' : ''}>
+                      <div className="relative">
+                    {/* Overlay: blocks clicks on inner elements when card is not selected,
+                        but drag events bubble through to the parent card's handlers */}
+                    {!isSelected && (
+                      <div className="absolute inset-0 z-10 cursor-pointer" />
+                    )}
                     {/* ── Container header ── */}
                     <div className="p-4 border-b border-white/10" onClick={(e) => e.stopPropagation()}>
                       {/* Row 1: Business name + type badge + end visit */}
@@ -1172,6 +1191,7 @@ export default function VisitsPage() {
                               key={visitor.id}
                               draggable="true"
                               onDragStart={(e) => handleDragStart(e, visitor.id, vg.id)}
+                              onDragEnd={() => { draggedVisitIdRef.current = null; draggedSourceGroupRef.current = null; }}
                               className="group flex items-center gap-3 p-2.5 rounded-xl bg-gray-800/50 border border-white/5 hover:border-white/15 cursor-grab active:cursor-grabbing transition-colors relative"
                             >
                               {/* Drag handle */}
@@ -1334,10 +1354,12 @@ export default function VisitsPage() {
                   e.preventDefault();
                   e.stopPropagation();
 
-                  // Case 1: Search panel person → create group + register via kiosk
+                  // Case 1: Search panel person → create named group + register via kiosk
                   const person = draggedPersonRef.current;
                   if (person) {
                     try {
+                      // Create group WITH a displayName so it doesn't become "unassigned"
+                      const groupName = person.company || person.name;
                       const res = await fetch('/api/visit-groups', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1346,11 +1368,16 @@ export default function VisitsPage() {
                       const data = await res.json();
                       const newGroupId = data.visitGroup?.id || data.id;
                       if (newGroupId) {
+                        // Name the group so it stays in the grid (not left panel)
+                        await fetch(`/api/visit-groups/${newGroupId}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ displayName: groupName }),
+                        });
                         await fetch('/api/kiosk/register', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
-                            leadId: person.id,
                             name: person.name,
                             email: person.email || '',
                             company: person.company || '',
@@ -1364,11 +1391,18 @@ export default function VisitsPage() {
                     return;
                   }
 
-                  // Case 2: Existing visitor → create group + move visit
+                  // Case 2: Existing visitor → create named group + move visit
                   const visitId = draggedVisitIdRef.current || e.dataTransfer.getData('text/plain');
                   const sourceGroupId = draggedSourceGroupRef.current;
                   if (!visitId) return;
                   try {
+                    // Find the visitor's name/company for auto-naming the new group
+                    let visitorName = '';
+                    let visitorCompany = '';
+                    for (const g of visitGroups) {
+                      const v = g.visitors.find(v => v.id === visitId);
+                      if (v) { visitorName = v.name; visitorCompany = v.company || ''; break; }
+                    }
                     const res = await fetch('/api/visit-groups', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -1377,6 +1411,13 @@ export default function VisitsPage() {
                     const data = await res.json();
                     const newGroupId = data.visitGroup?.id || data.id;
                     if (newGroupId) {
+                      // Name the group so it stays in the grid
+                      const groupName = visitorCompany || visitorName || 'Meeting';
+                      await fetch(`/api/visit-groups/${newGroupId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ displayName: groupName }),
+                      });
                       await fetch(`/api/visits/${visitId}/move`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
