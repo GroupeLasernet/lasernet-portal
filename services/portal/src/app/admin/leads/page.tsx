@@ -933,7 +933,7 @@ export default function AdminLeadsPage() {
               const rowCls = `cursor-pointer hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition`;
               const contactSelected = selectedId === lead.id && editMode === 'contact' ? 'bg-blue-50/60 dark:bg-blue-900/15' : '';
 
-              // ── Row 1: Contact row ──
+              // ── Row 1: Contact row (tree root — folder icon) ──
               const contactRow = (
                 <tr
                   key={`${lead.id}-contact`}
@@ -946,10 +946,17 @@ export default function AdminLeadsPage() {
                   </td>
                   <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 overflow-hidden">
                     <div className="flex items-center gap-2">
-                      <span className="truncate">{lead.name}</span>
+                      {/* Folder icon */}
+                      <svg className="w-5 h-5 flex-shrink-0 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M2 6a2 2 0 012-2h5l2 2h9a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                      </svg>
+                      <span className="truncate font-semibold">{lead.name}</span>
                       <span className={`flex-shrink-0 inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${STAGE_COLORS[lead.stage]}`}>
                         {t('leads', `stage_${lead.stage}`)}
                       </span>
+                      {activeProjects.length > 0 && (
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">({activeProjects.length})</span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400 overflow-hidden">
@@ -976,22 +983,37 @@ export default function AdminLeadsPage() {
                 </tr>
               );
 
-              // ── Row 2+: Project rows ──
-              const projectRows = activeProjects.map(proj => {
+              // ── Row 2+: Project rows (tree children — with connector lines) ──
+              const projectRows = activeProjects.map((proj, projIdx) => {
                 const prodArr = parseProducts(proj.suggestedProducts);
                 const projSelected = selectedId === lead.id && editMode === 'project' && selectedProjectId === proj.id ? 'bg-blue-50/60 dark:bg-blue-900/15' : '';
+                const isLast = projIdx === activeProjects.length - 1;
                 return (
                   <tr
                     key={`${lead.id}-proj-${proj.id}`}
                     onClick={(e) => { e.stopPropagation(); openProject(lead.id, proj.id); }}
-                    className={`${rowCls} ${projSelected} border-t border-dashed border-gray-200 dark:border-gray-700`}
+                    className={`${rowCls} ${projSelected}`}
                   >
-                    <td className="px-4 py-2 text-center overflow-hidden">
-                      <span className="inline-block w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600" />
-                    </td>
+                    <td className="px-4 py-2 text-center overflow-hidden" />
                     <td className="px-4 py-2 text-gray-600 dark:text-gray-400 overflow-hidden" />
                     <td className="px-4 py-2 text-gray-700 dark:text-gray-300 overflow-hidden">
                       <div className="flex items-center text-[12px]">
+                        {/* Tree connector: ├── or └── */}
+                        <span className="flex-shrink-0 w-8 flex items-center text-gray-300 dark:text-gray-600 font-mono select-none" style={{ marginLeft: 6 }}>
+                          {isLast ? (
+                            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <path d="M6 2v8h8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <path d="M6 2v16M6 10h8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </span>
+                        {/* File/page icon */}
+                        <svg className="w-4 h-4 flex-shrink-0 text-blue-400 dark:text-blue-500 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
                         <span className="truncate">{proj.name}</span>
                       </div>
                     </td>
