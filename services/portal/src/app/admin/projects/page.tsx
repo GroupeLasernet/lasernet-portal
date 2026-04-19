@@ -198,7 +198,7 @@ export default function ProjectsPage() {
                         </div>
                       ) : (
                         <Link
-                          href={`/admin/clients?pulse=maincontact&client=${proj.business.id}`}
+                          href={`/admin/businesses?pulse=maincontact&client=${proj.business.id}`}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-medium rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors animate-pulse"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>

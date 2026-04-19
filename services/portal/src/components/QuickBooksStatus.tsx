@@ -3,7 +3,7 @@
 // ============================================================
 // QuickBooksStatus — small chip showing current QB connection state.
 // Fetches /api/quickbooks/status on mount and refreshes every 60s.
-// Clicking it jumps to /admin/clients where the connect button lives.
+// Clicking it jumps to /admin/businesses where the connect button lives.
 // Admin sidebar only.
 // ============================================================
 
@@ -58,7 +58,7 @@ export default function QuickBooksStatus() {
   return (
     <button
       type="button"
-      onClick={() => router.push('/admin/clients')}
+      onClick={() => router.push('/admin/businesses')}
       title={t('nav', 'clientDataServerTitle')}
       className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 transition-colors ${s.bg}`}
     >

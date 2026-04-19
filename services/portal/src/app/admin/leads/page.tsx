@@ -228,7 +228,8 @@ function dateKey(d: Date): string {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function AdminLeadsPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const fr = lang === 'fr';
 
   // ── Data state ──
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -288,6 +289,64 @@ export default function AdminLeadsPage() {
     productsOfInterest: [] as string[],
   });
   const [saving, setSaving] = useState(false);
+
+  // ── Business linking state ──
+  const [bizSearchQuery, setBizSearchQuery] = useState('');
+  const [bizSearchResults, setBizSearchResults] = useState<{ id: string; name: string; companyName: string; source: string }[]>([]);
+  const [bizSearching, setBizSearching] = useState(false);
+  const [bizLinking, setBizLinking] = useState(false);
+
+  const handleBizSearch = async (q: string) => {
+    setBizSearchQuery(q);
+    if (q.trim().length < 2) { setBizSearchResults([]); return; }
+    setBizSearching(true);
+    try {
+      const res = await fetch(`/api/managed-clients`);
+      const data = await res.json();
+      const clients = data.clients || [];
+      const lq = q.toLowerCase();
+      const matches = clients
+        .filter((mc: any) =>
+          mc.qbClient.displayName.toLowerCase().includes(lq) ||
+          mc.qbClient.companyName.toLowerCase().includes(lq)
+        )
+        .slice(0, 5)
+        .map((mc: any) => ({ id: mc.id, name: mc.qbClient.displayName, companyName: mc.qbClient.companyName, source: 'quickbooks' }));
+      setBizSearchResults(matches);
+    } catch { setBizSearchResults([]); }
+    setBizSearching(false);
+  };
+
+  const handleLinkBusiness = async (managedClientId: string) => {
+    if (!selectedId) return;
+    setBizLinking(true);
+    try {
+      await fetch(`/api/leads/${selectedId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ managedClientId }),
+      });
+      await fetchLeads();
+      setBizSearchQuery('');
+      setBizSearchResults([]);
+    } catch { /* silently fail */ }
+    setBizLinking(false);
+  };
+
+  const handleUnlinkBusiness = async () => {
+    if (!selectedId) return;
+    setBizLinking(true);
+    try {
+      await fetch(`/api/leads/${selectedId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ managedClientId: null }),
+      });
+      await fetchLeads();
+    } catch { /* silently fail */ }
+    setBizLinking(false);
+  };
+
   const [projectForm, setProjectForm] = useState({
     name: '', callbackReason: '', suggestedProducts: '', objective: '', budget: '', notes: '',
   });
@@ -1618,6 +1677,69 @@ export default function AdminLeadsPage() {
             <div>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'company')}</label>
               <input type="text" value={detailForm.company} onChange={e => setDetailForm({ ...detailForm, company: e.target.value })} className={INPUT_CLS} />
+            </div>
+
+            {/* Linked Business */}
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                {fr ? 'Entreprise reliée' : 'Linked Business'}
+              </label>
+              {selectedLead?.managedClient ? (
+                <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2 border border-green-200 dark:border-green-800">
+                  <svg className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-green-800 dark:text-green-300 truncate">{selectedLead.managedClient.companyName}</p>
+                    <p className="text-xs text-green-600 dark:text-green-400 truncate">{selectedLead.managedClient.displayName}</p>
+                  </div>
+                  <button
+                    onClick={handleUnlinkBusiness}
+                    disabled={bizLinking}
+                    className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                  >
+                    {fr ? 'Délier' : 'Unlink'}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder={fr ? 'Rechercher une entreprise...' : 'Search for a business...'}
+                    value={bizSearchQuery}
+                    onChange={e => handleBizSearch(e.target.value)}
+                    className={INPUT_CLS}
+                  />
+                  {bizSearching && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{fr ? 'Recherche...' : 'Searching...'}</p>
+                  )}
+                  {bizSearchResults.length > 0 && (
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                      {bizSearchResults.map(biz => (
+                        <button
+                          key={biz.id}
+                          onClick={() => handleLinkBusiness(biz.id)}
+                          disabled={bizLinking}
+                          className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{biz.companyName}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{biz.name}</p>
+                          </div>
+                          <span className="text-xs text-brand-600 dark:text-brand-400 font-medium flex-shrink-0 ml-2">
+                            {fr ? 'Relier' : 'Link'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {bizSearchQuery.length >= 2 && !bizSearching && bizSearchResults.length === 0 && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      {fr ? 'Aucune entreprise trouvée' : 'No businesses found'}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t('leads', 'phone')}</label>

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     // stale data from before the DB-only migration.
     void tokens; // tokens already saved; retained for clarity
     const response = NextResponse.redirect(
-      new URL('/admin/clients?qb=connected', request.url)
+      new URL('/admin/businesses?qb=connected', request.url)
     );
     response.headers.set('Set-Cookie', buildClearLegacyCookie());
 
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     console.error('QuickBooks callback error:', error);
     return NextResponse.redirect(
       new URL(
-        '/admin/clients?qb=error&message=' + encodeURIComponent(error.message),
+        '/admin/businesses?qb=error&message=' + encodeURIComponent(error.message),
         request.url
       )
     );
