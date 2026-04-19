@@ -86,6 +86,7 @@ const translations = {
     reorderTitle: { fr: 'Réorganiser le menu', en: 'Reorder Sidebar' },
     reorderDone: { fr: 'Terminé', en: 'Done' },
     reorderReset: { fr: 'Réinitialiser', en: 'Reset' },
+    reorderHint: { fr: 'Glissez pour réorganiser', en: 'Drag to reorder' },
     // QuickBooksStatus chip
     clientDataServer: { fr: 'Serveur de données clients', en: 'Client data server' },
     clientDataServerTitle: { fr: 'Aller à la connexion du serveur de données clients', en: 'Go to client data server connection' },
