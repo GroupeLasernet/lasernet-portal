@@ -101,10 +101,7 @@ export default function VisitsPage() {
   const [editingNameGroupId, setEditingNameGroupId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState('');
 
-  // Expandable containers (click or 0.5 s hover)
-  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // (old expandedGroupId system removed — hoveredGroupId controls card sizing)
 
   // Fullscreen mode for the live visits dark container
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -253,7 +250,6 @@ export default function VisitsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'completed', expectedFollowUpAt: followUp.toISOString() }),
       });
-      setExpandedGroupId(null);
       await fetchVisitGroups();
     } catch { /* silently fail */ }
   }, [fetchVisitGroups, visitGroups, t]);
@@ -513,50 +509,10 @@ export default function VisitsPage() {
     } catch { /* silently fail */ }
   };
 
-  // ── Expand / collapse helpers ──
-  const expandGroup = useCallback((groupId: string) => {
-    // Clear any pending collapse
-    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
-    setExpandedGroupId(groupId);
-    // Auto-collapse after 30 seconds
-    collapseTimerRef.current = setTimeout(() => setExpandedGroupId(null), 30000);
-  }, []);
-
-  const collapseGroup = useCallback(() => {
-    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
-    setExpandedGroupId(null);
-  }, []);
-
-  const handleContainerClick = useCallback((groupId: string) => {
-    if (expandedGroupId === groupId) {
-      collapseGroup();
-    } else {
-      expandGroup(groupId);
-    }
-  }, [expandedGroupId, expandGroup, collapseGroup]);
-
-  const handleContainerMouseEnter = useCallback((groupId: string) => {
-    // Cancel any pending collapse when mouse re-enters any container
-    if (collapseTimerRef.current) { clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; }
-    if (expandedGroupId === groupId) return;
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(() => expandGroup(groupId), 500);
-  }, [expandedGroupId, expandGroup]);
-
-  const handleContainerMouseLeave = useCallback(() => {
-    if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null; }
-    // If a container is expanded, start a 5-second countdown to collapse
-    if (expandedGroupId) {
-      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
-      collapseTimerRef.current = setTimeout(() => setExpandedGroupId(null), 5000);
-    }
-  }, [expandedGroupId]);
-
-  // Cleanup timers on unmount
+  // Cleanup grid hover timer on unmount
   useEffect(() => {
     return () => {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+      if (hoverGridTimerRef.current) clearTimeout(hoverGridTimerRef.current);
     };
   }, []);
 
@@ -880,7 +836,6 @@ export default function VisitsPage() {
                 const isLinking = linkingGroupId === vg.id;
                 const isDragOver = dragOverGroupId === vg.id;
                 const isEditingName = editingNameGroupId === vg.id;
-                const isExpanded = expandedGroupId === vg.id;
                 const isHov = hoveredGroupId === vg.id;
                 const someoneHovered = hoveredGroupId !== null;
                 const isCollapsedByHover = someoneHovered && !isHov;
@@ -890,16 +845,15 @@ export default function VisitsPage() {
                   <div
                     key={vg.id}
                     className={`bg-gray-900 border rounded-2xl overflow-hidden transition-all duration-300 ${
-                      isDragOver ? 'border-brand-500 bg-brand-500/5' : isExpanded ? 'border-brand-400/50' : isHov ? 'border-white/30 shadow-lg shadow-brand-500/10' : 'border-white/10'
+                      isDragOver ? 'border-brand-500 bg-brand-500/5' : isHov ? 'border-white/30 shadow-lg shadow-brand-500/10' : 'border-white/10'
                     }`}
                     style={{
-                      width: isExpanded ? '100%' : isHov ? '100%' : isCollapsedByHover ? '100%' : 'calc(50% - 8px)',
+                      width: isHov ? '100%' : isCollapsedByHover ? '100%' : 'calc(50% - 8px)',
                       maxHeight: isCollapsedByHover ? 48 : 1200,
                       order: isHov ? -1 : 0,
                     }}
-                    onClick={() => handleContainerClick(vg.id)}
-                    onMouseEnter={() => { handleContainerMouseEnter(vg.id); handleGridMouseEnter(vg.id); }}
-                    onMouseLeave={() => { handleContainerMouseLeave(); handleGridMouseLeave(); }}
+                    onMouseEnter={() => { handleGridMouseEnter(vg.id); }}
+                    onMouseLeave={() => { handleGridMouseLeave(); }}
                     onDragOver={(e) => { handleDragOver(e, vg.id); }}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => {
@@ -971,17 +925,7 @@ export default function VisitsPage() {
                         >
                           {t('liveVisits', 'endVisit')}
                         </button>
-                        {isExpanded && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); collapseGroup(); }}
-                            className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 text-white/40 hover:text-white/70 transition-colors"
-                            title="Collapse"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        )}
+                        {/* collapse button removed — grid hover controls expand/collapse */}
                       </div>
 
                       {/* Row 2: Action buttons — aligned row */}
@@ -1081,10 +1025,10 @@ export default function VisitsPage() {
                     </div>
 
                     {/* ── Body: sidebar (expanded only) + visitor cards ── */}
-                    <div className={`flex-1 flex ${isExpanded ? 'flex-row' : 'flex-col'}`} onClick={(e) => e.stopPropagation()}>
+                    <div className={`flex-1 flex ${isHov ? 'flex-row' : 'flex-col'}`} onClick={(e) => e.stopPropagation()}>
 
-                      {/* ── SIDEBAR (only visible when expanded) ── */}
-                      {isExpanded && (
+                      {/* ── SIDEBAR (only visible when hovered/expanded) ── */}
+                      {isHov && (
                         <div className="w-[220px] flex-shrink-0 border-r border-white/10 p-3 overflow-y-auto">
                           <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-2">{t('liveVisits', 'documents')}</p>
                           {sidebarSections.map(section => (
