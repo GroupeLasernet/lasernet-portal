@@ -81,6 +81,7 @@ export default function VisitsPage() {
   const draggedVisitIdRef = useRef<string | null>(null);
   const draggedSourceGroupRef = useRef<string | null>(null);
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
+  const justDroppedRef = useRef(false); // prevents click from firing after a drop
 
   // Left-panel people search (for adding visitors to groups)
   const [peopleSearch, setPeopleSearch] = useState('');
@@ -845,7 +846,11 @@ export default function VisitsPage() {
                       <div
                         key={person.id}
                         draggable={!alreadyIn}
-                        onDragStart={() => { draggedPersonRef.current = { id: person.id, name: person.name, email: person.email, company: person.company }; }}
+                        onDragStart={(e) => {
+                          draggedPersonRef.current = { id: person.id, name: person.name, email: person.email, company: person.company };
+                          e.dataTransfer.effectAllowed = 'copy';
+                          e.dataTransfer.setData('text/plain', person.id);
+                        }}
                         onDragEnd={() => { draggedPersonRef.current = null; }}
                         className={`px-2 py-1.5 rounded-lg text-xs flex items-center gap-2 border border-white/10 transition ${
                           alreadyIn
@@ -910,13 +915,19 @@ export default function VisitsPage() {
                       width: isSelected ? '100%' : isCollapsed ? '100%' : 'calc(50% - 8px)',
                       maxHeight: isCollapsed ? 48 : 1200,
                     }}
-                    onClick={() => setSelectedGroupId(isSelected ? null : vg.id)}
+                    onClick={() => {
+                      // Don't toggle selection if we just completed a drop
+                      if (justDroppedRef.current) { justDroppedRef.current = false; return; }
+                      setSelectedGroupId(isSelected ? null : vg.id);
+                    }}
                     onDragOver={(e) => { handleDragOver(e, vg.id); }}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => {
-                      // Handle person drops from left panel
+                      justDroppedRef.current = true;
+                      // Handle person drops from search panel (creates new visit via kiosk API)
                       if (draggedPersonRef.current) {
                         e.preventDefault();
+                        e.stopPropagation();
                         setDragOverGroupId(null);
                         handlePersonDropOnGroup(vg.id);
                         return;
@@ -925,11 +936,14 @@ export default function VisitsPage() {
                       const sidebarItem = draggedSidebarItemRef.current;
                       if (sidebarItem) {
                         e.preventDefault();
+                        e.stopPropagation();
                         setDragOverGroupId(null);
                         handleSidebarDrop(vg.id, sidebarItem.name, sidebarItem.type);
                         draggedSidebarItemRef.current = null;
                         return;
                       }
+                      // Handle visitor moves between groups
+                      e.stopPropagation();
                       handleDrop(e, vg.id);
                     }}
                   >
@@ -1315,9 +1329,42 @@ export default function VisitsPage() {
                 onClick={handleCreateGroup}
                 className="bg-gray-900/50 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-brand-500/50 hover:bg-brand-500/5 transition-colors min-h-[200px] cursor-pointer"
                 style={{ width: 'calc(50% - 8px)' }}
-                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = draggedPersonRef.current ? 'copy' : 'move'; }}
                 onDrop={async (e) => {
                   e.preventDefault();
+                  e.stopPropagation();
+
+                  // Case 1: Search panel person → create group + register via kiosk
+                  const person = draggedPersonRef.current;
+                  if (person) {
+                    try {
+                      const res = await fetch('/api/visit-groups', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({}),
+                      });
+                      const data = await res.json();
+                      const newGroupId = data.visitGroup?.id || data.id;
+                      if (newGroupId) {
+                        await fetch('/api/kiosk/register', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            leadId: person.id,
+                            name: person.name,
+                            email: person.email || '',
+                            company: person.company || '',
+                            visitGroupId: newGroupId,
+                          }),
+                        });
+                      }
+                      await fetchVisitGroups();
+                    } catch { /* silently fail */ }
+                    draggedPersonRef.current = null;
+                    return;
+                  }
+
+                  // Case 2: Existing visitor → create group + move visit
                   const visitId = draggedVisitIdRef.current || e.dataTransfer.getData('text/plain');
                   const sourceGroupId = draggedSourceGroupRef.current;
                   if (!visitId) return;
