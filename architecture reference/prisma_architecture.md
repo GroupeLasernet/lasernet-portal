@@ -1,3 +1,9 @@
+---
+name: Prisma — full architecture & structure reference
+description: THE authoritative map of Prisma monorepo — services, PCs, network, paths, services, ports, tech stacks, file layout, deployment. Read this first every new chat.
+type: project
+originSessionId: 3a63e9c2-18f3-4dee-9dc6-3aa866de22f5
+---
 # Prisma — full architecture reference
 
 Single source of truth so Hugo doesn't re-explain every session. Every new conversation should read this before asking structural questions.
@@ -101,7 +107,7 @@ Prisma/                                  (monorepo root)
     │   │       ├── leads/               ← CRM leads (table + calendar + kanban + detail panel)
     │   │       ├── live-visits/         ← kiosk live-visit tracking
     │   │       ├── businesses/          ← entreprises
-    │   │       ├── quotes/              ← QB quotes/estimates (placeholder)
+    │   │       ├── quotes/              ← QB-connected quote builder (requires QB connection)
     │   │       ├── clients/
     │   │       ├── stations/
     │   │       ├── station-pcs/
@@ -109,6 +115,7 @@ Prisma/                                  (monorepo root)
     │   │       ├── training/
     │   │       ├── inventory/           ← QB inventory browser + add stock
     │   │       ├── tickets/
+    │   │       ├── improvements/    ← problem-solving & feature tracking (voice-to-text)
     │   │       ├── files/
     │   │       └── settings/
     │   ├── src/components/
@@ -243,17 +250,22 @@ Read from `services/robot/.env` via `load_dotenv()` in `config.py`:
 - Relfar SQLite persistence + dual-homed RDWelder AP deployment pattern.
 
 **Recently shipped (since 2026-04-15):**
-- **Admin sidebar restructured:** expandable "Onboarding" group (Leads, Live Visits, Businesses, Quotes); Clients promoted to own top-level item between Onboarding and Stations; new "Inventory" tab between Training and Tickets. `Sidebar.tsx` now supports expandable groups via `children` property.
+- **Admin sidebar restructured:** Five expandable groups: **Follow-up** (Leads, Live Visits, Projects), **Search** (People, Businesses), **Accounting** (Quotes, Invoices, Inventory), **Integration** (Stations, Station PCs, Machines). Top-level items: Training, Tickets, Improvements. Clients tab removed (merged into Businesses). Sidebar supports expandable groups via `children` property, animated expand/collapse (CSS grid `grid-template-rows: 0fr→1fr`), staggered children, bouncy chevron. Drag-and-drop reorder modal (pointer events).
 - **Lead model enhanced:** new fields `phone2`, `otherContacts`, `callbackReason`, `objective`, `budget`, `productsOfInterest` (JSON text of QB item selections). New DB index on `nextFollowUpAt`.
 - **Leads page rebuilt** (`/admin/leads`): table view (sticky client name column, reason of call, inventory type, phone, business, email, objective, budget), right-side sliding detail panel (~500px, all fields editable, QB inventory multi-select for products of interest, quotes placeholder), 60-day calendar view (leads by `nextFollowUpAt`), pipeline kanban view preserved. New lead modal updated with all new fields.
 - **Inventory page** (`/admin/inventory`): dedicated QB inventory browser + Add Stock form (same as settings but as its own admin page).
-- **Quotes page** (`/admin/quotes`): placeholder page for QuickBooks quotes/estimates management.
+- **Quotes page** (`/admin/quotes`): full QB-compatible quote builder. Business + Project horizontal selectors, local quotes + QB estimates merged list, line-item editor with QB-matching columns (#, Date, Product/Service, Description, Qty, Price, Amount, Tax), dynamic tax codes fetched from QB API (TaxCode + TaxRate entities), tax summary with per-rate breakdown, quote message textarea (default: "Les prix peuvent fluctuer…"), file drag-and-drop zone (UI only), amount display mode (tax excl/incl/none). **Requires QB connection** — quote creation blocked with warning banner when QB is not connected. New schema fields: `quoteMessage`, `qbEstimateId`, `qbSyncedAt` on Quote; `serviceDate`, `productService`, `taxCode` on QuoteItem.
 - **QB connection improvements:** separated try/catch for status vs data fetches (status no longer lost if a query fails); error messages propagated from QB API to UI (not just generic "Failed to fetch"); "Connect QuickBooks" button appears on token expiry / not-connected states; new `createQBEntity()` function in `quickbooks.ts` for POST requests.
 - **Live visits improvements:** fullscreen toggle for dark visit container; needs display redesigned (title 14px white, notes inline gray 11px after colon); drag-and-drop fix (`effectAllowed`/`dropEffect` matching); needs note fix (PATCH instead of POST for notes on existing needs); kiosk dedup (prevents duplicate visits when visitor already checked in with active visit).
 - **New API endpoints:**
   - `GET /api/quickbooks/accounts` — returns QB Chart of Accounts.
   - `POST /api/quickbooks/inventory` — creates items in QB.
   - `POST /api/visit-groups/cleanup-needs` — one-time cleanup to remove duplicate `VisitNeed` entries.
+  - `GET/POST /api/quotes` — list all quotes / create new quote (auto-generates `Q-YYYY-NNN` number).
+  - `GET/PATCH/DELETE /api/quotes/[id]` — single quote CRUD (PATCH replaces all items).
+  - `POST /api/quotes/[id]/push-qb` — push quote to QB as Estimate (uses `managedClient.qbId` as CustomerRef).
+  - `GET /api/quotes/qb-estimates?customerId=` — fetch QB estimates for a business.
+  - `GET /api/quotes/qb-tax-codes` — fetch QB TaxCode + TaxRate entities, enriched with computed total rate per code.
 
 **Recently shipped (since 2026-04-16):**
 - **Dark/light theme toggle:** `ThemeContext.tsx` provider wraps the app; toggle button (sun/moon icon) in top-right corner of DashboardShell. Tailwind `darkMode: 'class'` enabled; `<html>` gets `dark` class. Preference persisted in localStorage (`lasernet.theme`). Dark mode applied to ALL pages: 14 admin pages, 5 auth pages, 5 portal client pages, kiosk (already dark), and all shared components (Sidebar, PageHeader, QuickBooksStatus, HoldButton). Global CSS classes (`.card`, `.input-field`, `.sidebar-link`, `.btn-secondary`) all have `dark:` variants.
@@ -265,6 +277,26 @@ Read from `services/robot/.env` via `load_dotenv()` in `config.py`:
 - **Flagged:** Two `requireAdmin()` implementations coexist: `lib/requireAdmin.ts` (takes NextRequest, 8 callers) and `lib/auth.ts` (reads cookies() internally, 12 callers). Both work; consolidation deferred to avoid touching 20 routes.
 - **Code quality:** 79 `: any` usages (gradual fix), 88 console statements (acceptable for now), no error boundaries (add when convenient), 14 files over 500 lines (split incrementally via component extraction), kiosk has inline translations (85 lines, should move to translations.ts).
 - **Quarantine:** `_quarantine/relfar-scan-artifacts/` (6 files) safe to archive/delete. `relfar-reverse-engineering/` (20 scripts) and `branding-assets/` (6 files) kept.
+
+**Recently shipped (since 2026-04-17):**
+- **CRM — Projects & Quotes system:** `LeadProject` model (name, status, callbackReason, suggestedProducts, objective, budget) + `Quote` model (quoteNumber, status: pending|accepted|refused) + `QuoteItem` model. Full CRUD API at `/api/leads/[id]/projects`, `/api/projects/[id]`, `/api/projects/[id]/quotes`, `/api/projects/[id]/quotes/[quoteId]`. Quote duplication endpoint. "Refuse project" sets all quotes to refused.
+- **CRM — Project Meetings:** `ProjectMeeting` model (title, scheduledAt, durationMinutes, location, notes, status: scheduled|completed|cancelled) + `MeetingAttendee` model (linked to Lead or free-text name). API: `/api/projects/[id]/meetings` (GET/POST), `/api/meetings/[id]` (PATCH/DELETE), `/api/meetings/[id]/attendees` (GET/POST/DELETE). Lead search for attendees at `/api/leads/search?q=`. UI in project panel visits tab: meeting cards with drag-and-drop + search to assign attendees.
+- **Per-project columns in leads table:** When a lead has multiple active projects, the table renders one row per project. Shared columns (status dot, business name, client name, phone, email) use `rowSpan`; project-specific columns (reason of call, suggested products, objective, budget) repeat per project row with project-level values (fallback to lead-level).
+- **Leads table improvements:** Columns reordered (Status → Business Name → Client Name → rest). Percentage-based column widths (`tableLayout: fixed` + `%` on `<th>`). Resizable columns by dragging header borders (mousedown/mousemove/mouseup). Renamed "Inventory Type" → "Suggested Products" (FR: "Produits suggérés").
+- **Unified Businesses page** (`/admin/businesses`): Combines ManagedClients (QB) and LocalBusinesses in one view. Source badges ("QuickBooks"/"Local"). QB search modal to import or link. "Link to QB" button on local businesses migrates all relations then deletes the local record. API at `/api/businesses` (unified GET) + `/api/local-businesses/[id]/match-qb` (POST).
+- **Kiosk auto-create LocalBusiness:** When a new company name is entered at kiosk check-in and no matching ManagedClient or LocalBusiness exists, a new LocalBusiness is created automatically.
+- **Main contact star system** (`/admin/live-visits`): Every visitor gets a clickable star. Only one main contact per meeting. Can't terminate visit without selecting a main contact first.
+- **Improvements page** (`/admin/improvements`): New sidebar nav item. DB model `Improvement` (title, description, priority: critical|high|medium|low, status: new|in_progress|done|dismissed, createdBy). Full CRUD API. Page with filter tabs (Active/All/Done), priority-sorted card list, inline edit, status/priority dropdowns, voice-to-text input via Web Speech API (fr-CA).
+- **Next.js 14 params fix:** Fixed 17 API route files that used Next.js 15 `params: Promise<>` pattern — changed to synchronous `{ params: { id: string } }` with direct destructuring.
+- **Quote status migration:** Changed from draft/sent/accepted/rejected/expired to pending/accepted/refused.
+
+**Recently shipped (since 2026-04-19):**
+- **Sidebar reorganization:** "Integration" renamed to "Follow-up" (FR: "Suivi"). New "Integration" parent created for Stations/Station PCs/Machines. New "Accounting" parent holds Quotes + Invoices + Inventory. New "Search" parent holds People + Businesses. Clients tab deleted (merged into Businesses page).
+- **Sidebar animations:** smooth expand/collapse using CSS grid `grid-template-rows: 0fr → 1fr`, staggered child fade-in, bouncy chevron rotation. Reorder modal rewritten with pointer events (replacing unreliable HTML5 drag-and-drop).
+- **QB-compatible quote builder** (`/admin/quotes`): full editor with Business + Project horizontal selectors, merged local + QB estimates list, line-item table matching QB Estimate layout, dynamic tax codes from QB API (`fetchTaxCodes` + `fetchTaxRates` in `quickbooks.ts`), per-rate tax summary, quote message textarea, file drag-and-drop zone (UI only), amount display mode selector. **QB connection mandatory** — no fallback tax codes; "New Quote" button disabled + amber warning banner when QB is not connected; tax codes are empty array until QB responds.
+- **Quote schema updates:** `quoteMessage` (Text), `qbEstimateId`, `qbSyncedAt` on Quote model. `serviceDate`, `productService`, `taxCode` on QuoteItem model. Default status changed from "pending" to "draft".
+- **Business dropdown fix:** `/api/managed-clients` returns nested `{ qbClient: { displayName } }` — quotes page now flattens the response correctly.
+- **Clients tab removed:** all client functionality merged into Businesses detail panel.
 
 **Not yet built / blocked:**
 - Portal `/api/sync/push` + `/api/sync/pull` — NOT BUILT, sync disabled.
