@@ -77,7 +77,6 @@ const translations = {
     quotes: { fr: 'Soumissions', en: 'Quotes' },
     inventory: { fr: 'Inventaire', en: 'Inventory' },
     people: { fr: 'Personnes', en: 'People' },
-    improvements: { fr: 'Améliorations', en: 'Improvements' },
     projects: { fr: 'Projets', en: 'Projects' },
     signOut: { fr: 'Déconnexion', en: 'Sign Out' },
     signingOut: { fr: 'Déconnexion...', en: 'Signing out...' },
@@ -514,6 +513,18 @@ const translations = {
     events: { fr: 'événement(s)', en: 'event(s)' },
     attachedFiles: { fr: 'Fichiers joints', en: 'Attached Files' },
     attachFile: { fr: 'Joindre un fichier', en: 'Attach file' },
+    // Horizontal tab labels (2026-04-19)
+    tabLanguage: { fr: 'Langue', en: 'Language' },
+    tabTeam: { fr: 'Équipe', en: 'Team' },
+    tabTrainingTemplates: { fr: 'Gabarits de formation', en: 'Training templates' },
+    tabVisitSidebar: { fr: 'Menu de visite', en: 'Visit sidebar' },
+    tabQuickBooksInventory: { fr: 'Inventaire QuickBooks', en: 'QuickBooks inventory' },
+    tabApis: { fr: 'APIs', en: 'APIs' },
+    // APIs tab
+    apisTitle: { fr: 'APIs et connexions', en: 'APIs & connections' },
+    apisDesc: { fr: 'Services externes connectés à Prisma.', en: 'External services connected to Prisma.' },
+    apisQuickBooksLabel: { fr: 'QuickBooks', en: 'QuickBooks' },
+    apisQuickBooksDesc: { fr: 'Synchronise les clients, soumissions et factures.', en: 'Syncs customers, quotes and invoices.' },
     // Language
     languageSection: { fr: 'Langue', en: 'Language' },
     languageDesc: { fr: 'Choisissez votre langue préférée pour l\'interface', en: 'Choose your preferred interface language' },
@@ -1060,37 +1071,6 @@ const translations = {
     confirmEnd: { fr: 'Confirmer', en: 'Confirm' },
   },
 
-  // ============================================================
-  // IMPROVEMENTS PAGE
-  // ============================================================
-  improvements: {
-    title: { fr: 'Améliorations', en: 'Improvements' },
-    subtitle: { fr: 'Problèmes à résoudre et fonctionnalités à construire', en: 'Problems to solve and features to build' },
-    addImprovement: { fr: 'Ajouter une amélioration', en: 'Add improvement' },
-    titleLabel: { fr: 'Titre', en: 'Title' },
-    titlePlaceholder: { fr: 'Décrivez le problème ou l\'amélioration...', en: 'Describe the problem or improvement...' },
-    descriptionLabel: { fr: 'Description', en: 'Description' },
-    descriptionPlaceholder: { fr: 'Détails supplémentaires (optionnel)...', en: 'Additional details (optional)...' },
-    priority: { fr: 'Priorité', en: 'Priority' },
-    priorityCritical: { fr: 'Critique', en: 'Critical' },
-    priorityHigh: { fr: 'Haute', en: 'High' },
-    priorityMedium: { fr: 'Moyenne', en: 'Medium' },
-    priorityLow: { fr: 'Basse', en: 'Low' },
-    statusNew: { fr: 'Nouveau', en: 'New' },
-    statusInProgress: { fr: 'En cours', en: 'In Progress' },
-    statusDone: { fr: 'Terminé', en: 'Done' },
-    statusDismissed: { fr: 'Rejeté', en: 'Dismissed' },
-    noImprovements: { fr: 'Aucune amélioration enregistrée.', en: 'No improvements recorded.' },
-    createdBy: { fr: 'Par', en: 'By' },
-    recording: { fr: 'Enregistrement...', en: 'Recording...' },
-    micStart: { fr: 'Dicter', en: 'Dictate' },
-    micStop: { fr: 'Arrêter', en: 'Stop' },
-    micNotSupported: { fr: 'La reconnaissance vocale n\'est pas supportée par ce navigateur.', en: 'Speech recognition is not supported by this browser.' },
-    deleteConfirm: { fr: 'Supprimer cette amélioration ?', en: 'Delete this improvement?' },
-    filterAll: { fr: 'Tous', en: 'All' },
-    filterActive: { fr: 'Actifs', en: 'Active' },
-    filterDone: { fr: 'Terminés', en: 'Done' },
-  },
 } as const;
 
 // Helper type for nested keys

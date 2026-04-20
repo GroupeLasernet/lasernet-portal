@@ -9,16 +9,19 @@
 //
 //   Prisma Staff  → @hugob       (@ at front)
 //   Client Staff  → ben@abc      (@ in middle)
-//   Lead          → ben@lead or ben@companyslug
+//   Unassigned    → ben@lead     (@ before "lead")
+//   Lead          → ben@abc or ben@lead
 //
-// Handles are derived server-side from the person's name — no
-// schema migration needed. See src/lib/handles.ts.
+// Layout (Hugo, 2026-04-19): four stacked containers instead of
+// tabs. Every section shows its own header, description, and
+// count. Global search filters across all four. Unassigned =
+// pre-meeting leads not yet linked to a business.
 // ============================================================
 
 import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 
-type StaffType = 'prisma' | 'client' | 'lead';
+type StaffType = 'prisma' | 'client' | 'unassigned' | 'lead';
 
 interface PeopleRecord {
   id: string;
@@ -38,11 +41,47 @@ interface PeopleRecord {
   createdAt: string;
 }
 
-const STAFF_TABS: { key: 'all' | StaffType; labelEn: string; labelFr: string }[] = [
-  { key: 'all',    labelEn: 'All',           labelFr: 'Toutes' },
-  { key: 'prisma', labelEn: 'Prisma Staff',  labelFr: 'Personnel Prisma' },
-  { key: 'client', labelEn: 'Client Staff',  labelFr: 'Personnel client' },
-  { key: 'lead',   labelEn: 'Leads',         labelFr: 'Prospects' },
+// Section metadata — order here drives vertical order on the page.
+const SECTIONS: {
+  key: StaffType;
+  titleEn: string;
+  titleFr: string;
+  descEn: string;
+  descFr: string;
+  accent: string; // tailwind text color for count badge
+}[] = [
+  {
+    key: 'prisma',
+    titleEn: 'Prisma Staff',
+    titleFr: 'Personnel Prisma',
+    descEn: 'Internal team members with admin access.',
+    descFr: 'Membres internes avec accès administrateur.',
+    accent: 'text-pink-600 dark:text-pink-300',
+  },
+  {
+    key: 'client',
+    titleEn: 'Client Staff',
+    titleFr: 'Personnel client',
+    descEn: 'People working at a client business — main contacts and staff.',
+    descFr: 'Personnes travaillant pour une entreprise cliente — contacts principaux et personnel.',
+    accent: 'text-blue-600 dark:text-blue-300',
+  },
+  {
+    key: 'unassigned',
+    titleEn: 'Unassigned',
+    titleFr: 'Non assignés',
+    descEn: 'Not linked to any business yet and no completed meeting.',
+    descFr: 'Pas encore liés à une entreprise et sans rencontre complétée.',
+    accent: 'text-gray-500 dark:text-gray-400',
+  },
+  {
+    key: 'lead',
+    titleEn: 'Leads',
+    titleFr: 'Prospects',
+    descEn: 'Real prospects — linked to a business or past the first meeting.',
+    descFr: 'Prospects réels — liés à une entreprise ou au-delà de la première rencontre.',
+    accent: 'text-amber-600 dark:text-amber-300',
+  },
 ];
 
 export default function PeoplePage() {
@@ -52,8 +91,6 @@ export default function PeoplePage() {
   const [people, setPeople] = useState<PeopleRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-
-  const [tab, setTab] = useState<'all' | StaffType>('all');
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -71,27 +108,25 @@ export default function PeoplePage() {
     })();
   }, []);
 
-  const counts = useMemo(() => ({
-    all:    people.length,
-    prisma: people.filter(p => p.staffType === 'prisma').length,
-    client: people.filter(p => p.staffType === 'client').length,
-    lead:   people.filter(p => p.staffType === 'lead').length,
-  }), [people]);
-
-  const filtered = useMemo(() => {
+  // Apply the global search once — then group by staffType.
+  const grouped = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return people.filter(p => {
-      if (tab !== 'all' && p.staffType !== tab) return false;
+    const matches = (p: PeopleRecord) => {
       if (!q) return true;
       return (
-        p.name.toLowerCase().includes(q)       ||
-        p.handle.toLowerCase().includes(q)     ||
+        p.name.toLowerCase().includes(q) ||
+        p.handle.toLowerCase().includes(q) ||
         (p.email || '').toLowerCase().includes(q) ||
         (p.company || '').toLowerCase().includes(q) ||
         (p.clientName || '').toLowerCase().includes(q)
       );
-    });
-  }, [people, tab, search]);
+    };
+    const by: Record<StaffType, PeopleRecord[]> = {
+      prisma: [], client: [], unassigned: [], lead: [],
+    };
+    for (const p of people) if (matches(p)) by[p.staffType].push(p);
+    return by;
+  }, [people, search]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -99,36 +134,13 @@ export default function PeoplePage() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('nav', 'people')}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           {fr
-            ? 'Personnel Prisma, personnel client et prospects — identifiés par un handle (@nom pour Prisma, nom@entreprise pour les clients).'
-            : 'Prisma Staff, Client Staff and leads — each tagged with a handle (@name for Prisma, name@company for clients).'}
+            ? 'Personnel Prisma, personnel client, non assignés et prospects — identifiés par un handle (@nom pour Prisma, nom@entreprise pour les clients).'
+            : 'Prisma Staff, Client Staff, unassigned and leads — each tagged with a handle (@name for Prisma, name@company for clients).'}
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {STAFF_TABS.map(st => {
-          const active = tab === st.key;
-          return (
-            <button
-              key={st.key}
-              onClick={() => setTab(st.key)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-brand-500 text-white shadow-sm'
-                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-brand-300'
-              }`}
-            >
-              {fr ? st.labelFr : st.labelEn}
-              <span className={`ml-2 text-xs ${active ? 'text-white/80' : 'text-gray-400'}`}>
-                {counts[st.key]}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Search */}
-      <div className="mb-4">
+      {/* Global search */}
+      <div className="mb-6">
         <input
           type="search"
           value={search}
@@ -138,24 +150,70 @@ export default function PeoplePage() {
         />
       </div>
 
-      {/* Body */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {loading ? (
-          <div className="p-12 flex justify-center">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-500" />
-          </div>
-        ) : err ? (
-          <div className="p-6 text-sm text-red-600">{err}</div>
-        ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-sm text-gray-400">
-            {fr ? 'Aucune personne ne correspond.' : 'No people match.'}
-          </div>
-        ) : (
-          <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-            {filtered.map(p => <PersonRow key={`${p.source}:${p.id}`} p={p} fr={fr} />)}
-          </ul>
-        )}
+      {loading ? (
+        <div className="p-12 flex justify-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-500" />
+        </div>
+      ) : err ? (
+        <div className="p-6 text-sm text-red-600 bg-white dark:bg-gray-800 rounded-xl border border-red-200">{err}</div>
+      ) : (
+        <div className="space-y-6">
+          {SECTIONS.map(sec => (
+            <PeopleContainer
+              key={sec.key}
+              section={sec}
+              rows={grouped[sec.key]}
+              fr={fr}
+              searching={search.trim().length > 0}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Container ─────────────────────────────────────────────────────────────
+
+function PeopleContainer({
+  section,
+  rows,
+  fr,
+  searching,
+}: {
+  section: typeof SECTIONS[number];
+  rows: PeopleRecord[];
+  fr: boolean;
+  searching: boolean;
+}) {
+  // When the user is searching and a container has zero matches, hide it
+  // to keep focus on what matched. When idle, show empty sections so the
+  // directory feels complete.
+  if (searching && rows.length === 0) return null;
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            {fr ? section.titleFr : section.titleEn}
+            <span className={`text-xs font-mono ${section.accent}`}>{rows.length}</span>
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            {fr ? section.descFr : section.descEn}
+          </p>
+        </div>
       </div>
+
+      {rows.length === 0 ? (
+        <div className="px-5 py-8 text-center text-xs text-gray-400">
+          {fr ? 'Personne ici pour le moment.' : 'Nobody here yet.'}
+        </div>
+      ) : (
+        <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+          {rows.map(p => <PersonRow key={`${p.source}:${p.id}`} p={p} fr={fr} />)}
+        </ul>
+      )}
     </div>
   );
 }
@@ -174,7 +232,6 @@ function PersonRow({ p, fr }: { p: PeopleRecord; fr: boolean }) {
               {p.handle}
             </span>
           )}
-          <StaffTypeBadge type={p.staffType} fr={fr} />
           {p.kind && p.kind !== p.staffType && <KindBadge kind={p.kind} fr={fr} />}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
@@ -200,19 +257,6 @@ function Avatar({ photo, name }: { photo: string | null; name: string }) {
     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-white text-sm font-semibold flex items-center justify-center flex-shrink-0">
       {initials}
     </div>
-  );
-}
-
-function StaffTypeBadge({ type, fr }: { type: StaffType; fr: boolean }) {
-  const conf = {
-    prisma: { bg: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300', labelEn: 'Prisma', labelFr: 'Prisma' },
-    client: { bg: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',  labelEn: 'Client', labelFr: 'Client' },
-    lead:   { bg: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300', labelEn: 'Lead', labelFr: 'Prospect' },
-  }[type];
-  return (
-    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${conf.bg}`}>
-      {fr ? conf.labelFr : conf.labelEn}
-    </span>
   );
 }
 

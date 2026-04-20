@@ -4,7 +4,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
-import QuickBooksStatus from '@/components/QuickBooksStatus';
 import PrismaLogo from '@/components/PrismaLogo';
 import SidebarReorderModal, { loadSidebarOrder, applySidebarOrder, applyChildOrder, type SidebarOrder } from './SidebarReorderModal';
 
@@ -169,13 +168,13 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
                           : 'text-gray-500 hover:text-brand-700 hover:translate-x-[2px] hover:bg-brand-50/40 dark:text-gray-400 dark:hover:text-brand-300 dark:hover:bg-brand-900/15'
                       }`}
                     >
-                      {/* Child-active indicator — mirrors the parent's bar style
-                          (gradient + glow + pop) instead of the old circle dot,
-                          so parent and child active states feel consistent. */}
+                      {/* Child-active indicator — sits at the start of the row
+                          (left-0), not on the vertical divider, so it bookends
+                          the active row the same way the parent indicator does. */}
                       {childActive && (
                         <span
                           aria-hidden="true"
-                          className="absolute -left-[14px] top-[15%] bottom-[15%] w-[3px] rounded-r"
+                          className="absolute left-0 top-[15%] bottom-[15%] w-[3px] rounded-r"
                           style={{
                             background: 'linear-gradient(to bottom, #f472b6, #9d174d)',
                             boxShadow: '0 0 10px rgba(244, 114, 182, 0.55)',
@@ -262,12 +261,7 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
         </div>
       )}
 
-      {/* QuickBooks status — admin only */}
-      {userRole === 'admin' && (
-        <div className="px-4 pb-3">
-          <QuickBooksStatus />
-        </div>
-      )}
+      {/* QuickBooks connection status now lives in Settings → APIs */}
 
       {/* User Info & Logout */}
       <div className="p-4 border-t border-gray-100 dark:border-gray-700">

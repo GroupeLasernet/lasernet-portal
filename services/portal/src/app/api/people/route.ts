@@ -8,7 +8,14 @@
 //   • Prisma Clients (role = client)      User      → @firstnamelastinitial
 //   • Client Staff — main contacts        Contact   → ben@abc
 //   • Client Staff — staff                Contact   → mariet@abc
-//   • Leads (prospects, may have company) Lead      → ben@abc or ben@lead
+//   • Unassigned (pre-business, pre-demo) Lead      → ben@lead
+//   • Leads (real prospects)              Lead      → ben@abc or ben@lead
+//
+// Unassigned vs Lead rule (set by Hugo 2026-04-19):
+//   A Lead row is UNASSIGNED iff managedClientId IS NULL AND
+//   localBusinessId IS NULL AND stage ∈ {new, qualified, demo_scheduled}.
+//   Otherwise it's a real LEAD. The rationale: "cannot become a lead
+//   until they finish a meeting" + no business link yet.
 //
 // Handles are COMPUTED at read time via lib/handles.ts — the
 // person's name drives the handle, so renaming stays in sync
@@ -19,10 +26,12 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { prismaHandle, clientHandle, leadHandle } from '@/lib/handles';
 
+export type StaffType = 'prisma' | 'client' | 'unassigned' | 'lead';
+
 export interface PeopleRecord {
   id: string;
   source: 'user' | 'contact' | 'lead';
-  staffType: 'prisma' | 'client' | 'lead';
+  staffType: StaffType;
   kind: string; // finer label: "admin" | "client" | "maincontact" | "staff" | lead stage
   name: string;
   handle: string;
@@ -36,6 +45,9 @@ export interface PeopleRecord {
   status: string | null;     // user status or lead stage
   createdAt: string;
 }
+
+// Stages that count as "before a meeting finished"
+const PRE_MEETING_STAGES = new Set(['new', 'qualified', 'demo_scheduled']);
 
 export async function GET() {
   try {
@@ -110,10 +122,15 @@ export async function GET() {
 
     for (const l of leads) {
       const companyLabel = l.managedClient?.companyName || l.managedClient?.displayName || l.company || null;
+
+      // Unassigned rule — see header comment for the full rationale.
+      const hasBusinessLink = !!l.managedClientId || !!l.localBusinessId;
+      const isUnassigned = !hasBusinessLink && PRE_MEETING_STAGES.has(l.stage);
+
       people.push({
         id: l.id,
         source: 'lead',
-        staffType: 'lead',
+        staffType: isUnassigned ? 'unassigned' : 'lead',
         kind: l.stage,
         name: l.name,
         handle: leadHandle(l.name, companyLabel),
@@ -129,13 +146,13 @@ export async function GET() {
       });
     }
 
-    // Sort: Prisma staff first, then client staff alphabetically by company,
-    // then leads by most-recent first.
+    // Sort: Prisma staff first, then client staff (alpha by name),
+    // then Unassigned (newest first), then Leads (newest first).
     people.sort((a, b) => {
-      const order = { prisma: 0, client: 1, lead: 2 } as const;
+      const order: Record<StaffType, number> = { prisma: 0, client: 1, unassigned: 2, lead: 3 };
       const diff = order[a.staffType] - order[b.staffType];
       if (diff !== 0) return diff;
-      if (a.staffType === 'lead' || b.staffType === 'lead') {
+      if (a.staffType === 'lead' || a.staffType === 'unassigned') {
         return b.createdAt.localeCompare(a.createdAt); // newest first
       }
       return a.name.localeCompare(b.name);
