@@ -159,95 +159,11 @@ export interface Quote {
   items: { description: string; quantity: number; rate: number; amount: number }[];
 }
 
-export const mockVideos: Video[] = [
-  {
-    id: 'v1',
-    title: 'Getting Started with Your Network Setup',
-    description: 'A walkthrough of your new network configuration and how to manage basic settings.',
-    youtubeId: 'dQw4w9WgXcQ', // placeholder - replace with real video IDs
-    category: 'Setup Guides',
-    subCategory: 'Network',
-    uploadedAt: '2024-11-15',
-    assignedTo: ['2', '3'],
-  },
-  {
-    id: 'v2',
-    title: 'Security Best Practices for Your Business',
-    description: 'Learn how to keep your network and data secure with these essential tips.',
-    youtubeId: 'dQw4w9WgXcQ',
-    category: 'Security',
-    subCategory: 'Best Practices',
-    uploadedAt: '2024-12-01',
-    assignedTo: ['2', '3'],
-  },
-  {
-    id: 'v3',
-    title: 'Remote Access VPN Configuration',
-    description: 'Step-by-step guide to setting up and using your VPN for remote work.',
-    youtubeId: 'dQw4w9WgXcQ',
-    category: 'Setup Guides',
-    subCategory: 'VPN',
-    uploadedAt: '2025-01-10',
-    assignedTo: ['2'],
-  },
-  {
-    id: 'v4',
-    title: 'Backup & Disaster Recovery Overview',
-    description: 'Understanding your backup system and what to do in case of data loss.',
-    youtubeId: 'dQw4w9WgXcQ',
-    category: 'Maintenance',
-    subCategory: 'Backup',
-    uploadedAt: '2025-02-20',
-    assignedTo: ['3'],
-  },
-];
+// Seed videos removed 2026-04-20 — videos now live in the VideoAsset table (Vimeo links).
+export const mockVideos: Video[] = [];
 
-export const mockFiles: ClientFile[] = [
-  {
-    id: 'f1',
-    name: 'Network-Diagram-2024.pdf',
-    type: 'PDF',
-    size: '2.4 MB',
-    uploadedAt: '2024-10-15',
-    category: 'Documentation',
-    subCategory: 'Network',
-    url: '#',
-    assignedTo: ['2', '3'],
-  },
-  {
-    id: 'f2',
-    name: 'Security-Audit-Report.pdf',
-    type: 'PDF',
-    size: '1.8 MB',
-    uploadedAt: '2024-12-01',
-    category: 'Reports',
-    subCategory: 'Security',
-    url: '#',
-    assignedTo: ['2'],
-  },
-  {
-    id: 'f3',
-    name: 'Software-Licenses.xlsx',
-    type: 'Excel',
-    size: '340 KB',
-    uploadedAt: '2025-01-05',
-    category: 'Licenses',
-    subCategory: 'Software',
-    url: '#',
-    assignedTo: ['2', '3'],
-  },
-  {
-    id: 'f4',
-    name: 'VPN-Setup-Instructions.pdf',
-    type: 'PDF',
-    size: '890 KB',
-    uploadedAt: '2025-02-15',
-    category: 'Setup Guides',
-    subCategory: 'VPN',
-    url: '#',
-    assignedTo: ['3'],
-  },
-];
+// Seed files removed 2026-04-20 — documents now live in the FileAsset table (Google Drive-backed).
+export const mockFiles: ClientFile[] = [];
 
 export const mockInvoices: Invoice[] = [
   {

@@ -92,6 +92,8 @@ model ManagedClient {
   trainingEvents  TrainingEvent[]
   leads           Lead[]
   visitGroups     VisitGroup[]
+  fileAssets      FileAsset[]
+  videoAssets     VideoAsset[]
 }
 
 // ============================================================
@@ -613,6 +615,8 @@ model LocalBusiness {
 
   visitGroups VisitGroup[]
   leads       Lead[]
+  fileAssets  FileAsset[]
+  videoAssets VideoAsset[]
 }
 
 // ============================================================
@@ -1058,6 +1062,72 @@ model QuoteItem {
   updatedAt       DateTime @updatedAt
 
   @@index([quoteId])
+}
+
+// ============================================================
+// FILE ASSETS — Documents stored in a Google Shared Drive.
+// The bytes live in Drive; this table holds metadata + ACL.
+// `driveFileId` is the Google Drive file ID returned by the
+// Drive API on upload — all reads/streams go through there.
+// ============================================================
+model FileAsset {
+  id          String   @id @default(cuid())
+  driveFileId String   @unique
+  name        String
+  mimeType    String
+  sizeBytes   BigInt
+
+  category    String?
+  subCategory String?
+
+  // Scope: "internal" (visible to all admins) or "client" (linked to a business)
+  scope       String   @default("internal")
+
+  // Optional business link when scope = "client"
+  managedClientId String?
+  managedClient   ManagedClient? @relation(fields: [managedClientId], references: [id], onDelete: SetNull)
+  localBusinessId String?
+  localBusiness   LocalBusiness? @relation(fields: [localBusinessId], references: [id], onDelete: SetNull)
+
+  uploadedById String?
+  uploadedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([scope])
+  @@index([managedClientId])
+  @@index([localBusinessId])
+  @@index([category])
+}
+
+// ============================================================
+// VIDEO ASSETS — Vimeo-linked tutorial / training videos.
+// No file bytes stored here — just the URL + metadata.
+// ============================================================
+model VideoAsset {
+  id          String   @id @default(cuid())
+  title       String
+  vimeoUrl    String   // full https://vimeo.com/... or player.vimeo.com URL
+  vimeoId     String?  // extracted numeric ID, if parseable
+  description String?  @db.Text
+
+  category    String?
+  subCategory String?
+
+  scope       String   @default("internal")
+
+  managedClientId String?
+  managedClient   ManagedClient? @relation(fields: [managedClientId], references: [id], onDelete: SetNull)
+  localBusinessId String?
+  localBusiness   LocalBusiness? @relation(fields: [localBusinessId], references: [id], onDelete: SetNull)
+
+  uploadedById String?
+  uploadedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([scope])
+  @@index([managedClientId])
+  @@index([localBusinessId])
+  @@index([category])
 }
 
 // ============================================================

@@ -201,6 +201,21 @@ Read from `services/robot/.env` via `load_dotenv()` in `config.py`:
 | `DEV_SKIP_LICENSE` | Bypass license gate on `/api/robot/*` — dev only, NEVER in production |
 | `LICENSE_STRICT` | Hard-fail on unsigned/invalid license responses. Flip to `true` only after `ROBOT_LICENSE_SECRET` is deployed on both sides |
 
+### Portal — Google Drive (files storage)
+
+Documents uploaded through `/admin/files` are stored in a Google Workspace **Shared Drive**. The portal authenticates as a **Service Account** (no per-user OAuth), which must be a Content Manager member of that Shared Drive.
+
+| Var | Purpose |
+|---|---|
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | Full Service Account JSON key, pasted as a single-line string. Read by `src/lib/google-drive.ts::driveClient()` and passed to `GoogleAuth` with scope `drive`. |
+| `GOOGLE_DRIVE_FOLDER_ID` | Shared Drive root folder ID — every upload lands here. Read by `getDriveFolderId()`. |
+
+Tables backing the UI:
+- `FileAsset` — `{ driveFileId, name, mimeType, sizeBytes, category, subCategory, scope, managedClientId?, localBusinessId? }`. Drive holds the bytes, DB holds metadata + ACL.
+- `VideoAsset` — Vimeo-linked, no storage on our side. `{ title, vimeoUrl, vimeoId, description, category, subCategory, scope, managedClientId?, localBusinessId? }`.
+
+APIs: `/api/files/documents` (GET list, POST upload multipart), `/api/files/documents/[id]` (PATCH rename/recategorize + Drive rename, DELETE Drive+DB), `/api/files/documents/[id]/download` (GET stream from Drive), `/api/files/videos` (GET, POST), `/api/files/videos/[id]` (PATCH, DELETE).
+
 ### Portal — dev-only env vars
 
 | Var | Purpose |
