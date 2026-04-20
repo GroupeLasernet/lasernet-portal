@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Prisma — Number Animation Preview</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, system-ui, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(244, 114, 182, 0.08), transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(251, 146, 60, 0.05), transparent 40%),
+        linear-gradient(135deg, #0f172a, #1e1b4b);
+      min-height: 100vh;
+      padding: 2.5rem 1.5rem;
+      color: white;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: 300;
+      letter-spacing: 0.08em;
+    }
+    .subtitle {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.85rem;
+      margin: 0.5rem 0 2rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    .card {
+      background: rgba(30, 41, 59, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      backdrop-filter: blur(12px);
+      transition: border-color 0.25s, transform 0.25s;
+    }
+    .card:hover {
+      border-color: rgba(244, 114, 182, 0.4);
+      transform: translateY(-2px);
+    }
+    .card-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #f472b6;
+      margin-bottom: 0.3rem;
+    }
+    .card-title {
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      margin-bottom: 1rem;
+    }
+    .value {
+      font-size: 3rem;
+      font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      margin: 1rem 0;
+      color: white;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+    }
+    .value .unit {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      margin-left: 0.4rem;
+      font-weight: 400;
+    }
+    .replay-btn {
+      margin-top: 0.8rem;
+      background: rgba(244, 114, 182, 0.12);
+      color: #f472b6;
+      border: 1px solid rgba(244, 114, 182, 0.3);
+      padding: 0.4rem 0.9rem;
+      border-radius: 0.5rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .replay-btn:hover {
+      background: rgba(244, 114, 182, 0.25);
+      transform: translateY(-1px);
+    }
+    .desc {
+      font-size: 0.72rem;
+      color: #64748b;
+      margin-top: 0.9rem;
+      line-height: 1.5;
+    }
+
+    /* ───────── 1. Rolling odometer ───────── */
+    .odometer { display: inline-flex; align-items: center; }
+    .odometer-digit {
+      height: 48px;
+      width: 26px;
+      overflow: hidden;
+      display: inline-block;
+      text-align: center;
+    }
+    .odometer-col {
+      display: flex;
+      flex-direction: column;
+      transition: transform 900ms cubic-bezier(0.65, 0, 0.35, 1);
+    }
+    .odometer-col span {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .odometer .sep {
+      padding: 0 2px;
+      display: inline-flex;
+      align-items: center;
+      height: 48px;
+    }
+
+    /* ───────── 2. Count-up: no special CSS ───────── */
+
+    /* ───────── 3. Flip card ───────── */
+    .flip-wrap { display: inline-flex; align-items: center; }
+    .flip-digit {
+      display: inline-block;
+      position: relative;
+      width: 26px;
+      height: 48px;
+      margin: 0 1px;
+      perspective: 400px;
+    }
+    .flip-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+    }
+    .flip-inner.go {
+      animation: flipIt 700ms cubic-bezier(0.45, 0.02, 0.3, 1) forwards;
+    }
+    .flip-face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .flip-back { transform: rotateX(180deg); }
+    @keyframes flipIt {
+      0%   { transform: rotateX(0); }
+      100% { transform: rotateX(-180deg); }
+    }
+    .flip-wrap .sep {
+      padding: 0 2px;
+      display: inline-flex;
+      align-items: center;
+      height: 48px;
+    }
+
+    /* ───────── 4. Blurred morph ───────── */
+    .morph-wrap { display: inline-flex; align-items: center; }
+    .morph-digit {
+      display: inline-block;
+      position: relative;
+      width: 26px;
+      height: 48px;
+      overflow: hidden;
+    }
+    .morph-old, .morph-new {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .morph-old.exiting {
+      animation: morphOut 550ms cubic-bezier(0.4, 0, 1, 1) forwards;
+    }
+    .morph-new.entering {
+      animation: morphIn 550ms cubic-bezier(0, 0, 0.2, 1) forwards;
+    }
+    @keyframes morphOut {
+      from { opacity: 1; transform: translateY(0); filter: blur(0); }
+      to   { opacity: 0; transform: translateY(-40%); filter: blur(8px); }
+    }
+    @keyframes morphIn {
+      from { opacity: 0; transform: translateY(40%); filter: blur(8px); }
+      to   { opacity: 1; transform: translateY(0);    filter: blur(0); }
+    }
+    .morph-wrap .sep {
+      padding: 0 2px;
+      display: inline-flex;
+      align-items: center;
+      height: 48px;
+    }
+
+    /* ───────── Global play-all ───────── */
+    .play-all {
+      display: block;
+      margin: 2rem auto 0;
+      background: linear-gradient(135deg, #f472b6, #9d174d);
+      color: white;
+      border: 0;
+      padding: 0.75rem 1.8rem;
+      border-radius: 0.6rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 6px 20px rgba(244, 114, 182, 0.2);
+    }
+    .play-all:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 30px rgba(244, 114, 182, 0.35);
+    }
+  </style>
+</head>
+<body>
+  <h1>Number Animations — Prisma</h1>
+  <p class="subtitle">Click "Replay" on a card, or "Replay all" at the bottom. Hover for focus.</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">Option 1</div>
+      <div class="card-title">Rolling Odometer</div>
+      <div class="value" id="odo"></div>
+      <button class="replay-btn" data-target="odo">Replay</button>
+      <div class="desc">Each digit rolls vertically like a slot machine. Mechanical, precise — used by Stripe &amp; Linear.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Option 2</div>
+      <div class="card-title">Count-up on Mount</div>
+      <div class="value" id="count"></div>
+      <button class="replay-btn" data-target="count">Replay</button>
+      <div class="desc">Number counts from 0 to final value with ease-out. Classic dashboard stat card.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Option 3</div>
+      <div class="card-title">Flip Card</div>
+      <div class="value" id="flip"></div>
+      <button class="replay-btn" data-target="flip">Replay</button>
+      <div class="desc">Digits flip 180° like an airport departure board. Playful and retro.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Option 4</div>
+      <div class="card-title">Blurred Morph</div>
+      <div class="value" id="morph"></div>
+      <button class="replay-btn" data-target="morph">Replay</button>
+      <div class="desc">Old value fades + blurs up, new slides + blurs in from below. Smooth, modern.</div>
+    </div>
+  </div>
+
+  <button class="play-all" id="playAll">Replay all</button>
+
+  <script>
+    const TARGETS = {
+      odo:   { value: 12450, prefix: '$', unit: '' },
+      count: { value: 87,    prefix: '',  unit: 'projects' },
+      flip:  { value: 156,   prefix: '',  unit: 'leads' },
+      morph: { value: 2340,  prefix: '',  unit: 'messages' },
+    };
+    const FORMAT = n => n.toLocaleString('en-US');
+
+    // ──────────────────────────────────────────
+    // 1. Rolling Odometer
+    // ──────────────────────────────────────────
+    function renderOdometer() {
+      const el = document.getElementById('odo');
+      const target = TARGETS.odo;
+      const str = FORMAT(target.value);
+      el.innerHTML = '';
+      const wrap = document.createElement('span');
+      wrap.className = 'odometer';
+      if (target.prefix) {
+        const p = document.createElement('span');
+        p.className = 'sep'; p.textContent = target.prefix;
+        wrap.appendChild(p);
+      }
+      const cols = [];
+      for (const c of str) {
+        if (/\d/.test(c)) {
+          const d = document.createElement('div');
+          d.className = 'odometer-digit';
+          const col = document.createElement('div');
+          col.className = 'odometer-col';
+          for (let i = 0; i <= 9; i++) {
+            const s = document.createElement('span');
+            s.textContent = i;
+            col.appendChild(s);
+          }
+          col.style.transform = 'translateY(0)';
+          d.appendChild(col);
+          wrap.appendChild(d);
+          cols.push({ col, digit: parseInt(c, 10) });
+        } else {
+          const sep = document.createElement('span');
+          sep.className = 'sep';
+          sep.textContent = c;
+          wrap.appendChild(sep);
+        }
+      }
+      el.appendChild(wrap);
+      if (target.unit) {
+        const u = document.createElement('span');
+        u.className = 'unit'; u.textContent = target.unit;
+        el.appendChild(u);
+      }
+      // trigger roll after a breath so transition actually runs
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          cols.forEach((c, i) => {
+            c.col.style.transitionDelay = `${i * 60}ms`;
+            c.col.style.transform = `translateY(-${c.digit * 48}px)`;
+          });
+        }, 30);
+      });
+    }
+
+    // ──────────────────────────────────────────
+    // 2. Count-up
+    // ──────────────────────────────────────────
+    function renderCountUp() {
+      const el = document.getElementById('count');
+      const target = TARGETS.count;
+      el.innerHTML = '';
+      const num = document.createElement('span');
+      num.textContent = '0';
+      el.appendChild(num);
+      if (target.unit) {
+        const u = document.createElement('span');
+        u.className = 'unit'; u.textContent = target.unit;
+        el.appendChild(u);
+      }
+      const duration = 1200;
+      const start = performance.now();
+      function tick(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        num.textContent = FORMAT(Math.round(eased * target.value));
+        if (t < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // ──────────────────────────────────────────
+    // 3. Flip Card
+    // ──────────────────────────────────────────
+    function renderFlip() {
+      const el = document.getElementById('flip');
+      const target = TARGETS.flip;
+      const str = FORMAT(target.value);
+      el.innerHTML = '';
+      const wrap = document.createElement('span');
+      wrap.className = 'flip-wrap';
+      let digitIdx = 0;
+      for (const c of str) {
+        if (/\d/.test(c)) {
+          const slot = document.createElement('span');
+          slot.className = 'flip-digit';
+          const inner = document.createElement('span');
+          inner.className = 'flip-inner';
+          const front = document.createElement('span');
+          front.className = 'flip-face flip-front';
+          front.textContent = '0';
+          const back = document.createElement('span');
+          back.className = 'flip-face flip-back';
+          back.textContent = c;
+          inner.appendChild(front);
+          inner.appendChild(back);
+          slot.appendChild(inner);
+          wrap.appendChild(slot);
+          const d = digitIdx++;
+          setTimeout(() => { inner.classList.add('go'); }, d * 100 + 50);
+        } else {
+          const sep = document.createElement('span');
+          sep.className = 'sep'; sep.textContent = c;
+          wrap.appendChild(sep);
+        }
+      }
+      el.appendChild(wrap);
+      if (target.unit) {
+        const u = document.createElement('span');
+        u.className = 'unit'; u.textContent = target.unit;
+        el.appendChild(u);
+      }
+    }
+
+    // ──────────────────────────────────────────
+    // 4. Blurred Morph
+    // ──────────────────────────────────────────
+    function renderMorph() {
+      const el = document.getElementById('morph');
+      const target = TARGETS.morph;
+      const str = FORMAT(target.value);
+      el.innerHTML = '';
+      const wrap = document.createElement('span');
+      wrap.className = 'morph-wrap';
+      let digitIdx = 0;
+      for (const c of str) {
+        if (/\d/.test(c)) {
+          const slot = document.createElement('span');
+          slot.className = 'morph-digit';
+          const oldD = document.createElement('span');
+          oldD.className = 'morph-old exiting';
+          oldD.textContent = '0';
+          const newD = document.createElement('span');
+          newD.className = 'morph-new entering';
+          newD.textContent = c;
+          const d = digitIdx++;
+          oldD.style.animationDelay = `${d * 70}ms`;
+          newD.style.animationDelay = `${d * 70}ms`;
+          slot.appendChild(oldD);
+          slot.appendChild(newD);
+          wrap.appendChild(slot);
+        } else {
+          const sep = document.createElement('span');
+          sep.className = 'sep'; sep.textContent = c;
+          wrap.appendChild(sep);
+        }
+      }
+      el.appendChild(wrap);
+      if (target.unit) {
+        const u = document.createElement('span');
+        u.className = 'unit'; u.textContent = target.unit;
+        el.appendChild(u);
+      }
+    }
+
+    const RUNNERS = {
+      odo:   renderOdometer,
+      count: renderCountUp,
+      flip:  renderFlip,
+      morph: renderMorph,
+    };
+
+    function replay(id) { RUNNERS[id](); }
+    function replayAll() { Object.keys(RUNNERS).forEach(replay); }
+
+    document.querySelectorAll('.replay-btn').forEach(btn => {
+      btn.addEventListener('click', () => replay(btn.dataset.target));
+    });
+    document.getElementById('playAll').addEventListener('click', replayAll);
+
+    // Initial mount
+    setTimeout(replayAll, 250);
+  </script>
+</body>
+</html>

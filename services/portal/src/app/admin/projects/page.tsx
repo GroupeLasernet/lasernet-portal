@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import Link from 'next/link';
+import AnimatedNumber from '@/components/AnimatedNumber';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -107,15 +108,21 @@ export default function ProjectsPage() {
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{fr ? 'Actifs' : 'Active'}</p>
-          <p className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">{active.length}</p>
+          <div className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">
+            <AnimatedNumber value={active.length} />
+          </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{fr ? 'Inactifs' : 'Inactive'}</p>
-          <p className="text-xl font-bold text-gray-600 dark:text-gray-400 mt-1">{inactive.length}</p>
+          <div className="text-xl font-bold text-gray-600 dark:text-gray-400 mt-1">
+            <AnimatedNumber value={inactive.length} />
+          </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{fr ? 'Orphelins' : 'Orphaned'}</p>
-          <p className="text-xl font-bold text-red-600 dark:text-red-400 mt-1">{orphaned.length}</p>
+          <div className="text-xl font-bold text-red-600 dark:text-red-400 mt-1">
+            <AnimatedNumber value={orphaned.length} />
+          </div>
         </div>
       </div>
 

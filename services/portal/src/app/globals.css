@@ -77,6 +77,19 @@
 }
 
 /* ============================================================
+   AnimatedNumber — blurred-morph per-digit animation
+   Used by <AnimatedNumber /> component across stat cards.
+   ============================================================ */
+@keyframes an-morph-out {
+  from { opacity: 1; transform: translateY(0);     filter: blur(0); }
+  to   { opacity: 0; transform: translateY(-42%);  filter: blur(6px); }
+}
+@keyframes an-morph-in {
+  from { opacity: 0; transform: translateY(42%);   filter: blur(6px); }
+  to   { opacity: 1; transform: translateY(0);     filter: blur(0); }
+}
+
+/* ============================================================
    PrismaLogo animations
    Used by <PrismaLogo /> component: breathe + aura + bees-close
    orbital particles. Keep edits here so we only have one source

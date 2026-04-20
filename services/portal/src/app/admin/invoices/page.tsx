@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import AnimatedNumber from '@/components/AnimatedNumber';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -131,19 +132,27 @@ export default function InvoicesPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{fr ? 'Total facturé' : 'Total Invoiced'}</p>
-          <p className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">{fmtCurrency(totalAmount)}</p>
+          <div className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+            <AnimatedNumber value={totalAmount} format={fmtCurrency} />
+          </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{fr ? 'Solde restant' : 'Outstanding'}</p>
-          <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">{fmtCurrency(totalBalance)}</p>
+          <div className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+            <AnimatedNumber value={totalBalance} format={fmtCurrency} />
+          </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{fr ? 'Payées' : 'Paid'}</p>
-          <p className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">{paidCount}</p>
+          <div className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">
+            <AnimatedNumber value={paidCount} />
+          </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{fr ? 'En retard' : 'Overdue'}</p>
-          <p className="text-xl font-bold text-red-600 dark:text-red-400 mt-1">{overdueCount}</p>
+          <div className="text-xl font-bold text-red-600 dark:text-red-400 mt-1">
+            <AnimatedNumber value={overdueCount} />
+          </div>
         </div>
       </div>
 
