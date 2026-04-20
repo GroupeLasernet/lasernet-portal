@@ -25,9 +25,11 @@ export function EditDocumentModal({
   const [name, setName] = useState(row.name);
   const [category, setCategory] = useState(row.category || '');
   const [subCategory, setSubCategory] = useState(row.subCategory || '');
-  const [scope, setScope] = useState<'internal' | 'client'>(row.scope);
   const [saving, setSaving] = useState(false);
 
+  // NOTE: scope (internal/client) is intentionally NOT edited here.
+  // It's determined elsewhere in the portal — do not add it back to
+  // this modal without Hugo explicitly asking for it.
   const save = useCallback(async () => {
     setSaving(true);
     try {
@@ -38,7 +40,6 @@ export function EditDocumentModal({
           name,
           category: category || null,
           subCategory: subCategory || null,
-          scope,
         }),
       });
       if (!res.ok) {
@@ -52,7 +53,7 @@ export function EditDocumentModal({
     } finally {
       setSaving(false);
     }
-  }, [row.id, name, category, subCategory, scope, onSaved, toast]);
+  }, [row.id, name, category, subCategory, onSaved, toast]);
 
   return (
     <ModalShell title={t('files', 'editDocument')} onClose={onClose}>
@@ -64,12 +65,6 @@ export function EditDocumentModal({
       </Field>
       <Field label={t('files', 'subCategory')}>
         <input value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="input-field" />
-      </Field>
-      <Field label={t('files', 'scope')}>
-        <select value={scope} onChange={(e) => setScope(e.target.value as 'internal' | 'client')} className="input-field">
-          <option value="internal">{t('files', 'scopeInternal')}</option>
-          <option value="client">{t('files', 'scopeClient')}</option>
-        </select>
       </Field>
       <div className="flex items-center justify-end gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-secondary">{t('files', 'cancel')}</button>

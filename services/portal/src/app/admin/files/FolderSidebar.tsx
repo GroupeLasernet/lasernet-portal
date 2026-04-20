@@ -46,14 +46,15 @@ export function FolderSidebar({
       </div>
 
       <div className="flex flex-col gap-0.5">
-        {/* All */}
+        {/* All — droppable so an OS file dropped here lands uncategorized */}
         <FolderNode
           label={fr ? 'Tous les fichiers' : 'All files'}
           icon="all"
           active={selCat === SEL_ALL}
           count={totalCount}
           onClick={() => onSelect(SEL_ALL, null)}
-          droppable={false}
+          droppable
+          onDrop={(e) => onDrop(e, null, null)}
         />
 
         {/* Uncategorized (only if there actually is anything uncategorized) */}

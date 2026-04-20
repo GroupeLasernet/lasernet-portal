@@ -90,13 +90,26 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
   }, [selCat, selSub, fr]);
 
   // ── Upload ──────────────────────────────────────────────
-  const uploadFile = useCallback(async (file: File) => {
+  // If caller passes a target cat/sub (e.g. drop from the OS onto a
+  // folder node), that wins; otherwise we fall back to the currently
+  // selected folder. Pass `null` explicitly to force "uncategorized".
+  const uploadFile = useCallback(async (
+    file: File,
+    targetCat?: string | null,
+    targetSub?: string | null,
+  ) => {
+    const cat =
+      targetCat !== undefined
+        ? targetCat
+        : (selCat !== SEL_ALL && selCat !== SEL_UNCAT ? selCat : null);
+    const sub = targetSub !== undefined ? targetSub : (cat ? selSub : null);
+
     const form = new FormData();
     form.append('file', file);
     form.append('scope', 'internal'); // editable after upload
-    if (selCat !== SEL_ALL && selCat !== SEL_UNCAT) {
-      form.append('category', selCat);
-      if (selSub) form.append('subCategory', selSub);
+    if (cat) {
+      form.append('category', cat);
+      if (sub) form.append('subCategory', sub);
     }
     try {
       const res = await fetch('/api/files/documents', { method: 'POST', body: form });
@@ -160,6 +173,17 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
     targetSub: string | null,
   ) => {
     e.preventDefault();
+
+    // Case 1 — OS file drop (drag from desktop / explorer): upload
+    // every file into the target folder.
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      for (const file of Array.from(e.dataTransfer.files)) {
+        uploadFile(file, targetCat, targetSub);
+      }
+      return;
+    }
+
+    // Case 2 — in-page row drag: move the asset between folders.
     const raw = e.dataTransfer.getData('application/json');
     if (!raw) return;
     try {
@@ -168,7 +192,7 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
     } catch {
       /* ignore malformed */
     }
-  }, [moveAsset]);
+  }, [moveAsset, uploadFile]);
 
   // ── New folder / subfolder (ephemeral until populated) ──
   const createCategory = useCallback(() => {
