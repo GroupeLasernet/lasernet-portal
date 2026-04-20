@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useQuickBooks } from '@/lib/QuickBooksContext';
 import AnimatedNumber from '@/components/AnimatedNumber';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -33,25 +34,16 @@ export default function InvoicesPage() {
   const { t, lang } = useLanguage();
   const fr = lang === 'fr';
 
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [source, setSource] = useState<string>('');
+  // Invoices come from QuickBooksContext — prefetched + refreshed in the
+  // background every 60s so the page hydrates instantly on navigation.
+  const qb = useQuickBooks();
+  const invoices = qb.invoices.data as Invoice[];
+  const loading = qb.invoices.loading && qb.invoices.data.length === 0;
+  const source = qb.invoices.source;
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  // ── Fetch invoices ──
-  const fetchInvoices = useCallback(async () => {
-    try {
-      const res = await fetch('/api/quickbooks/invoices');
-      const data = await res.json();
-      setInvoices(data.invoices || []);
-      setSource(data.source || '');
-    } catch { setInvoices([]); }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
   // ── Filters ──
   const filtered = invoices.filter(inv => {

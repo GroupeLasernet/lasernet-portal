@@ -6,16 +6,16 @@
 // Consumes `QuickBooksContext` (single source of truth). When the
 // state is disconnected or missing-creds, the chip flashes and a
 // Connect button appears inline. Clicking Connect starts the OAuth
-// flow; clicking the rest of the chip navigates to /admin/businesses.
+// flow. The chip is a passive status indicator — it does NOT navigate
+// anywhere on click (prior behavior: pushed to /admin/businesses,
+// which was removed because the chip isn't about the business list).
 // Admin sidebar only.
 // ============================================================
 
-import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useQuickBooks, type QbStatus } from '@/lib/QuickBooksContext';
 
 export default function QuickBooksStatus() {
-  const router = useRouter();
   const { t } = useLanguage();
   const { status, connect } = useQuickBooks();
 
@@ -65,27 +65,25 @@ export default function QuickBooksStatus() {
 
   return (
     <div className={`relative rounded-lg ${s.ring}`}>
-      <div className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border transition-colors ${s.bg}`}>
-        <button
-          type="button"
-          onClick={() => router.push('/admin/businesses')}
-          title={t('nav', 'clientDataServerTitle')}
-          className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300 min-w-0 flex-1 text-left"
-        >
+      <div
+        className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border transition-colors ${s.bg}`}
+        title={t('nav', 'clientDataServerTitle')}
+      >
+        <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300 min-w-0 flex-1">
           <svg className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <ellipse cx="12" cy="5" rx="8" ry="3" />
             <path d="M4 5v6c0 1.657 3.582 3 8 3s8-1.343 8-3V5" />
             <path d="M4 11v6c0 1.657 3.582 3 8 3s8-1.343 8-3v-6" />
           </svg>
           <span className="truncate">{t('nav', 'clientDataServer')}</span>
-        </button>
+        </div>
 
         <span className={`flex items-center gap-1.5 ${s.text} flex-shrink-0`}>
           <span className={`w-2 h-2 rounded-full ${s.dot} ${needsAttention ? 'animate-pulse' : ''}`} />
           {needsAttention ? (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); void connect(); }}
+              onClick={() => { void connect(); }}
               className={`px-2 py-0.5 rounded-md text-[11px] font-semibold text-white transition-colors ${
                 status === 'missing-creds'
                   ? 'bg-amber-600 hover:bg-amber-700'

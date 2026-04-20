@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type QBClient, type ManagedClient, type ContactPerson } from '@/lib/mock-data';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useQuickBooks } from '@/lib/QuickBooksContext';
 import Avatar from '@/components/Avatar';
 import StreetView from '@/components/StreetView';
 import PageHeader from '@/components/PageHeader';
@@ -173,12 +174,13 @@ function AdminBusinessesPageInner() {
   const [businesses, setBusinesses] = useState<UnifiedBusiness[]>([]);
   const [businessesLoading, setBusinessesLoading] = useState(true);
 
-  // ── QB connection state ──
-  const [qbClients, setQbClients] = useState<QBClient[]>([]);
-  const [qbConnected, setQbConnected] = useState(false);
-  const [qbLoading, setQbLoading] = useState(true);
-  const [dataSource, setDataSource] = useState<string>('');
-  const [credentialsConfigured, setCredentialsConfigured] = useState(true);
+  // ── QB connection + data: sourced from QuickBooksContext (prefetched + refreshed in background) ──
+  const qb = useQuickBooks();
+  const qbClients = qb.customers.data as QBClient[];
+  const qbConnected = qb.status === 'connected';
+  const qbLoading = qb.customers.loading && qb.customers.data.length === 0;
+  const dataSource = qb.customers.source;
+  const credentialsConfigured = qb.status !== 'missing-creds';
   const [connectError, setConnectError] = useState<string | null>(null);
 
   // ── Top container: unlinked businesses + QB search ──
@@ -288,18 +290,8 @@ function AdminBusinessesPageInner() {
     }).catch(() => setManagedLoaded(true));
   }, [searchParams]);
 
-  // Fetch QB status + customers
-  useEffect(() => {
-    fetch('/api/quickbooks/status').then(r => r.json()).then(data => {
-      setQbConnected(data.connected);
-      setCredentialsConfigured(data.credentialsConfigured !== false);
-    }).catch(() => {});
-    fetch('/api/quickbooks/customers').then(r => r.json()).then(data => {
-      setQbClients(data.customers || []);
-      setDataSource(data.source || 'mock');
-      setQbLoading(false);
-    }).catch(() => setQbLoading(false));
-  }, []);
+  // QB status + customers are prefetched + refreshed by QuickBooksContext —
+  // no local fetch needed. (Was previously two fetches on every mount.)
 
   // Fetch training templates
   useEffect(() => {
@@ -445,15 +437,14 @@ function AdminBusinessesPageInner() {
     return matches / Math.max(wordsA.length, wordsB.length);
   };
 
-  // When clicking an unlinked business, auto-suggest QB matches
-  const handleSelectUnlinked = useCallback(async (biz: UnifiedBusiness) => {
+  // When clicking an unlinked business, auto-suggest QB matches.
+  // Pulls from the in-memory QB cache instead of re-hitting the network.
+  const handleSelectUnlinked = useCallback((biz: UnifiedBusiness) => {
     setSelectedUnlinkedId(biz.id);
     setQbSearchQuery(biz.name);
     setQbSearchLoading(true);
     try {
-      const res = await fetch('/api/quickbooks/customers');
-      const data = await res.json();
-      const customers: QBCustomer[] = data.customers || [];
+      const customers = qb.customers.data as unknown as QBCustomer[];
       const importedQbIds = new Set(businesses.filter(b => b.source === 'quickbooks' && b.qbId).map(b => b.qbId));
       // Score and sort by name similarity
       const scored = customers
@@ -471,16 +462,15 @@ function AdminBusinessesPageInner() {
       setQbSearchResults(scored.map(s => s.customer));
     } catch { /* silently fail */ }
     setQbSearchLoading(false);
-  }, [businesses]);
+  }, [businesses, qb.customers.data]);
 
-  // Manual QB search in top container
-  const handleQbTopSearch = async () => {
+  // Manual QB search in top container — reads from the cached customers
+  // (no network call; cache is refreshed every 60s by QuickBooksContext).
+  const handleQbTopSearch = () => {
     if (!qbSearchQuery.trim()) return;
     setQbSearchLoading(true);
     try {
-      const res = await fetch('/api/quickbooks/customers');
-      const data = await res.json();
-      const customers: QBCustomer[] = data.customers || [];
+      const customers = qb.customers.data as unknown as QBCustomer[];
       const q = qbSearchQuery.toLowerCase();
       const importedQbIds = new Set(businesses.filter(b => b.source === 'quickbooks' && b.qbId).map(b => b.qbId));
       const results = customers.filter(c =>
