@@ -84,15 +84,37 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
         <div key={link.labelKey}>
           <button
             onClick={() => toggleGroup(link.labelKey)}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+            className={`group relative w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
               isChildActive
-                ? 'text-brand-700 bg-brand-50 dark:text-brand-300 dark:bg-brand-900/30'
+                ? 'text-brand-700 dark:text-brand-300'
                 : isExpanded
-                  ? 'text-gray-800 bg-gray-50/80 dark:text-gray-200 dark:bg-gray-700/40'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700/50'
+                  ? 'text-gray-800 dark:text-gray-200'
+                  : 'text-gray-600 hover:text-brand-700 hover:translate-x-[3px] dark:text-gray-400 dark:hover:text-brand-300'
             }`}
+            style={
+              isChildActive
+                ? { background: 'linear-gradient(90deg, rgba(244,114,182,0.16) 0%, rgba(244,114,182,0.04) 100%)' }
+                : isExpanded
+                  ? { background: 'linear-gradient(90deg, rgba(107,114,128,0.10) 0%, rgba(107,114,128,0.03) 100%)' }
+                  : undefined
+            }
           >
-            <span className={`transition-transform duration-300 ${isExpanded ? 'scale-110' : 'scale-100'}`}>
+            {/* Soft glowing indicator bar when a child is active */}
+            {isChildActive && (
+              <span
+                aria-hidden="true"
+                className="absolute left-0 top-[15%] bottom-[15%] w-[3px] rounded-r"
+                style={{
+                  background: 'linear-gradient(to bottom, #f472b6, #9d174d)',
+                  boxShadow: '0 0 10px rgba(244, 114, 182, 0.55)',
+                  transformOrigin: 'left center',
+                  animation: 'sidebar-indicator-pop 420ms cubic-bezier(0.34,1.56,0.64,1)',
+                }}
+              />
+            )}
+            <span className={`transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+              isExpanded ? 'scale-110' : 'scale-100 group-hover:scale-[1.15] group-hover:-rotate-3'
+            }`}>
               {link.icon}
             </span>
             <span className="flex-1 text-left">{t('nav', link.labelKey)}</span>
@@ -130,14 +152,29 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
                         transitionDelay: isExpanded ? `${idx * 50}ms` : '0ms',
                         opacity: isExpanded ? 1 : 0,
                         transform: isExpanded ? 'translateX(0)' : 'translateX(-8px)',
+                        background: childActive
+                          ? 'linear-gradient(90deg, rgba(244,114,182,0.16) 0%, rgba(244,114,182,0.04) 100%)'
+                          : undefined,
                       }}
-                      className={`flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
+                      className={`group/child relative flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
                         childActive
-                          ? 'text-brand-700 bg-brand-50 font-medium dark:text-brand-300 dark:bg-brand-900/30'
-                          : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/50'
+                          ? 'text-brand-700 font-medium dark:text-brand-300'
+                          : 'text-gray-500 hover:text-brand-700 hover:translate-x-[2px] hover:bg-brand-50/40 dark:text-gray-400 dark:hover:text-brand-300 dark:hover:bg-brand-900/15'
                       }`}
                     >
-                      {child.icon}
+                      {childActive && (
+                        <span
+                          aria-hidden="true"
+                          className="absolute -left-[13px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
+                          style={{
+                            background: '#f472b6',
+                            boxShadow: '0 0 8px rgba(244, 114, 182, 0.7)',
+                          }}
+                        />
+                      )}
+                      <span className="transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover/child:scale-110">
+                        {child.icon}
+                      </span>
                       <span>{t('nav', child.labelKey)}</span>
                     </Link>
                   );
