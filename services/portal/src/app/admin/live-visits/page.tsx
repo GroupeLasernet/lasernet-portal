@@ -644,14 +644,6 @@ export default function VisitsPage() {
     <div className="space-y-6 pb-8">
 
       {/* ════════════════════════════════════════════════════════════════════════
-          SECTION 0 — CARRIED OVER (amber container, auto-hides when empty)
-          Visit groups still status='active' started before today + scheduled
-          meetings whose date has passed. Click reopens the unified finalize
-          modal. Added 2026-04-20 — surfaces anything Hugo forgot to close out.
-          ════════════════════════════════════════════════════════════════════════ */}
-      <CarriedOverMeetings />
-
-      {/* ════════════════════════════════════════════════════════════════════════
           SECTION 1 — AGENDA (white container)
           ════════════════════════════════════════════════════════════════════════ */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
@@ -766,9 +758,11 @@ export default function VisitsPage() {
           ) : (
             <div className="flex gap-4 overflow-x-auto pb-2">
               {followUpGroups.map(vg => (
-                <div
+                <a
                   key={vg.id}
-                  className="flex-shrink-0 w-[300px] bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4"
+                  href={`/admin/live-visits/${vg.id}`}
+                  className="flex-shrink-0 w-[300px] bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-brand-400 dark:hover:border-brand-500 hover:shadow-md transition cursor-pointer block"
+                  title={t('liveVisits', 'openVisitForDetails') || 'Open this visit to see what the callback is about'}
                 >
                   <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{getBusinessName(vg)}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -782,12 +776,19 @@ export default function VisitsPage() {
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
                     {vg.visitors.length} {t('liveVisits', 'visitors').toLowerCase()}
                   </p>
-                </div>
+                </a>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          CARRIED OVER (amber, auto-hides when empty) — sits just above the
+          Live Visits container so operators see unfinished meetings from
+          prior days right next to today's visits. Added 2026-04-20.
+          ════════════════════════════════════════════════════════════════════════ */}
+      <CarriedOverMeetings />
 
       {/* ════════════════════════════════════════════════════════════════════════
           SECTION 3 — LIVE VISITS (dark container)

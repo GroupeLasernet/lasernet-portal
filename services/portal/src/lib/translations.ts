@@ -997,9 +997,10 @@ const translations = {
     subtitle: { fr: 'Agenda, suivis et visites en cours', en: 'Agenda, follow-ups and live visits' },
     // Page sections
     agendaTitle: { fr: 'Agenda', en: 'Agenda' },
-    followUpTitle: { fr: 'Suivis requis', en: 'Follow-up needed' },
+    followUpTitle: { fr: 'Rappels prévus', en: 'Callback scheduled' },
     liveTitle: { fr: 'Visites en cours', en: 'Live Visits' },
-    noFollowUps: { fr: 'Aucun suivi requis', en: 'No follow-ups needed' },
+    noFollowUps: { fr: 'Aucun rappel prévu', en: 'No callbacks scheduled' },
+    openVisitForDetails: { fr: 'Ouvrir cette visite pour voir ce qu\'il faut faire', en: 'Open this visit to see what the callback is about' },
     noActiveVisits: { fr: 'Aucune visite en cours', en: 'No active visits' },
     // Agenda
     mon: { fr: 'L', en: 'M' },
