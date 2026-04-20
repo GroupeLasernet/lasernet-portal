@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useQuickBooks } from '@/lib/QuickBooksContext';
 import PageHeader from '@/components/PageHeader';
 import StreetView from '@/components/StreetView';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
@@ -634,7 +635,9 @@ export default function AdminStationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState<ManagedClient[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
-  const [qbInvoices, setQBInvoices] = useState<QBInvoice[]>([]);
+  // QB invoices from QuickBooksContext (prefetched + 60s refresh).
+  const qb = useQuickBooks();
+  const qbInvoices = qb.invoices.data as unknown as QBInvoice[];
 
   // Modal states
   const [showNewStationModal, setShowNewStationModal] = useState(false);
@@ -684,18 +687,6 @@ export default function AdminStationsPage() {
     }
   }, []);
 
-  // Fetch QB invoices
-  const fetchQBInvoices = useCallback(async () => {
-    try {
-      const res = await fetch('/api/quickbooks/invoices');
-      if (!res.ok) throw new Error('Failed to fetch invoices');
-      const data = await res.json();
-      setQBInvoices(data.invoices || []);
-    } catch (err) {
-      console.error('Failed to fetch QB invoices:', err);
-    }
-  }, []);
-
   // Fetch machines for selected job's client
   const fetchMachinesForClient = useCallback(async (clientId: string) => {
     try {
@@ -708,12 +699,11 @@ export default function AdminStationsPage() {
     }
   }, []);
 
-  // Initial load
+  // Initial load — QB invoices come from QuickBooksContext, no local fetch.
   useEffect(() => {
     fetchStations();
     fetchClients();
-    fetchQBInvoices();
-  }, [fetchStations, fetchClients, fetchQBInvoices]);
+  }, [fetchStations, fetchClients]);
 
   // Deep-link support: when navigated here from the clients tab with
   // ?stationId=<id>, auto-select that station once the list has loaded.

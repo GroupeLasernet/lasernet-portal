@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useQuickBooks } from '@/lib/QuickBooksContext';
 import PageHeader from '@/components/PageHeader';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -235,7 +236,9 @@ export default function AdminLeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [team, setTeam] = useState<TeamMember[]>([]);
-  const [qbItems, setQbItems] = useState<QBItem[]>([]);
+  // QB inventory is pulled from QuickBooksContext cache (prefetched + 60s refresh).
+  const qb = useQuickBooks();
+  const qbItems = qb.inventory.data as unknown as QBItem[];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState<'contact' | 'project'>('contact');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -443,19 +446,10 @@ export default function AdminLeadsPage() {
     }
   };
 
-  // ── Fetch QB inventory ──
-  const fetchQBInventory = async () => {
-    try {
-      const res = await fetch('/api/quickbooks/inventory');
-      const data = await res.json();
-      if (data.items) setQbItems(data.items);
-    } catch { /* silently fail */ }
-  };
-
+  // QB inventory handled by QuickBooksContext — fetch only the local data here.
   useEffect(() => {
     fetchLeads();
     fetchTeam();
-    fetchQBInventory();
   }, []);
 
   // ── Populate detail form when selected lead changes ──

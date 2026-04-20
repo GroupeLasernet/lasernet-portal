@@ -40,7 +40,7 @@ export default function AnimatedNumber({
   format,
   className = '',
   stagger = 70,
-  duration = 550,
+  duration = 1050, // slowed +500ms per Hugo 2026-04-19
   animateOnMount = true,
 }: Props) {
   const fmt = format || ((n: number) => n.toLocaleString('en-US'));

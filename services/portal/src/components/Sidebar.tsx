@@ -73,7 +73,14 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
   const portalLabel = userRole === 'admin' ? t('nav', 'adminPortal') : t('nav', 'clientPortal');
 
   const renderLink = (link: SidebarLink) => {
-    const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+    // Root links like `/admin` must be exact-match only — otherwise prefix-
+    // matching makes Dashboard light up on every /admin/* sub-page.
+    // Deeper links (e.g. `/admin/search`) still use prefix-match so `/admin/
+    // search/people` keeps Search active.
+    const isRootHref = link.href.split('/').filter(Boolean).length <= 1;
+    const isActive = isRootHref
+      ? pathname === link.href
+      : pathname === link.href || pathname.startsWith(link.href + '/');
 
     // Expandable group
     if (link.children && link.children.length > 0) {
@@ -162,13 +169,18 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
                           : 'text-gray-500 hover:text-brand-700 hover:translate-x-[2px] hover:bg-brand-50/40 dark:text-gray-400 dark:hover:text-brand-300 dark:hover:bg-brand-900/15'
                       }`}
                     >
+                      {/* Child-active indicator — mirrors the parent's bar style
+                          (gradient + glow + pop) instead of the old circle dot,
+                          so parent and child active states feel consistent. */}
                       {childActive && (
                         <span
                           aria-hidden="true"
-                          className="absolute -left-[13px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
+                          className="absolute -left-[14px] top-[15%] bottom-[15%] w-[3px] rounded-r"
                           style={{
-                            background: '#f472b6',
-                            boxShadow: '0 0 8px rgba(244, 114, 182, 0.7)',
+                            background: 'linear-gradient(to bottom, #f472b6, #9d174d)',
+                            boxShadow: '0 0 10px rgba(244, 114, 182, 0.55)',
+                            transformOrigin: 'left center',
+                            animation: 'sidebar-indicator-pop 420ms cubic-bezier(0.34,1.56,0.64,1)',
                           }}
                         />
                       )}

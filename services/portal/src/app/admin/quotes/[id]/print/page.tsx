@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useQuickBooks } from '@/lib/QuickBooksContext';
 
 // ── Types (mirroring the editor page) ──
 
@@ -64,8 +65,10 @@ export default function QuotePrintPage() {
   const { lang } = useLanguage();
   const fr = lang === 'fr';
 
+  const qb = useQuickBooks();
+  const taxCodes = qb.taxCodes.data as unknown as QBTaxCodeOption[];
+
   const [quote, setQuote] = useState<Quote | null>(null);
-  const [taxCodes, setTaxCodes] = useState<QBTaxCodeOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [printed, setPrinted] = useState(false);
 
@@ -74,15 +77,10 @@ export default function QuotePrintPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [qRes, tcRes] = await Promise.all([
-          fetch(`/api/quotes/${id}`),
-          fetch('/api/quotes/qb-tax-codes'),
-        ]);
+        const qRes = await fetch(`/api/quotes/${id}`);
         const qData = await qRes.json();
-        const tcData = await tcRes.json();
         if (cancelled) return;
         setQuote(qData.quote || null);
-        setTaxCodes(tcData.taxCodes || []);
       } catch {
         // ignore — page will render an error state
       } finally {

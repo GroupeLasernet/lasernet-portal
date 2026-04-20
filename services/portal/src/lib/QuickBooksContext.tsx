@@ -73,37 +73,41 @@ export interface QBCustomer {
   postalCode: string;
 }
 
+// Shape from /api/quickbooks/inventory — already lowercased by the route.
 export interface QBInventoryItem {
-  Id?: string;
-  Name?: string;
-  Sku?: string;
-  Description?: string;
-  UnitPrice?: number;
-  PurchaseCost?: number;
-  QtyOnHand?: number;
-  Type?: string;
-  Active?: boolean;
-  IncomeAccountRef?: { value: string; name: string };
-  ExpenseAccountRef?: { value: string; name: string };
-  AssetAccountRef?: { value: string; name: string };
+  id: string;
+  name: string;
+  fullName?: string;
+  type: string; // 'Inventory' | 'NonInventory' | 'Service' | 'Category'
+  description: string | null;
+  unitPrice: number;
+  qtyOnHand: number | null;
+  sku: string | null;
+  category: string | null;
+  active: boolean;
   [key: string]: unknown;
 }
 
+// Shape from /api/quickbooks/accounts — already lowercased by the route.
 export interface QBAccount {
-  Id: string;
-  Name: string;
-  AccountType?: string;
-  AccountSubType?: string;
-  Classification?: string;
+  id: string;
+  name: string;
+  fullName?: string;
+  type: string;
+  subType?: string;
+  classification?: string;
   [key: string]: unknown;
 }
 
+// Shape from /api/quotes/qb-tax-codes — already lowercase + enriched with
+// totalRate (sum of component rates) and rateDetails (per-component breakdown).
 export interface QBTaxCode {
-  Id: string;
-  Name: string;
-  Description?: string;
-  Active?: boolean;
-  rate?: number;
+  id: string;
+  name: string;
+  description?: string;
+  taxable?: boolean;
+  totalRate: number;
+  rateDetails: { name: string; rate: number }[];
   [key: string]: unknown;
 }
 

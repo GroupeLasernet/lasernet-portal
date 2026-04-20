@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useQuickBooks } from '@/lib/QuickBooksContext';
 import AnimatedNumber from '@/components/AnimatedNumber';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -121,11 +122,12 @@ export default function VisitsPage() {
   // Mobile move dropdown
   const [mobileMovingVisitId, setMobileMovingVisitId] = useState<string | null>(null);
 
-  // Sidebar: collapsible sections & QB inventory
+  // Sidebar: collapsible sections & QB inventory (from QuickBooksContext cache)
   const [openSidebarSection, setOpenSidebarSection] = useState<string | null>(null);
-  const [qbInventory, setQbInventory] = useState<{ id: string; name: string; type: string; description: string | null; qtyOnHand: number | null }[]>([]);
-  const [qbConnected, setQbConnected] = useState(false);
-  const [loadingInventory, setLoadingInventory] = useState(false);
+  const qb = useQuickBooks();
+  const qbInventory = qb.inventory.data as unknown as { id: string; name: string; type: string; description: string | null; qtyOnHand: number | null }[];
+  const qbConnected = qb.status === 'connected';
+  const loadingInventory = qb.inventory.loading && qb.inventory.data.length === 0;
   // Needs per group (loaded when expanded)
   const [groupNeeds, setGroupNeeds] = useState<Record<string, { id: string; type: string; description: string | null; notes: string | null; status: string }[]>>({});
   // Need note editing
@@ -178,19 +180,7 @@ export default function VisitsPage() {
     return () => clearInterval(dataInterval);
   }, [fetchVisitGroups]);
 
-  // ── Fetch QB inventory on mount ──
-  useEffect(() => {
-    (async () => {
-      setLoadingInventory(true);
-      try {
-        const res = await fetch('/api/quickbooks/inventory');
-        const data = await res.json();
-        setQbConnected(data.connected ?? false);
-        setQbInventory(data.items || []);
-      } catch { /* silently fail */ }
-      setLoadingInventory(false);
-    })();
-  }, []);
+  // QB inventory is prefetched + refreshed by QuickBooksContext — no local fetch needed.
 
   // ── Fetch needs when a group is expanded ──
   const fetchGroupNeeds = useCallback(async (groupId: string) => {

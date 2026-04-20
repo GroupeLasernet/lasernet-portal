@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useQuickBooks } from '@/lib/QuickBooksContext';
 import HoldButton from '@/components/HoldButton';
 import PageHeader from '@/components/PageHeader';
 
@@ -910,11 +911,11 @@ export default function SettingsPage() {
 
 // ── Visit Sidebar Settings sub-component ──
 function VisitSidebarSettings({ t }: { t: (s: string, k: string) => string }) {
+  const qb = useQuickBooks();
+  const qbItems = qb.inventory.data as unknown as { id: string; name: string; type: string }[];
+  const qbConnected = qb.status === 'connected';
   const [categories, setCategories] = useState<string[]>([]);
   const [newCat, setNewCat] = useState('');
-  const [qbItems, setQbItems] = useState<{ id: string; name: string; type: string }[]>([]);
-  const [qbConnected, setQbConnected] = useState(false);
-  const [loadingQb, setLoadingQb] = useState(true);
   const [saved, setSaved] = useState(false);
 
   // Load saved categories from localStorage (will move to DB later)
@@ -923,23 +924,6 @@ function VisitSidebarSettings({ t }: { t: (s: string, k: string) => string }) {
       const stored = localStorage.getItem('visitSidebarCategories');
       if (stored) setCategories(JSON.parse(stored));
     } catch {}
-  }, []);
-
-  // Fetch QB connection status + inventory items in parallel
-  useEffect(() => {
-    (async () => {
-      try {
-        const [statusRes, invRes] = await Promise.all([
-          fetch('/api/quickbooks/status'),
-          fetch('/api/quickbooks/inventory'),
-        ]);
-        const statusData = await statusRes.json();
-        const invData = await invRes.json();
-        setQbConnected(statusData.connected ?? false);
-        setQbItems(invData.items || []);
-      } catch {}
-      setLoadingQb(false);
-    })();
   }, []);
 
   const saveCategories = (cats: string[]) => {
@@ -1058,31 +1042,13 @@ function QBConnectButton({ t }: { t: (s: string, k: string) => string }) {
 }
 
 function InventoryBrowser({ t }: { t: (s: string, k: string) => string }) {
-  const [items, setItems] = useState<QBItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [connected, setConnected] = useState(false);
+  const qb = useQuickBooks();
+  const items = qb.inventory.data as unknown as QBItem[];
+  const loading = qb.inventory.loading && qb.inventory.data.length === 0;
+  const connected = qb.status === 'connected';
+  const error = qb.inventory.error;
   const [selectedItem, setSelectedItem] = useState<QBItem | null>(null);
   const [search, setSearch] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/quickbooks/status');
-        const statusData = await statusRes.json();
-        setConnected(statusData.connected ?? false);
-      } catch {}
-      try {
-        const invRes = await fetch('/api/quickbooks/inventory');
-        const invData = await invRes.json();
-        if (invData.error) setError(invData.error);
-        setItems(invData.items || []);
-      } catch (e: any) {
-        setError(e.message || 'Failed to load inventory');
-      }
-      setLoading(false);
-    })();
-  }, []);
 
   if (loading) {
     return (
@@ -1230,6 +1196,11 @@ interface QBAccount {
 }
 
 function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
+  const qb = useQuickBooks();
+  const accounts = qb.accounts.data as unknown as QBAccount[];
+  const loadingAccounts = qb.accounts.loading && qb.accounts.data.length === 0;
+  const qbConnected = qb.status === 'connected';
+
   const [itemType, setItemType] = useState<'Inventory' | 'NonInventory' | 'Service'>('Inventory');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -1241,28 +1212,8 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
   const [expenseAccountId, setExpenseAccountId] = useState('');
   const [assetAccountId, setAssetAccountId] = useState('');
 
-  const [accounts, setAccounts] = useState<QBAccount[]>([]);
-  const [loadingAccounts, setLoadingAccounts] = useState(true);
-  const [qbConnected, setQbConnected] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
-
-  // Fetch QB connection status + accounts separately so a failing query doesn't hide connected status
-  useEffect(() => {
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/quickbooks/status');
-        const statusData = await statusRes.json();
-        setQbConnected(statusData.connected ?? false);
-      } catch {}
-      try {
-        const accRes = await fetch('/api/quickbooks/accounts');
-        const accData = await accRes.json();
-        setAccounts(accData.accounts || []);
-      } catch {}
-      setLoadingAccounts(false);
-    })();
-  }, []);
 
   // Filter accounts by classification/type for dropdowns
   const incomeAccounts = accounts.filter(a => a.classification === 'Revenue' || a.type === 'Income');
@@ -1302,6 +1253,8 @@ function AddStockForm({ t }: { t: (s: string, k: string) => string }) {
         setResult({ success: true, message: `"${data.item?.name || name}" created in QuickBooks` });
         // Reset form
         setName(''); setDescription(''); setSku(''); setUnitPrice(''); setPurchaseCost(''); setQtyOnHand('0');
+        // Refresh shared QB cache so the new item shows up everywhere
+        void qb.invalidate('inventory');
       } else {
         setResult({ success: false, message: data.error || 'Failed to create item' });
       }

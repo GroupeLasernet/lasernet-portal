@@ -127,7 +127,8 @@ export default function QuotesPage() {
   // QB connection — single source of truth lives in QuickBooksContext.
   // `status === 'connected'` means DB-persisted tokens are live. We never
   // infer connection state from an individual data-fetch result anymore.
-  const { status: qbStatus, connect: qbConnect } = useQuickBooks();
+  const qb = useQuickBooks();
+  const { status: qbStatus, connect: qbConnect } = qb;
   const qbConnected = qbStatus === 'connected';
 
   // ── State ──
@@ -185,23 +186,9 @@ export default function QuotesPage() {
     [fr],
   );
 
-  // QB tax codes (dynamic from QuickBooks) — empty until connected.
-  // NOTE: connection status comes from QuickBooksContext (see top of component).
-  // A tax-code fetch failure is a *data* error, not a connection error.
-  const [qbTaxCodes, setQbTaxCodes] = useState<QBTaxCodeOption[]>([]);
-
-  // ── Load QB tax codes ──
-  const loadQBTaxCodes = useCallback(async () => {
-    try {
-      const res = await fetch('/api/quotes/qb-tax-codes');
-      const data = await res.json();
-      if (data.taxCodes && Array.isArray(data.taxCodes)) {
-        setQbTaxCodes(data.taxCodes);
-      }
-    } catch {
-      // swallow — connection truth lives in QuickBooksContext
-    }
-  }, []);
+  // QB tax codes (dynamic from QuickBooks) — sourced from QuickBooksContext
+  // which prefetches them once on provider mount and revalidates every 60 s.
+  const qbTaxCodes = qb.taxCodes.data as unknown as QBTaxCodeOption[];
 
   // ── Load managed clients ──
   const loadManagedClients = useCallback(async () => {
@@ -268,8 +255,8 @@ export default function QuotesPage() {
     loadQuotes();
     loadManagedClients();
     loadProjects();
-    loadQBTaxCodes();
-  }, [loadQuotes, loadManagedClients, loadProjects, loadQBTaxCodes]);
+    // QB tax codes are prefetched by QuickBooksContext.
+  }, [loadQuotes, loadManagedClients, loadProjects]);
 
   // When business changes, load QB estimates
   useEffect(() => {
