@@ -25,8 +25,9 @@ npm run preview
 node scripts/preview.mjs /admin/people /admin/files
 ```
 
-Output: `services/previews/<timestamp>/*.png` plus an `index.json` that lists
-each route, the file path, and whether the capture succeeded.
+Output: `<repo-root>/previews/<timestamp>/*.png` plus an `index.json` that
+lists each route, the file path, and whether the capture succeeded. The
+`previews/` folder is gitignored.
 
 ### Env knobs
 

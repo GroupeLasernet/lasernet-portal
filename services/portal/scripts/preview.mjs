@@ -9,7 +9,7 @@
  *   4. Navigates a list of admin routes and writes a screenshot per route.
  *   5. Writes a short JSON index so Claude can Read the screenshot files afterward.
  *
- * Output dir: ../../../../previews/<timestamp>/  (absolute path is logged)
+ * Output dir: <repo-root>/previews/<timestamp>/  (absolute path is logged)
  *
  * Usage:
  *   node scripts/preview.mjs                       # default route list
@@ -28,7 +28,7 @@
  * present in the environment (e.g. in .env.local). It does not inject them.
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -62,9 +62,11 @@ const PORT = Number(process.env.PREVIEW_PORT || 3100);
 const ROUTES = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_ROUTES;
 
 const runId = new Date().toISOString().replace(/[:.]/g, '-');
+// PORTAL_ROOT is <repo>/services/portal → go up 2 to reach <repo>.
+const REPO_ROOT = resolve(PORTAL_ROOT, '..', '..');
 const OUT_DIR =
   process.env.PREVIEW_OUT_DIR ||
-  resolve(PORTAL_ROOT, '..', '..', '..', 'previews', runId);
+  resolve(REPO_ROOT, 'previews', runId);
 
 async function waitForServer(url, timeoutMs = 90_000) {
   const start = Date.now();
@@ -102,26 +104,39 @@ async function main() {
   }
 
   console.log(`▶ booting next dev on :${PORT} with DEV_SKIP_AUTH=true…`);
+  // Windows quirk: Node 20+ refuses to spawn .cmd/.bat without `shell: true`
+  // (CVE-2024-27980). Using `shell: true` on Windows routes through cmd.exe.
+  const isWin = process.platform === 'win32';
   const devProc = spawn(
-    process.platform === 'win32' ? 'npm.cmd' : 'npm',
+    isWin ? 'npm.cmd' : 'npm',
     ['run', 'dev', '--', '-p', String(PORT)],
     {
       cwd: PORTAL_ROOT,
       env: { ...process.env, DEV_SKIP_AUTH: 'true', PORT: String(PORT) },
       stdio: ['ignore', 'pipe', 'pipe'],
+      shell: isWin,
     }
   );
 
   let serverLog = '';
   devProc.stdout.on('data', (chunk) => {
-    serverLog += chunk.toString();
+    const s = chunk.toString();
+    serverLog += s;
+    // Surface the "Ready" / "compiled" / port banner so the user sees progress
+    if (/ready|compiled|listening|error/i.test(s)) process.stdout.write(`    ${s}`);
   });
   devProc.stderr.on('data', (chunk) => {
     serverLog += chunk.toString();
   });
 
   const cleanup = () => {
-    if (!devProc.killed) devProc.kill('SIGTERM');
+    if (devProc.killed || devProc.exitCode !== null) return;
+    if (isWin && devProc.pid) {
+      // `shell: true` on Windows means child is wrapped by cmd.exe — kill the tree.
+      try { execSync(`taskkill /pid ${devProc.pid} /T /F`, { stdio: 'ignore' }); } catch {}
+    } else {
+      devProc.kill('SIGTERM');
+    }
   };
   process.on('exit', cleanup);
   process.on('SIGINT', () => { cleanup(); process.exit(130); });

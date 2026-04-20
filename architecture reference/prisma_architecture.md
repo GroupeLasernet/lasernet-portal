@@ -210,7 +210,7 @@ Read from `services/robot/.env` via `load_dotenv()` in `config.py`:
 
 ### Portal preview script
 
-`services/portal/scripts/preview.mjs` boots `next dev` with `DEV_SKIP_AUTH=true`, drives headless Chromium via Playwright, and screenshots every admin route into `services/previews/<timestamp>/`. Run via `npm run preview` after a one-time `npm i -D playwright && npx playwright install chromium`.
+`services/portal/scripts/preview.mjs` boots `next dev` with `DEV_SKIP_AUTH=true`, drives headless Chromium via Playwright, and screenshots every admin route into `<repo-root>/previews/<timestamp>/` (gitignored). Run via `npm run preview` after a one-time `npm i -D playwright && npx playwright install chromium`. On Windows the spawn uses `shell: true` (Node 20+ CVE-2024-27980 workaround) and kills the tree with `taskkill /T /F` on exit.
 
 ## 9. Licensing & HMAC
 
