@@ -1069,130 +1069,131 @@ function AdminBusinessesPageInner() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* TOP CONTAINER: Unlinked businesses + QB suggestions              */}
-      {/* ------------------------------------------------------------ */}
-      {/* Always rendered (even when empty) so Hugo can see where        */}
-      {/* unlinked local businesses land and has the QB fuzzy search    */}
-      {/* always at hand. Empty state explains what would appear here.   */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      <div className="flex-shrink-0 border-b bg-amber-50/50 dark:bg-amber-900/10">
-        <div className="px-4 sm:px-6 py-3">
-          <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-            {fr ? 'Entreprises non reliées' : 'Businesses not linked yet'}
-            <span className="text-xs font-normal text-amber-600 dark:text-amber-400">({unlinkedBusinesses.length})</span>
-          </h2>
-        </div>
-        <div className="flex divide-x divide-amber-200 dark:divide-amber-800 max-h-[280px] min-h-[140px]">
-          {/* LEFT: Unlinked business list */}
-          <div className="w-1/2 overflow-y-auto">
-            {unlinkedBusinesses.length === 0 ? (
-              <div className="px-4 py-6 text-xs text-amber-700 dark:text-amber-300/80 leading-relaxed">
-                {fr
-                  ? 'Aucune entreprise locale en attente. Les entreprises créées localement (depuis un prospect ou ajoutées manuellement) qui ne sont pas encore reliées à un client QuickBooks apparaissent ici pour que tu puisses les relier.'
-                  : 'No local businesses waiting. Businesses created locally (from a lead or added manually) that are not yet linked to a QuickBooks customer will show up here so you can match them.'}
-              </div>
-            ) : (
-              unlinkedBusinesses.map(biz => (
-                <button
-                  key={biz.id}
-                  onClick={() => handleSelectUnlinked(biz)}
-                  className={`w-full text-left px-4 py-3 hover:bg-amber-100/50 dark:hover:bg-amber-900/20 transition border-b border-amber-100 dark:border-amber-900/30 ${
-                    selectedUnlinkedId === biz.id ? 'bg-amber-100 dark:bg-amber-900/30 border-l-4 border-l-amber-500' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {biz.source === 'lead' ? (
-                      <span
-                        title={fr ? 'Saisie libre depuis un prospect' : 'Free-text from a lead'}
-                        className="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200"
-                      >
-                        {fr ? 'Prospect' : 'Lead'}
-                      </span>
-                    ) : (
-                      <span className="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200">Local</span>
-                    )}
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{biz.name}</p>
-                  </div>
-                  {(biz.address || biz.source === 'lead') && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate ml-[52px]">
-                      {biz.source === 'lead'
-                        ? [biz.email, biz.phone].filter(Boolean).join(' · ') || (fr ? 'Aucun détail' : 'No details')
-                        : [biz.address, biz.city].filter(Boolean).join(', ')}
-                    </p>
-                  )}
-                </button>
-              ))
-            )}
-          </div>
-
-            {/* RIGHT: QB search / suggestions */}
-            <div className="w-1/2 flex flex-col overflow-hidden">
-              <div className="p-3 flex-shrink-0">
-                <input
-                  type="text"
-                  placeholder={fr ? 'Taper pour voir les 4-5 correspondances...' : 'Type to see the top 4-5 matches...'}
-                  value={qbSearchQuery}
-                  onChange={e => {
-                    const v = e.target.value;
-                    setQbSearchQuery(v);
-                    // Fire fuzzy-on-change (Hugo's rule: no Enter key, no button press).
-                    handleQbTopSearch(v);
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                />
-                {qbSearchResults.length > 0 && (
-                  <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
-                    {fr
-                      ? `${qbSearchResults.length} correspondance${qbSearchResults.length > 1 ? 's' : ''} la plus proche`
-                      : `Top ${qbSearchResults.length} closest match${qbSearchResults.length > 1 ? 'es' : ''}`}
-                  </p>
-                )}
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                {qbSearchResults.length === 0 && !qbSearchLoading ? (
-                  <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">
-                    {selectedUnlinkedId
-                      ? (fr ? 'Aucune suggestion trouvee. Cherchez manuellement.' : 'No suggestions found. Search manually.')
-                      : (fr ? 'Selectionnez une entreprise a gauche' : 'Select a business on the left')}
-                  </p>
-                ) : (
-                  <div className="space-y-1 px-3 pb-3">
-                    {qbSearchResults.map(c => (
-                      <div key={c.id} className="flex items-center justify-between gap-2 bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{c.companyName || c.displayName}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {[c.email, c.phone, c.city].filter(Boolean).join(' · ')}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => handleMatchQb(c)}
-                          disabled={qbMatching || !selectedUnlinkedId}
-                          className="flex-shrink-0 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium transition disabled:opacity-50"
-                        >
-                          {qbMatching ? '...' : (fr ? 'Relier' : 'Match')}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* BOTTOM CONTAINER: Linked businesses (managed clients)            */}
+      {/* BODY: left column (Unlinked stacked on Linked list) + right panel */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <div className="flex-1 flex overflow-hidden">
 
-        {/* ── LEFT: Linked business list ──────────────────────────────── */}
+        {/* ── LEFT COLUMN: Unlinked (top) + Linked list (below) ─────── */}
         <div className={`flex flex-col border-r bg-white dark:bg-gray-800 transition-all duration-200 ${
           selectedClient ? 'hidden md:flex md:w-80 xl:w-96 flex-shrink-0' : 'w-full md:w-80 xl:w-96 flex-shrink-0'
         }`}>
+
+          {/* ── UNLINKED SECTION (top of left column) ──────────────── */}
+          {/* Always rendered (even when empty) so Hugo sees where        */}
+          {/* unlinked local/lead entries land and the QB fuzzy search   */}
+          {/* is always at hand. Stacked vertically (list on top,        */}
+          {/* search+suggestions below) because the column is narrow.     */}
+          <div className="flex-shrink-0 border-b border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10 flex flex-col">
+            <div className="px-3 py-2 border-b border-amber-200 dark:border-amber-800 flex-shrink-0">
+              <h2 className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                {fr ? 'Entreprises non reliées' : 'Businesses not linked yet'}
+                <span className="text-[10px] font-normal text-amber-600 dark:text-amber-400">({unlinkedBusinesses.length})</span>
+              </h2>
+            </div>
+
+            {/* Unlinked list */}
+            <div className="overflow-y-auto max-h-[180px]">
+              {unlinkedBusinesses.length === 0 ? (
+                <div className="px-3 py-3 text-[11px] text-amber-700 dark:text-amber-300/80 leading-relaxed">
+                  {fr
+                    ? 'Aucune entreprise en attente. Les prospects avec un nom d\'entreprise et les entreprises locales non reliées à QuickBooks apparaîtront ici.'
+                    : 'No businesses waiting. Leads with a company name and local businesses not yet linked to QuickBooks will appear here.'}
+                </div>
+              ) : (
+                unlinkedBusinesses.map(biz => (
+                  <button
+                    key={biz.id}
+                    onClick={() => handleSelectUnlinked(biz)}
+                    className={`w-full text-left px-3 py-2 hover:bg-amber-100/50 dark:hover:bg-amber-900/20 transition border-b border-amber-100 dark:border-amber-900/30 ${
+                      selectedUnlinkedId === biz.id ? 'bg-amber-100 dark:bg-amber-900/30 border-l-4 border-l-amber-500' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {biz.source === 'lead' ? (
+                        <span
+                          title={fr ? 'Saisie libre depuis un prospect' : 'Free-text from a lead'}
+                          className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 flex-shrink-0"
+                        >
+                          {fr ? 'Prospect' : 'Lead'}
+                        </span>
+                      ) : (
+                        <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 flex-shrink-0">Local</span>
+                      )}
+                      <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{biz.name}</p>
+                    </div>
+                    {(biz.address || biz.source === 'lead') && (
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                        {biz.source === 'lead'
+                          ? [biz.email, biz.phone].filter(Boolean).join(' · ') || (fr ? 'Aucun détail' : 'No details')
+                          : [biz.address, biz.city].filter(Boolean).join(', ')}
+                      </p>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* QB search input */}
+            <div className="p-2 border-t border-amber-200 dark:border-amber-800 flex-shrink-0">
+              <input
+                type="text"
+                placeholder={fr ? 'Chercher QuickBooks...' : 'Search QuickBooks...'}
+                value={qbSearchQuery}
+                onChange={e => {
+                  const v = e.target.value;
+                  setQbSearchQuery(v);
+                  // Fire fuzzy-on-change (Hugo's rule: no Enter key, no button press).
+                  handleQbTopSearch(v);
+                }}
+                className="w-full px-2.5 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+              />
+              {qbSearchResults.length > 0 && (
+                <p className="text-[9px] text-amber-600 dark:text-amber-400 mt-1">
+                  {fr
+                    ? `${qbSearchResults.length} correspondance${qbSearchResults.length > 1 ? 's' : ''}`
+                    : `Top ${qbSearchResults.length} match${qbSearchResults.length > 1 ? 'es' : ''}`}
+                </p>
+              )}
+            </div>
+
+            {/* QB suggestions list */}
+            <div className="overflow-y-auto max-h-[180px]">
+              {qbSearchResults.length === 0 && !qbSearchLoading ? (
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center px-2 py-2">
+                  {qbSearchQuery
+                    ? (fr ? 'Aucune suggestion.' : 'No suggestions.')
+                    : selectedUnlinkedId
+                      ? (fr ? 'Tapez pour chercher.' : 'Type to search.')
+                      : (fr ? 'Sélectionnez une entreprise ci-dessus ou tapez.' : 'Select a business above or type.')}
+                </p>
+              ) : (
+                <div className="space-y-1 px-2 pb-2">
+                  {qbSearchResults.map(c => (
+                    <div key={c.id} className="flex items-center justify-between gap-1.5 bg-white dark:bg-gray-800 rounded-md p-1.5 border border-gray-200 dark:border-gray-700">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{c.companyName || c.displayName}</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                          {[c.email, c.phone, c.city].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleMatchQb(c)}
+                        disabled={qbMatching || !selectedUnlinkedId}
+                        className="flex-shrink-0 px-2 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-[10px] font-medium transition disabled:opacity-50"
+                      >
+                        {qbMatching ? '...' : (fr ? 'Relier' : 'Match')}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── LINKED LIST header ─────────────────────────────────── */}
           <div className="p-4 border-b border-gray-100 dark:border-gray-700">
             <h2 className="font-semibold text-sm flex items-center gap-2">
               <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

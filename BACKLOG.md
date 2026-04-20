@@ -1,7 +1,7 @@
 # Prisma — Backlog & Task List
 
 > Living list of everything on deck. Maintained jointly with Claude.
-> Last updated: 2026-04-20 — In-place LeadEditPanel on People tab + fuzzy 4-5 suggestions on business link search
+> Last updated: 2026-04-20 — Businesses page: unlinked-list relocated into left column + dark-mode input fix
 
 Commands when talking to Claude:
 - **LIST** — show what's in this file / in memory
@@ -16,6 +16,7 @@ Commands when talking to Claude:
 
 ## Recently Shipped (2026-04-20)
 
+- [x] **Businesses page layout polish** — the "Businesses not linked yet" container was moved **out of its full-width top strip** and **into the left column**, stacked on top of the Linked Businesses list (so both live inside the same narrow `w-80 / xl:w-96` column). Internal layout collapsed from 1/2 + 1/2 horizontal split to a vertical stack (header → unlinked list → QB search input → QB suggestions). QB search `<input>` got the missing dark-mode classes (`bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500`) so the typed text is no longer white-on-white in dark mode.
 - [x] **In-place edit panel on People tab** — new `src/components/LeadEditPanel.tsx` is a right-side slide-in drawer that edits a Lead (name, email, phone, phone2, company, otherContacts, source, stage, estimatedValue, nextFollowUpAt, notes) via `PATCH /api/leads/[id]`. `/admin/people` now opens the drawer *in place* when Edit is clicked on a lead/unassigned row instead of navigating to `/admin/leads?id=…`. Users → team settings and contacts → businesses still navigate (same as before) — only the lead case was wrong. Escape closes; saving refetches `/api/people` so the row reflects the change immediately.
 - [x] **Fuzzy 4–5 suggestions on business link search (as-you-type)** — new shared `src/lib/fuzzy.ts` (`scoreNameSimilarity` + `topFuzzyMatches`). Wired into `/admin/businesses` QB search (no Enter / no button press) and into the Leads detail-panel biz search (fuzzy filter over a one-time-fetched ManagedClients cache). Both surfaces always show the top 4–5 closest matches — per `feedback_business_link_autocomplete.md`.
 
