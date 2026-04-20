@@ -39,6 +39,39 @@ export async function GET(request: NextRequest) {
       orderBy: { name: 'asc' },
     });
 
+    // Fetch orphan Leads — leads with a free-text company but NOT yet
+    // linked to either a ManagedClient or a LocalBusiness. These show up
+    // in the "Businesses not linked yet" container as virtual rows so
+    // Hugo can match them to a QB customer without first manually
+    // creating a LocalBusiness shell. Source tag = 'lead'; id prefix = 'lead:'.
+    const orphanLeadWhere: any = {
+      managedClientId: null,
+      localBusinessId: null,
+      company: { not: null },
+    };
+    if (q) {
+      orphanLeadWhere.OR = [
+        { company: { contains: q, mode: 'insensitive' } },
+        { name: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+    const orphanLeads = await prisma.lead.findMany({
+      where: orphanLeadWhere,
+      select: {
+        id: true, name: true, company: true, email: true, phone: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    // Dedupe by normalised company name — if Hugo has three leads all
+    // with company "eco surafce lassser", show one virtual row.
+    const orphanByCompany = new Map<string, typeof orphanLeads[number]>();
+    for (const l of orphanLeads) {
+      const key = (l.company || '').toLowerCase().trim();
+      if (!key) continue;
+      if (!orphanByCompany.has(key)) orphanByCompany.set(key, l);
+    }
+
     // Merge into unified shape
     const businesses = [
       ...managedClients.map(mc => ({
@@ -82,6 +115,24 @@ export async function GET(request: NextRequest) {
           leads: lb._count.leads,
           contacts: 0,
         },
+      })),
+      // Virtual rows derived from orphan leads (see above for rationale).
+      ...Array.from(orphanByCompany.values()).map(l => ({
+        id: `lead:${l.id}`,
+        name: l.company || l.name,
+        displayName: l.company || l.name,
+        source: 'lead' as const,
+        qbId: null as string | null,
+        address: null as string | null,
+        city: null as string | null,
+        province: null as string | null,
+        postalCode: null as string | null,
+        phone: l.phone,
+        email: l.email,
+        website: null as string | null,
+        notes: null as string | null,
+        createdAt: l.createdAt.toISOString(),
+        _count: { visitGroups: 0, leads: 1, contacts: 0 },
       })),
     ].sort((a, b) => a.name.localeCompare(b.name));
 

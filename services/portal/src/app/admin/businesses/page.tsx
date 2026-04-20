@@ -16,7 +16,9 @@ interface UnifiedBusiness {
   id: string;
   name: string;
   displayName: string;
-  source: 'quickbooks' | 'local';
+  // 'lead' = virtual row derived from an orphan lead with free-text company
+  // (no LocalBusiness or ManagedClient yet). See /api/businesses/route.ts.
+  source: 'quickbooks' | 'local' | 'lead';
   qbId: string | null;
   address: string | null;
   city: string | null;
@@ -260,7 +262,9 @@ function AdminBusinessesPageInner() {
 
   // ── Derived ──
   const selectedClient = managedClients.find((mc) => mc.id === selectedClientId) || null;
-  const unlinkedBusinesses = businesses.filter(b => b.source === 'local');
+  // Unlinked list = real LocalBusinesses + virtual rows derived from orphan
+  // leads (source='lead'). Both live in the amber "not linked yet" container.
+  const unlinkedBusinesses = businesses.filter(b => b.source === 'local' || b.source === 'lead');
 
   const INPUT_CLS = 'input-field w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent';
 
@@ -465,19 +469,27 @@ function AdminBusinessesPageInner() {
     } catch { /* silently fail */ }
   }, [qbSearchQuery, qb.customers.data, businesses]);
 
-  // Match local business to QB customer (link)
+  // Match local business (or orphan lead) to QB customer (link).
+  // The unlinked list mixes two row shapes:
+  //   • source='local' → real LocalBusiness, id = lb.id
+  //   • source='lead'  → virtual row for orphan lead, id = `lead:<leadId>`
+  // Route to the right endpoint based on the id prefix.
   const handleMatchQb = async (customer: QBCustomer) => {
     if (!selectedUnlinkedId) return;
     setQbMatching(true);
     try {
-      const res = await fetch(`/api/local-businesses/${selectedUnlinkedId}/match-qb`, {
+      const isLead = selectedUnlinkedId.startsWith('lead:');
+      const url = isLead
+        ? `/api/leads/${selectedUnlinkedId.slice('lead:'.length)}/match-qb`
+        : `/api/local-businesses/${selectedUnlinkedId}/match-qb`;
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ qbClient: customer }),
       });
       if (res.ok) {
         const data = await res.json();
-        const newManagedId = data.managedClient?.id || data.client?.id || null;
+        const newManagedId = data.managedClientId || data.managedClient?.id || data.client?.id || null;
         setSelectedUnlinkedId(null);
         setQbSearchQuery('');
         setQbSearchResults([]);
@@ -1092,12 +1104,23 @@ function AdminBusinessesPageInner() {
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200">Local</span>
+                    {biz.source === 'lead' ? (
+                      <span
+                        title={fr ? 'Saisie libre depuis un prospect' : 'Free-text from a lead'}
+                        className="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200"
+                      >
+                        {fr ? 'Prospect' : 'Lead'}
+                      </span>
+                    ) : (
+                      <span className="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200">Local</span>
+                    )}
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{biz.name}</p>
                   </div>
-                  {biz.address && (
+                  {(biz.address || biz.source === 'lead') && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate ml-[52px]">
-                      {[biz.address, biz.city].filter(Boolean).join(', ')}
+                      {biz.source === 'lead'
+                        ? [biz.email, biz.phone].filter(Boolean).join(' · ') || (fr ? 'Aucun détail' : 'No details')
+                        : [biz.address, biz.city].filter(Boolean).join(', ')}
                     </p>
                   )}
                 </button>
