@@ -247,7 +247,7 @@ function ContainerHeader({
   }, [open]);
 
   return (
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center gap-2 mb-4">
       <h2 className="text-lg font-semibold flex items-center gap-2">
         {title}
         <span className="text-xs font-mono text-gray-400 dark:text-gray-500">{count}</span>
@@ -258,7 +258,7 @@ function ContainerHeader({
           onClick={() => setOpen((v) => !v)}
           aria-haspopup="menu"
           aria-expanded={open}
-          className="p-2 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
             <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 14a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" />
@@ -267,7 +267,7 @@ function ContainerHeader({
         {open && (
           <div
             role="menu"
-            className="absolute right-0 top-full mt-1 w-60 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20"
+            className="absolute left-0 top-full mt-1 w-60 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20"
           >
             {menuItems.map((item, i) =>
               'divider' in item ? (
