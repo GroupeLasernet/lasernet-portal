@@ -61,12 +61,18 @@ export interface EndVisitModalProps {
   // When true (default), operator can toggle checkboxes to
   // promote rows to Leads + attach as co-leads of the project.
   allowPromote?: boolean;
+  // When true (default), the original present-list is pre-ticked
+  // and stays in the Present column. When false (used by the
+  // carried-over / unfinished meetings flow), everyone starts
+  // in the Not present column with no one attached — the
+  // operator picks from scratch.
+  preselectPresent?: boolean;
 }
 
 const STAR_FILLED = '★';
 const STAR_EMPTY = '☆';
 
-export default function EndVisitModal({ entry, onClose, onFinished, allowPromote = true }: EndVisitModalProps) {
+export default function EndVisitModal({ entry, onClose, onFinished, allowPromote = true, preselectPresent = true }: EndVisitModalProps) {
   const { toast } = useToast();
   const [ctx, setCtx] = useState<ContextPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,9 +109,21 @@ export default function EndVisitModal({ entry, onClose, onFinished, allowPromote
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to load');
         if (cancelled) return;
-        setCtx(data);
-        // Default: mark all present rows as selected (attach), no stars yet.
-        setSelected(new Set(data.present.map((p: PersonRow) => p.key)));
+        if (preselectPresent) {
+          setCtx(data);
+          // Default: mark all present rows as selected (attach), no stars yet.
+          setSelected(new Set(data.present.map((p: PersonRow) => p.key)));
+        } else {
+          // Carried-over / unfinished-meeting flow: no one pre-selected,
+          // everyone starts in the Not-present column. Operator reassesses
+          // who was actually there.
+          setCtx({
+            ...data,
+            present: [],
+            absent: [...data.present, ...data.absent],
+          });
+          setSelected(new Set());
+        }
       } catch (e: any) {
         if (!cancelled) setErr(e.message || 'Failed to load');
       } finally {
@@ -113,7 +131,7 @@ export default function EndVisitModal({ entry, onClose, onFinished, allowPromote
       }
     })();
     return () => { cancelled = true; };
-  }, [entry.kind, entry.id]);
+  }, [entry.kind, entry.id, preselectPresent]);
 
   // ── ESC closes ──────────────────────────────────────────
   useEffect(() => {

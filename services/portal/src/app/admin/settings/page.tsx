@@ -569,7 +569,7 @@ export default function SettingsPage() {
       {tab === 'language' && (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{t('settings', 'languageSection')}</h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('settings', 'languageSection')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'languageDesc')}</p>
         </div>
         <div className="p-4 flex items-center gap-3">
@@ -597,7 +597,7 @@ export default function SettingsPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Team</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Team</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Invite people to join the admin team. They&apos;ll get a link to set their password.
             </p>
@@ -731,7 +731,7 @@ export default function SettingsPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{t('settings', 'trainingTemplates')}</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('settings', 'trainingTemplates')}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'trainingTemplatesDesc')}</p>
           </div>
           <button
@@ -1057,7 +1057,7 @@ export default function SettingsPage() {
       {tab === 'visitSidebar' && (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('settings', 'visitSidebarTitle')}</h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('settings', 'visitSidebarTitle')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'visitSidebarDesc')}</p>
         </div>
         <VisitSidebarSettings t={t} />
@@ -1070,7 +1070,7 @@ export default function SettingsPage() {
       {tab === 'qbInventory' && (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('settings', 'stockTitle')}</h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('settings', 'stockTitle')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'stockDesc')}</p>
         </div>
         <InventoryBrowser t={t} />
@@ -1091,7 +1091,7 @@ export default function SettingsPage() {
       {tab === 'apis' && (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('settings', 'apisTitle')}</h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('settings', 'apisTitle')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'apisDesc')}</p>
         </div>
         <div className="p-6 space-y-4">
@@ -1115,7 +1115,7 @@ export default function SettingsPage() {
       {tab === 'projects' && (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('settings', 'projectsStagesTitle')}</h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('settings', 'projectsStagesTitle')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'projectsStagesDesc')}</p>
         </div>
         <div className="p-6 space-y-4">

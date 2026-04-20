@@ -52,10 +52,10 @@ export default function CarriedOverMeetings() {
     <>
       <div className="mb-4 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3">
         <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
-            Carried over ({items.length})
-          </h4>
-          <span className="text-[10px] text-amber-600 dark:text-amber-400">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+            Unfinished meetings ({items.length})
+          </h2>
+          <span className="text-xs text-amber-600 dark:text-amber-400">
             left unfinished before today
           </span>
         </div>
@@ -91,6 +91,7 @@ export default function CarriedOverMeetings() {
           entry={activeEntry}
           onClose={() => setActiveEntry(null)}
           onFinished={() => { setActiveEntry(null); load(); }}
+          preselectPresent={false}
         />
       )}
     </>

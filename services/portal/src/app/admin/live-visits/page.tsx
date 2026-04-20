@@ -806,7 +806,7 @@ export default function VisitsPage() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
             </div>
-            <h2 className="text-xl font-bold text-white">{t('liveVisits', 'liveTitle')}</h2>
+            <h2 className="text-lg font-bold text-white">{t('liveVisits', 'liveTitle')}</h2>
           </div>
           <div className="flex items-center gap-6">
             <p className="text-lg font-semibold text-white tabular-nums">{formatTime(now)}</p>
