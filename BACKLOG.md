@@ -1,7 +1,7 @@
 # Prisma — Backlog & Task List
 
 > Living list of everything on deck. Maintained jointly with Claude.
-> Last updated: 2026-04-19 (late evening — QuickBooks status consolidated behind a single context + flashing sidebar chip with Connect button)
+> Last updated: 2026-04-20 — Fuzzy 4-5 suggestions on business link search (Businesses page + Leads panel) via shared `src/lib/fuzzy.ts`
 
 Commands when talking to Claude:
 - **LIST** — show what's in this file / in memory
@@ -13,6 +13,12 @@ Commands when talking to Claude:
 ## In Progress (portal)
 
 *(none)*
+
+## Recently Shipped (2026-04-19 night)
+
+- [x] **People tab — per-row Edit button** — `/admin/people` rows now have a pencil "Modifier" (FR) / "Edit" (EN) button on the right side. Click-through is source-aware: staff (`user`) → `/admin/team?edit=…`, contacts → `/admin/businesses?client=…&contact=…` (falls back to `?contact=…` when unlinked), leads → `/admin/leads?lead=…`.
+- [x] **Files tab — container kebab menus with sort** — new `ContainerHeader` component gives both "Documents" and "Vidéos" containers a three-dot menu (right-aligned, closes on click-outside + Escape). Menu items: Upload (stub), divider, sort A-Z / Z-A / newest / oldest / (docs only) largest first. Active sort shows checkmark. Default sort newest-first. `parseSize()` helper parses "2.4 MB" / "890 KB" strings.
+- [x] **DEV_SKIP_AUTH bypass + sandbox preview pipeline** — `getDevBypassPayload()` in `src/lib/auth.ts` wired into `requireAdmin`, `requireAdmin.ts`, middleware, and `/api/auth/me`. New `scripts/preview.mjs` boots `next dev` on port 3100, captures admin routes via headless Chromium, writes to `<repo>/previews/<timestamp>/`. Hard-gated: production `NODE_ENV` always rejects. Docs in `services/portal/scripts/README.md`.
 
 ## Recently Shipped (2026-04-19 late evening)
 
@@ -42,6 +48,7 @@ Commands when talking to Claude:
 
 ## Deferred Backlog
 
+- [ ] **In-place edit panel — never navigate away from the current tab** *(WTB 2026-04-19 night)* — Clicking Edit on a person/lead/contact must open the detail panel as an overlay on whichever page Hugo is on. On `/admin/people`: stay on People, open the edit panel in place. On `/admin/leads`: same thing (it's already native there). Same saved data either way. Today the People tab routes to `/admin/leads?id=…` and opens the panel on the Prospects page — functional but wrong context. Plan: extract the lead detail panel into a reusable component (e.g. `LeadEditPanel`) accepting `id` + `onClose`, mount it behind an overlay on People (and anywhere else we surface Edit), keep the deep-link URL param for refresh-stability but stop navigating.
 - [ ] **In-app updater for station PCs** *(WTB 2026-04-14)* — robot service self-updates by polling `GET /api/releases/robot/latest` on Portal (returns `{version, download_url, sha256}`), downloads the build, verifies hash, swaps files, restarts. Same pattern for relfar. Reuses the existing HMAC-auth sync channel. Goal: customer PCs never touch SSH or git — installer + Portal URL is the entire setup. Must exist before shipping stations at scale; current SSH+git flow is dev-only.
 - [ ] **Machine tracking rearchitecture (phase 2)** — `machineData[]` blob inside `Station.notes` JSON still holds `{ serialNumber, machineType }` per line item. The dedicated `Machine` + `StationMachine` models already exist but aren't the source of truth yet. Needs: (1) migration moving serial+type from notes into Machine rows, (2) MachineItems component rewrite to read/write from Station.machines, (3) backend serializer cleanup. Non-trivial — schedule a dedicated session.
 - [ ] **QuickBooks token auto-refresh loop** — token cookie → DB migration already shipped. Still missing: a background/periodic refresh so tokens don't silently expire between user visits. Decide first whether to run it inside a Vercel cron, a Next route hit by an external scheduler, or piggyback on the always-on PC.

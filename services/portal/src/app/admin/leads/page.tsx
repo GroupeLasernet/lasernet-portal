@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useQuickBooks } from '@/lib/QuickBooksContext';
 import PageHeader from '@/components/PageHeader';
+import { topFuzzyMatches } from '@/lib/fuzzy';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -304,30 +305,55 @@ export default function AdminLeadsPage() {
   const [saving, setSaving] = useState(false);
 
   // ── Business linking state ──
+  // Shape we normalise each ManagedClient row down to for the picker list.
+  type BizPick = { id: string; name: string; companyName: string; source: string };
+  // Cache the ManagedClient list so we can fuzzy-filter on EVERY keystroke
+  // without re-hitting /api/managed-clients. Populated lazily on first focus
+  // of the biz search input (see onFocus in the input below).
+  const [bizClientsCache, setBizClientsCache] = useState<BizPick[] | null>(null);
   const [bizSearchQuery, setBizSearchQuery] = useState('');
-  const [bizSearchResults, setBizSearchResults] = useState<{ id: string; name: string; companyName: string; source: string }[]>([]);
+  const [bizSearchResults, setBizSearchResults] = useState<BizPick[]>([]);
   const [bizSearching, setBizSearching] = useState(false);
   const [bizLinking, setBizLinking] = useState(false);
 
-  const handleBizSearch = async (q: string) => {
-    setBizSearchQuery(q);
-    if (q.trim().length < 2) { setBizSearchResults([]); return; }
+  // One-time fetch of all ManagedClients into memory so fuzzy search
+  // runs instantly as Hugo types. Cache persists for the page lifetime.
+  const ensureBizClientsLoaded = useCallback(async (): Promise<BizPick[]> => {
+    if (bizClientsCache) return bizClientsCache;
     setBizSearching(true);
     try {
       const res = await fetch(`/api/managed-clients`);
       const data = await res.json();
-      const clients = data.clients || [];
-      const lq = q.toLowerCase();
-      const matches = clients
-        .filter((mc: any) =>
-          mc.qbClient.displayName.toLowerCase().includes(lq) ||
-          mc.qbClient.companyName.toLowerCase().includes(lq)
-        )
-        .slice(0, 5)
-        .map((mc: any) => ({ id: mc.id, name: mc.qbClient.displayName, companyName: mc.qbClient.companyName, source: 'quickbooks' }));
-      setBizSearchResults(matches);
-    } catch { setBizSearchResults([]); }
-    setBizSearching(false);
+      const clients = (data.clients || []) as any[];
+      const normalised: BizPick[] = clients.map(mc => ({
+        id: mc.id,
+        name: mc.qbClient?.displayName || mc.displayName || '',
+        companyName: mc.qbClient?.companyName || mc.companyName || '',
+        source: 'quickbooks',
+      }));
+      setBizClientsCache(normalised);
+      return normalised;
+    } catch {
+      setBizClientsCache([]);
+      return [];
+    } finally {
+      setBizSearching(false);
+    }
+  }, [bizClientsCache]);
+
+  // Fuzzy-on-change (Hugo's rule: 4–5 closest matches proactively, no
+  // Enter key, no button press). See feedback_business_link_autocomplete.md.
+  const handleBizSearch = async (q: string) => {
+    setBizSearchQuery(q);
+    if (!q.trim()) { setBizSearchResults([]); return; }
+    const clients = await ensureBizClientsLoaded();
+    const matches = topFuzzyMatches(
+      q,
+      clients,
+      [mc => mc.companyName, mc => mc.name],
+      { limit: 5, minFallback: 4 },
+    );
+    setBizSearchResults(matches);
   };
 
   const handleLinkBusiness = async (managedClientId: string) => {
@@ -1724,13 +1750,14 @@ export default function AdminLeadsPage() {
                 <div className="space-y-2">
                   <input
                     type="text"
-                    placeholder={fr ? 'Rechercher une entreprise...' : 'Search for a business...'}
+                    placeholder={fr ? 'Taper pour voir les 4-5 correspondances...' : 'Type to see the top 4-5 matches...'}
                     value={bizSearchQuery}
+                    onFocus={() => { void ensureBizClientsLoaded(); }}
                     onChange={e => handleBizSearch(e.target.value)}
                     className={INPUT_CLS}
                   />
-                  {bizSearching && (
-                    <p className="text-xs text-gray-400 dark:text-gray-500">{fr ? 'Recherche...' : 'Searching...'}</p>
+                  {bizSearching && bizSearchResults.length === 0 && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{fr ? 'Chargement de la liste...' : 'Loading list...'}</p>
                   )}
                   {bizSearchResults.length > 0 && (
                     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
@@ -1752,9 +1779,9 @@ export default function AdminLeadsPage() {
                       ))}
                     </div>
                   )}
-                  {bizSearchQuery.length >= 2 && !bizSearching && bizSearchResults.length === 0 && (
+                  {bizSearchQuery.length > 0 && !bizSearching && bizSearchResults.length === 0 && (
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      {fr ? 'Aucune entreprise trouvée' : 'No businesses found'}
+                      {fr ? 'Aucune entreprise dans la liste — importez-la d\'abord depuis Entreprises.' : 'No businesses in the list — import one first from Businesses.'}
                     </p>
                   )}
                 </div>

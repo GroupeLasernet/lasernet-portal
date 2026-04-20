@@ -8,6 +8,7 @@ import { useQuickBooks } from '@/lib/QuickBooksContext';
 import Avatar from '@/components/Avatar';
 import StreetView from '@/components/StreetView';
 import PageHeader from '@/components/PageHeader';
+import { topFuzzyMatches } from '@/lib/fuzzy';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -417,25 +418,10 @@ function AdminBusinessesPageInner() {
   // HANDLERS — Top container (unlinked + QB linking)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Name similarity helper for auto-suggestions
-  const getNameSimilarity = (a: string, b: string): number => {
-    const la = a.toLowerCase().trim();
-    const lb = b.toLowerCase().trim();
-    if (la === lb) return 1;
-    if (la.includes(lb) || lb.includes(la)) return 0.8;
-    const wordsA = la.split(/\s+/);
-    const wordsB = lb.split(/\s+/);
-    let matches = 0;
-    for (const wa of wordsA) {
-      for (const wb of wordsB) {
-        if (wa === wb || (wa.length > 3 && wb.includes(wa)) || (wb.length > 3 && wa.includes(wb))) {
-          matches++;
-          break;
-        }
-      }
-    }
-    return matches / Math.max(wordsA.length, wordsB.length);
-  };
+  // Fuzzy scorer for QB suggestions — shared with Leads panel via lib/fuzzy.
+  // Hugo's rule (see feedback_business_link_autocomplete.md): any "link an
+  // entity" search must proactively surface 4–5 closest fuzzy matches as the
+  // user types — no Enter key, no button press, no strict-substring dead-ends.
 
   // When clicking an unlinked business, auto-suggest QB matches.
   // Pulls from the in-memory QB cache instead of re-hitting the network.
@@ -446,41 +432,38 @@ function AdminBusinessesPageInner() {
     try {
       const customers = qb.customers.data as unknown as QBCustomer[];
       const importedQbIds = new Set(businesses.filter(b => b.source === 'quickbooks' && b.qbId).map(b => b.qbId));
-      // Score and sort by name similarity
-      const scored = customers
-        .filter(c => !importedQbIds.has(c.id))
-        .map(c => ({
-          customer: c,
-          score: Math.max(
-            getNameSimilarity(biz.name, c.companyName || ''),
-            getNameSimilarity(biz.name, c.displayName || '')
-          ),
-        }))
-        .filter(s => s.score > 0.2)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 5);
-      setQbSearchResults(scored.map(s => s.customer));
+      const candidates = customers.filter(c => !importedQbIds.has(c.id));
+      const matches = topFuzzyMatches(
+        biz.name,
+        candidates,
+        [c => c.companyName, c => c.displayName],
+        { limit: 5, minFallback: 4 },
+      );
+      setQbSearchResults(matches);
     } catch { /* silently fail */ }
     setQbSearchLoading(false);
   }, [businesses, qb.customers.data]);
 
-  // Manual QB search in top container — reads from the cached customers
-  // (no network call; cache is refreshed every 60s by QuickBooksContext).
-  const handleQbTopSearch = () => {
-    if (!qbSearchQuery.trim()) return;
-    setQbSearchLoading(true);
+  // Manual QB search in top container — live fuzzy-on-change.
+  // No "Enter" or button press required: typing 2+ chars surfaces the
+  // top 4–5 closest matches from the cached customers. This is the shared
+  // fuzzy pattern used everywhere we "search an existing entity to link".
+  const handleQbTopSearch = useCallback((rawQuery?: string) => {
+    const q = (rawQuery ?? qbSearchQuery).trim();
+    if (!q) { setQbSearchResults([]); return; }
     try {
       const customers = qb.customers.data as unknown as QBCustomer[];
-      const q = qbSearchQuery.toLowerCase();
       const importedQbIds = new Set(businesses.filter(b => b.source === 'quickbooks' && b.qbId).map(b => b.qbId));
-      const results = customers.filter(c =>
-        (c.companyName?.toLowerCase().includes(q) || c.displayName?.toLowerCase().includes(q)) &&
-        !importedQbIds.has(c.id)
+      const candidates = customers.filter(c => !importedQbIds.has(c.id));
+      const matches = topFuzzyMatches(
+        q,
+        candidates,
+        [c => c.companyName, c => c.displayName],
+        { limit: 5, minFallback: 4 },
       );
-      setQbSearchResults(results.slice(0, 10));
+      setQbSearchResults(matches);
     } catch { /* silently fail */ }
-    setQbSearchLoading(false);
-  };
+  }, [qbSearchQuery, qb.customers.data, businesses]);
 
   // Match local business to QB customer (link)
   const handleMatchQb = async (customer: QBCustomer) => {
@@ -1114,26 +1097,23 @@ function AdminBusinessesPageInner() {
             {/* RIGHT: QB search / suggestions */}
             <div className="w-1/2 flex flex-col overflow-hidden">
               <div className="p-3 flex-shrink-0">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder={fr ? 'Rechercher dans QuickBooks...' : 'Search QuickBooks...'}
-                    value={qbSearchQuery}
-                    onChange={e => setQbSearchQuery(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleQbTopSearch()}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  />
-                  <button
-                    onClick={handleQbTopSearch}
-                    disabled={qbSearchLoading}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition disabled:opacity-50"
-                  >
-                    {qbSearchLoading ? '...' : (fr ? 'Chercher' : 'Search')}
-                  </button>
-                </div>
-                {selectedUnlinkedId && qbSearchResults.length > 0 && (
+                <input
+                  type="text"
+                  placeholder={fr ? 'Taper pour voir les 4-5 correspondances...' : 'Type to see the top 4-5 matches...'}
+                  value={qbSearchQuery}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setQbSearchQuery(v);
+                    // Fire fuzzy-on-change (Hugo's rule: no Enter key, no button press).
+                    handleQbTopSearch(v);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                />
+                {qbSearchResults.length > 0 && (
                   <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
-                    {fr ? 'Suggestions automatiques basees sur le nom' : 'Auto-suggestions based on name similarity'}
+                    {fr
+                      ? `${qbSearchResults.length} correspondance${qbSearchResults.length > 1 ? 's' : ''} la plus proche`
+                      : `Top ${qbSearchResults.length} closest match${qbSearchResults.length > 1 ? 'es' : ''}`}
                   </p>
                 )}
               </div>
