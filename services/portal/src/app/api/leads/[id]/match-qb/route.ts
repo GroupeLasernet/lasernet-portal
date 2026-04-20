@@ -62,6 +62,17 @@ export async function POST(
           postalCode: qbClient.postalCode || null,
         },
       });
+    } else if (qbClient.displayName || qbClient.companyName) {
+      // Existing ManagedClient: refresh the name fields from QB so the
+      // "QB name wins" rule holds even when we're re-linking through an
+      // already-seen QB customer.
+      managedClient = await prisma.managedClient.update({
+        where: { id: managedClient.id },
+        data: {
+          displayName: qbClient.displayName || managedClient.displayName,
+          companyName: qbClient.companyName || managedClient.companyName,
+        },
+      });
     }
 
     // Link the lead — and ALSO any sibling orphan leads that share the

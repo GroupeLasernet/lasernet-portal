@@ -260,6 +260,11 @@ function AdminBusinessesPageInner() {
   // ── Hold-to-confirm ──
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: string; id2?: string; label: string } | null>(null);
 
+  // ── Confirm-match modal (shown when the unlinked-biz name doesn't
+  //    exactly match the QB customer name). Hugo wants a sanity check
+  //    before linking, and a reminder that the QB name wins going forward.
+  const [pendingMatch, setPendingMatch] = useState<{ customer: QBCustomer; localName: string; qbName: string } | null>(null);
+
   // ── Derived ──
   const selectedClient = managedClients.find((mc) => mc.id === selectedClientId) || null;
   // Unlinked list = real LocalBusinesses + virtual rows derived from orphan
@@ -469,12 +474,41 @@ function AdminBusinessesPageInner() {
     } catch { /* silently fail */ }
   }, [qbSearchQuery, qb.customers.data, businesses]);
 
-  // Match local business (or orphan lead) to QB customer (link).
+  // Normalise a business name for comparison (case + whitespace + accents).
+  // Used to decide whether the QB match needs a sanity-check confirm modal.
+  const normalizeName = (s: string | null | undefined) =>
+    (s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      // eslint-disable-next-line no-misleading-character-class
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  // Public entry point — called from the Match button.
+  // If the local/lead name differs from the QB name, open the confirm
+  // modal so Hugo can eyeball it first (and knows the QB name will win
+  // going forward). If they match exactly, skip the modal.
+  const handleMatchQb = (customer: QBCustomer) => {
+    if (!selectedUnlinkedId) return;
+    const biz = unlinkedBusinesses.find(b => b.id === selectedUnlinkedId);
+    const localName = biz?.name || '';
+    const qbName = customer.companyName || customer.displayName || '';
+    if (normalizeName(localName) === normalizeName(qbName) || !localName) {
+      // Exact match (or we don't have a local name to compare) — just do it.
+      performMatchQb(customer);
+      return;
+    }
+    setPendingMatch({ customer, localName, qbName });
+  };
+
+  // Does the actual linking. Invoked either directly (names match) or
+  // after the user confirms the mismatch modal.
   // The unlinked list mixes two row shapes:
   //   • source='local' → real LocalBusiness, id = lb.id
   //   • source='lead'  → virtual row for orphan lead, id = `lead:<leadId>`
   // Route to the right endpoint based on the id prefix.
-  const handleMatchQb = async (customer: QBCustomer) => {
+  const performMatchQb = async (customer: QBCustomer) => {
     if (!selectedUnlinkedId) return;
     setQbMatching(true);
     try {
@@ -493,6 +527,7 @@ function AdminBusinessesPageInner() {
         setSelectedUnlinkedId(null);
         setQbSearchQuery('');
         setQbSearchResults([]);
+        setPendingMatch(null);
         await fetchBusinesses();
         // Refresh managed clients
         const mcRes = await fetch('/api/managed-clients');
@@ -1941,6 +1976,72 @@ function AdminBusinessesPageInner() {
           onConfirm={executeConfirmDelete}
           onCancel={() => setConfirmDelete(null)}
         />
+      )}
+
+      {/* ── Confirm QB match when names differ ────────────────────────── */}
+      {pendingMatch && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => !qbMatching && setPendingMatch(null)}>
+          <div
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-5 border-b border-gray-100 dark:border-gray-700 bg-amber-50 dark:bg-amber-900/20">
+              <h2 className="text-base font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M4.93 19h14.14a2 2 0 001.74-3L13.74 4a2 2 0 00-3.48 0L3.2 16a2 2 0 001.73 3z" />
+                </svg>
+                {fr ? 'Confirmer la correspondance' : 'Confirm match'}
+              </h2>
+              <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1">
+                {fr
+                  ? 'Les noms ne correspondent pas exactement. Vérifie avant de relier.'
+                  : 'The names don\'t match exactly. Please double-check before linking.'}
+              </p>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">
+                  {fr ? 'Nom local (actuel)' : 'Local name (current)'}
+                </p>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mt-0.5 break-words">{pendingMatch.localName || (fr ? '(aucun)' : '(none)')}</p>
+              </div>
+              <div className="rounded-lg border-2 border-blue-500 dark:border-blue-400 bg-blue-50/40 dark:bg-blue-900/20 p-3">
+                <p className="text-[10px] uppercase tracking-wide text-blue-700 dark:text-blue-300 font-semibold flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {fr ? 'Nom QuickBooks (sera utilisé)' : 'QuickBooks name (will be used)'}
+                </p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-0.5 break-words">{pendingMatch.qbName}</p>
+              </div>
+              <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                {fr
+                  ? 'En confirmant, l\'entreprise sera reliée à ce client QuickBooks et adoptera le nom QuickBooks comme nom officiel.'
+                  : 'On confirm, this business will be linked to the QuickBooks customer and take the QuickBooks name as its official name.'}
+              </p>
+            </div>
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingMatch(null)}
+                disabled={qbMatching}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition disabled:opacity-50"
+              >
+                {fr ? 'Annuler' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={() => performMatchQb(pendingMatch.customer)}
+                disabled={qbMatching}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition disabled:opacity-50"
+              >
+                {qbMatching
+                  ? (fr ? 'Liaison…' : 'Linking…')
+                  : (fr ? 'Oui, relier' : 'Yes, link it')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Add/Edit Contact Modal ─────────────────────────────────────── */}
