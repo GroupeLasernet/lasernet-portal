@@ -22,6 +22,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useToast } from '@/lib/ToastContext';
 
 type LeadStage =
   | 'new' | 'qualified' | 'demo_scheduled' | 'demo_done'
@@ -87,6 +88,7 @@ export interface LeadEditPanelProps {
 
 export default function LeadEditPanel({ leadId, onClose, onSaved }: LeadEditPanelProps) {
   const { lang } = useLanguage();
+  const { toast } = useToast();
   const fr = lang === 'fr';
 
   const [loading, setLoading] = useState(true);
@@ -173,10 +175,12 @@ export default function LeadEditPanel({ leadId, onClose, onSaved }: LeadEditPane
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Save failed');
+      toast.saved();
       onSaved?.();
       onClose();
     } catch (e: any) {
       setSaveErr(e.message || 'Save failed');
+      toast.error(e.message || (lang === 'fr' ? "Échec de l'enregistrement" : 'Save failed'));
     } finally {
       setSaving(false);
     }

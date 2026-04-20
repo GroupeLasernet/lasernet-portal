@@ -21,6 +21,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useToast } from '@/lib/ToastContext';
 
 interface PersonRow {
   key: string;
@@ -66,6 +67,7 @@ const STAR_FILLED = '★';
 const STAR_EMPTY = '☆';
 
 export default function EndVisitModal({ entry, onClose, onFinished, allowPromote = true }: EndVisitModalProps) {
+  const { toast } = useToast();
   const [ctx, setCtx] = useState<ContextPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -226,14 +228,20 @@ export default function EndVisitModal({ entry, onClose, onFinished, allowPromote
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Finalize failed');
+      toast.success(
+        projectPayload?.kind === 'new'
+          ? 'Projet créé'
+          : entry.kind === 'visitGroup' ? 'Visite terminée' : 'Réunion terminée'
+      );
       onFinished?.({ projectId: data.projectId });
       onClose();
     } catch (e: any) {
       setSaveErr(e.message || 'Finalize failed');
+      toast.error(e.message || 'Finalize failed');
     } finally {
       setSaving(false);
     }
-  }, [buildMainContactPayload, buildPayloadPeople, entry, onClose, onFinished]);
+  }, [buildMainContactPayload, buildPayloadPeople, entry, onClose, onFinished, toast]);
 
   const onClickFinish = () => {
     if (!canFinish) {

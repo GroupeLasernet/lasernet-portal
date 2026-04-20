@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useToast } from '@/lib/ToastContext';
 import PrismaLogo from '@/components/PrismaLogo';
 import SidebarReorderModal, { loadSidebarOrder, applySidebarOrder, applyChildOrder, type SidebarOrder } from './SidebarReorderModal';
 
@@ -27,7 +28,8 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const [reorderOpen, setReorderOpen] = useState(false);
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const { toast } = useToast();
 
   // ── Sidebar order from localStorage ──
   const [savedOrder, setSavedOrder] = useState<SidebarOrder | null>(null);
@@ -294,7 +296,14 @@ export default function Sidebar({ links, bottomLinks, userName, userRole, onLink
           bottomLinks={bottomLinks || []}
           open={reorderOpen}
           onClose={() => setReorderOpen(false)}
-          onSave={(order) => setSavedOrder(order)}
+          onSave={(order) => {
+            setSavedOrder(order);
+            toast.saved(
+              order
+                ? lang === 'fr' ? 'Ordre enregistré' : 'Order saved'
+                : lang === 'fr' ? 'Ordre réinitialisé' : 'Order reset'
+            );
+          }}
         />
       )}
     </aside>

@@ -16,6 +16,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useToast } from '@/lib/ToastContext';
 
 interface LeadSummary {
   id: string;
@@ -38,6 +39,7 @@ export default function ProjectLeadsPanel({
   onSaved,
 }: ProjectLeadsPanelProps) {
   const { lang } = useLanguage();
+  const { toast } = useToast();
   const fr = lang === 'fr';
 
   const [loading, setLoading] = useState(true);
@@ -149,10 +151,12 @@ export default function ProjectLeadsPanel({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Save failed');
+      toast.saved();
       onSaved?.();
       onClose();
     } catch (e: any) {
       setSaveErr(e.message || 'Save failed');
+      toast.error(e.message || (fr ? "Échec de l'enregistrement" : 'Save failed'));
     } finally {
       setSaving(false);
     }

@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useToast } from '@/lib/ToastContext';
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -119,6 +120,7 @@ const STATUS_OPTIONS: Array<{ value: string; labelEn: string; labelFr: string; t
 
 export default function ProjectEditPage() {
   const { lang } = useLanguage();
+  const { toast } = useToast();
   const fr = lang === 'fr';
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -267,9 +269,11 @@ export default function ProjectEditPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Save failed');
       setSavedAt(Date.now());
+      toast.saved();
       await loadAll();
     } catch (e: any) {
       setSaveErr(e.message || 'Save failed');
+      toast.error(e.message || (fr ? "Échec de l'enregistrement" : 'Save failed'));
     } finally {
       setSaving(false);
     }
