@@ -201,6 +201,17 @@ Read from `services/robot/.env` via `load_dotenv()` in `config.py`:
 | `DEV_SKIP_LICENSE` | Bypass license gate on `/api/robot/*` — dev only, NEVER in production |
 | `LICENSE_STRICT` | Hard-fail on unsigned/invalid license responses. Flip to `true` only after `ROBOT_LICENSE_SECRET` is deployed on both sides |
 
+### Portal — dev-only env vars
+
+| Var | Purpose |
+|---|---|
+| `DEV_SKIP_AUTH` | When `true` AND `NODE_ENV !== 'production'`, all admin auth guards (`src/lib/auth.ts::requireAdmin`, `src/lib/requireAdmin.ts::requireAdmin`, `src/middleware.ts`, `/api/auth/me`) short-circuit and return a synthetic admin. Hard-gated — production always ignores it. Used by `services/portal/scripts/preview.mjs` to render admin pages in a headless Chromium for visual review. |
+| `DEV_ADMIN_ID` / `DEV_ADMIN_EMAIL` / `DEV_ADMIN_NAME` | Override the fields of the synthetic admin returned by `getDevBypassPayload()`. Optional. |
+
+### Portal preview script
+
+`services/portal/scripts/preview.mjs` boots `next dev` with `DEV_SKIP_AUTH=true`, drives headless Chromium via Playwright, and screenshots every admin route into `services/previews/<timestamp>/`. Run via `npm run preview` after a one-time `npm i -D playwright && npx playwright install chromium`.
+
 ## 9. Licensing & HMAC
 
 - Portal signs license responses: `signLicense()` in `GET /api/machines/license/[serial]` using `createHmac('sha256', ROBOT_LICENSE_SECRET)`.

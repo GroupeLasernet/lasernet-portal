@@ -6,7 +6,7 @@
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from './auth';
+import { verifyToken, getDevBypassPayload } from './auth';
 
 export interface AdminPayload {
   userId?: string;
@@ -19,6 +19,10 @@ export interface AdminPayload {
 export async function requireAdmin(
   request: NextRequest
 ): Promise<{ user: AdminPayload } | { error: NextResponse }> {
+  const dev = getDevBypassPayload();
+  if (dev) {
+    return { user: { userId: dev.id, id: dev.id, email: dev.email, name: dev.name, role: dev.role } };
+  }
   const token = request.cookies.get('auth-token')?.value;
   if (!token) {
     return { error: NextResponse.json({ error: 'Not authenticated' }, { status: 401 }) };

@@ -45,6 +45,35 @@ export async function verifyToken(token: string): Promise<any | null> {
 }
 
 // ============================================================
+// DEV_SKIP_AUTH — local preview bypass
+// When DEV_SKIP_AUTH=true and NODE_ENV !== 'production', all auth
+// guards short-circuit and a fake admin is returned. Lets the
+// sandbox preview script render admin pages without a real login.
+// Hard-gated: this NEVER bypasses in production, regardless of flag.
+// ============================================================
+
+export interface DevBypassPayload {
+  userId: string;
+  id: string;
+  email: string;
+  name: string;
+  role: 'admin';
+}
+
+export function getDevBypassPayload(): DevBypassPayload | null {
+  if (process.env.NODE_ENV === 'production') return null;
+  if (process.env.DEV_SKIP_AUTH !== 'true') return null;
+  const id = process.env.DEV_ADMIN_ID || 'dev-bypass-admin';
+  return {
+    userId: id,
+    id,
+    email: process.env.DEV_ADMIN_EMAIL || 'dev-bypass@local',
+    name: process.env.DEV_ADMIN_NAME || 'Dev Bypass Admin',
+    role: 'admin',
+  };
+}
+
+// ============================================================
 // REQUIRE ADMIN — route guard helper
 // Reads the auth-token cookie internally, verifies the JWT,
 // returns the decoded user when the caller is an active admin.
@@ -61,6 +90,10 @@ export interface AdminGuardUser {
 export async function requireAdmin(): Promise<
   { user: AdminGuardUser } | { error: NextResponse }
 > {
+  const dev = getDevBypassPayload();
+  if (dev) {
+    return { user: { id: dev.id, name: dev.name, email: dev.email, role: dev.role } };
+  }
   const cookieStore = await cookies();
   const token = cookieStore.get('auth-token')?.value;
   if (!token) {
