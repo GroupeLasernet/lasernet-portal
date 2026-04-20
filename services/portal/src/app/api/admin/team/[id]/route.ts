@@ -57,6 +57,22 @@ export async function PATCH(
     updates.email = body.email.trim().toLowerCase();
   }
 
+  // Field: phone — nullable
+  if (body.phone !== undefined) {
+    updates.phone = (typeof body.phone === 'string' && body.phone.trim()) ? body.phone.trim() : null;
+  }
+
+  // Field: subrole — restricted set
+  if (body.subrole !== undefined) {
+    const allowed = ['sales', 'support', 'technician'];
+    updates.subrole = body.subrole && allowed.includes(body.subrole) ? body.subrole : null;
+  }
+
+  // Field: photo — base64 data URL (or null to clear)
+  if (body.photo !== undefined) {
+    updates.photo = (typeof body.photo === 'string' && body.photo.trim()) ? body.photo : null;
+  }
+
   // Access schedule fields
   if (body.accessAlways !== undefined) {
     updates.accessAlways = Boolean(body.accessAlways);
