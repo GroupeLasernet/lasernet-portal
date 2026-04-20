@@ -71,6 +71,7 @@ export async function GET() {
           id: true, name: true, email: true, phone: true, photo: true,
           company: true, stage: true, createdAt: true,
           managedClientId: true,
+          localBusinessId: true,
           managedClient: { select: { id: true, displayName: true, companyName: true } },
         },
       }),
