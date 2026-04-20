@@ -253,10 +253,16 @@ export default function ProjectsPage() {
                   </div>
                 </div>
 
-                {/* Bloc projects */}
+                {/* Bloc projects — the whole row is a Link to the
+                    full-page editor. Secondary actions inside the
+                    row stop propagation so they still fire. */}
                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                   {bloc.projects.map((proj) => (
-                    <div key={proj.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <Link
+                      key={proj.id}
+                      href={`/admin/projects/${proj.id}/edit`}
+                      className="block p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
+                    >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -282,9 +288,16 @@ export default function ProjectsPage() {
                         </div>
 
                         <div className="flex-shrink-0 flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-brand-600 dark:text-brand-300 bg-brand-50 dark:bg-brand-900/20">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            <span className="hidden sm:inline">{fr ? 'Modifier' : 'Edit'}</span>
+                          </span>
+
                           <button
                             type="button"
-                            onClick={() => setManaging({ id: proj.id, name: proj.name })}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setManaging({ id: proj.id, name: proj.name }); }}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors"
                             title={fr ? 'Gérer les leads' : 'Manage leads'}
                           >
@@ -297,6 +310,7 @@ export default function ProjectsPage() {
                           {proj.isOrphaned && proj.business && proj.mainContacts.length === 0 && (
                             <Link
                               href={`/admin/businesses?pulse=maincontact&client=${proj.business.id}`}
+                              onClick={(e) => e.stopPropagation()}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-medium rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors animate-pulse"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
@@ -305,7 +319,7 @@ export default function ProjectsPage() {
                           )}
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>
