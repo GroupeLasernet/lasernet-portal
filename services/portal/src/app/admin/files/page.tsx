@@ -5,13 +5,21 @@
 // ------------------------------------------------------------
 // Documents live in Google Drive (Shared Drive) — managed by
 // /api/files/documents. Videos are Vimeo links — managed by
-// /api/files/videos. Both are category/sub-category filterable
-// and can be scoped "internal" or linked to a business.
+// /api/files/videos. Organization happens entirely in the
+// portal via the category/subCategory columns on each row —
+// Drive stays flat (it's just storage).
 //
-// Everything here is real: Upload / Edit / Delete all call the
-// API and show a toast on success / failure. No more mock-data.
+// UI layout:
+//   • Left sidebar = folder tree (category → subCategory)
+//   • Right pane   = documents + videos filtered to the
+//                    currently-selected folder
+//   • Drag a file/video row onto a folder to move it
+//   • Upload button uploads into the selected folder
+//   • "+ New folder" creates an empty folder you can drop
+//     things into (folder persists once something lands in it)
 //
-// Added 2026-04-20.
+// Rewritten 2026-04-20 to replace the flat-list + dropdown
+// filters with a proper folder tree.
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -19,7 +27,9 @@ import { useLanguage } from '@/lib/LanguageContext';
 import { useToast } from '@/lib/ToastContext';
 import PageHeader from '@/components/PageHeader';
 
-const ALL = '__all__';
+// Sentinel selection values
+const SEL_ALL = '__all__';     // no filter
+const SEL_UNCAT = '__uncat__'; // category IS NULL
 
 interface BusinessRef {
   id: string;
@@ -72,18 +82,53 @@ function formatDate(iso: string): string {
   try { return new Date(iso).toLocaleDateString(); } catch { return iso; }
 }
 
+// Build the { category: [subCategories...] } tree from the current
+// docs + videos + any empty folders the user created in this session.
+function buildTree(
+  docs: FileAssetRow[],
+  vids: VideoAssetRow[],
+  ephemeralCats: string[],
+  ephemeralSubs: Record<string, string[]>,
+): Record<string, string[]> {
+  const tree: Record<string, Set<string>> = {};
+  const addCat = (cat: string) => { if (!tree[cat]) tree[cat] = new Set(); };
+  for (const row of [...docs, ...vids]) {
+    if (row.category) {
+      addCat(row.category);
+      if (row.subCategory) tree[row.category].add(row.subCategory);
+    }
+  }
+  for (const cat of ephemeralCats) addCat(cat);
+  for (const [cat, subs] of Object.entries(ephemeralSubs)) {
+    addCat(cat);
+    for (const s of subs) tree[cat].add(s);
+  }
+  return Object.fromEntries(
+    Object.entries(tree).map(([k, v]) => [k, Array.from(v).sort((a, b) => a.localeCompare(b))]),
+  );
+}
+
+type DragPayload = { kind: 'doc' | 'video'; id: string };
+
 export default function AdminFilesPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const fr = lang === 'fr';
   const { toast } = useToast();
 
   const [documents, setDocuments] = useState<FileAssetRow[]>([]);
   const [videos, setVideos] = useState<VideoAssetRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [docCat, setDocCat] = useState(ALL);
-  const [docSub, setDocSub] = useState(ALL);
-  const [vidCat, setVidCat] = useState(ALL);
-  const [vidSub, setVidSub] = useState(ALL);
+  // Tree selection: category can be SEL_ALL / SEL_UNCAT / a real category name
+  const [selCat, setSelCat] = useState<string>(SEL_ALL);
+  const [selSub, setSelSub] = useState<string | null>(null);
+
+  // User-created empty folders (vanish on reload unless populated)
+  const [ephemeralCats, setEphemeralCats] = useState<string[]>([]);
+  const [ephemeralSubs, setEphemeralSubs] = useState<Record<string, string[]>>({});
+
+  // Tree expand/collapse state
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // Modal state
   const [editingDoc, setEditingDoc] = useState<FileAssetRow | null>(null);
@@ -113,24 +158,43 @@ export default function AdminFilesPage() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // ── Derived / filtering ─────────────────────────────────
-  const filteredDocs = useMemo(() => documents.filter((d) => {
-    if (docCat !== ALL && d.category !== docCat) return false;
-    if (docSub !== ALL && d.subCategory !== docSub) return false;
-    return true;
-  }), [documents, docCat, docSub]);
+  const tree = useMemo(
+    () => buildTree(documents, videos, ephemeralCats, ephemeralSubs),
+    [documents, videos, ephemeralCats, ephemeralSubs],
+  );
 
-  const filteredVideos = useMemo(() => videos.filter((v) => {
-    if (vidCat !== ALL && v.category !== vidCat) return false;
-    if (vidSub !== ALL && v.subCategory !== vidSub) return false;
-    return true;
-  }), [videos, vidCat, vidSub]);
+  const uncatCount = useMemo(
+    () =>
+      documents.filter((d) => !d.category).length +
+      videos.filter((v) => !v.category).length,
+    [documents, videos],
+  );
+
+  // ── Filtering by tree selection ─────────────────────────
+  const match = useCallback(
+    (r: { category: string | null; subCategory: string | null }) => {
+      if (selCat === SEL_ALL) return true;
+      if (selCat === SEL_UNCAT) return r.category == null;
+      if (r.category !== selCat) return false;
+      if (selSub != null && r.subCategory !== selSub) return false;
+      return true;
+    },
+    [selCat, selSub],
+  );
+
+  const filteredDocs = useMemo(() => documents.filter(match), [documents, match]);
+  const filteredVideos = useMemo(() => videos.filter(match), [videos, match]);
 
   // ── Upload (documents) ──────────────────────────────────
   const handleFileChosen = useCallback(async (file: File) => {
     const form = new FormData();
     form.append('file', file);
-    form.append('scope', 'internal'); // Sane default — editable after upload
+    form.append('scope', 'internal'); // editable after upload
+    // If a real folder is selected, pre-categorize the upload
+    if (selCat !== SEL_ALL && selCat !== SEL_UNCAT) {
+      form.append('category', selCat);
+      if (selSub) form.append('subCategory', selSub);
+    }
     try {
       const res = await fetch('/api/files/documents', { method: 'POST', body: form });
       if (!res.ok) {
@@ -142,7 +206,7 @@ export default function AdminFilesPage() {
     } catch (e: any) {
       toast.error(e.message || 'Upload failed');
     }
-  }, [loadAll, toast]);
+  }, [loadAll, toast, selCat, selSub]);
 
   // ── Delete ──────────────────────────────────────────────
   const deleteDocument = useCallback(async (row: FileAssetRow) => {
@@ -175,6 +239,100 @@ export default function AdminFilesPage() {
     }
   }, [loadAll, t, toast]);
 
+  // ── Move (drag-drop onto a folder node) ─────────────────
+  // targetCat === null  → Uncategorized
+  // targetCat === 'X'   → category X, subCategory = targetSub (or null)
+  const moveAsset = useCallback(async (
+    kind: 'doc' | 'video',
+    id: string,
+    targetCat: string | null,
+    targetSub: string | null,
+  ) => {
+    const endpoint = kind === 'doc' ? '/api/files/documents' : '/api/files/videos';
+    try {
+      const res = await fetch(`${endpoint}/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: targetCat, subCategory: targetSub }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Move failed');
+      }
+      toast.saved();
+      loadAll();
+    } catch (e: any) {
+      toast.error(e.message || 'Move failed');
+    }
+  }, [loadAll, toast]);
+
+  const handleDrop = useCallback((
+    e: React.DragEvent,
+    targetCat: string | null,
+    targetSub: string | null,
+  ) => {
+    e.preventDefault();
+    const raw = e.dataTransfer.getData('application/json');
+    if (!raw) return;
+    try {
+      const { kind, id } = JSON.parse(raw) as DragPayload;
+      moveAsset(kind, id, targetCat, targetSub);
+    } catch {
+      /* ignore malformed */
+    }
+  }, [moveAsset]);
+
+  // ── New folder / subfolder ──────────────────────────────
+  const createCategory = useCallback(() => {
+    const name = window.prompt(fr ? 'Nom du nouveau dossier' : 'New folder name');
+    if (!name) return;
+    const clean = name.trim();
+    if (!clean) return;
+    setEphemeralCats((prev) => (prev.includes(clean) ? prev : [...prev, clean]));
+    setExpanded((prev) => {
+      const n = new Set(prev);
+      n.add(clean);
+      return n;
+    });
+    setSelCat(clean);
+    setSelSub(null);
+  }, [fr]);
+
+  const createSubcategory = useCallback((cat: string) => {
+    const name = window.prompt(
+      fr ? `Nouveau sous-dossier dans « ${cat} »` : `New subfolder inside "${cat}"`,
+    );
+    if (!name) return;
+    const clean = name.trim();
+    if (!clean) return;
+    setEphemeralSubs((prev) => ({
+      ...prev,
+      [cat]: prev[cat]?.includes(clean) ? prev[cat] : [...(prev[cat] || []), clean],
+    }));
+    setExpanded((prev) => {
+      const n = new Set(prev);
+      n.add(cat);
+      return n;
+    });
+    setSelCat(cat);
+    setSelSub(clean);
+  }, [fr]);
+
+  const toggleExpanded = useCallback((cat: string) => {
+    setExpanded((prev) => {
+      const n = new Set(prev);
+      if (n.has(cat)) n.delete(cat); else n.add(cat);
+      return n;
+    });
+  }, []);
+
+  // ── Breadcrumb label ────────────────────────────────────
+  const breadcrumb = useMemo(() => {
+    if (selCat === SEL_ALL) return fr ? 'Tous les fichiers' : 'All files';
+    if (selCat === SEL_UNCAT) return fr ? 'Sans catégorie' : 'Uncategorized';
+    return selSub ? `${selCat} › ${selSub}` : selCat;
+  }, [selCat, selSub, fr]);
+
   // ── Render ──────────────────────────────────────────────
   return (
     <div>
@@ -191,7 +349,7 @@ export default function AdminFilesPage() {
                 const f = e.target.files?.[0];
                 if (f) {
                   handleFileChosen(f);
-                  e.target.value = ''; // allow re-uploading same file
+                  e.target.value = '';
                 }
               }}
             />
@@ -199,6 +357,11 @@ export default function AdminFilesPage() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="btn-primary flex items-center gap-2"
+              title={
+                selCat !== SEL_ALL && selCat !== SEL_UNCAT
+                  ? (fr ? `Téléverser dans: ${breadcrumb}` : `Upload into: ${breadcrumb}`)
+                  : undefined
+              }
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -220,176 +383,237 @@ export default function AdminFilesPage() {
         }
       />
 
-      {/* ── Documents ─────────────────────────────── */}
-      <div className="card mb-6">
-        <ContainerHeader
-          title={t('files', 'documents')}
-          count={filteredDocs.length}
-          totalCount={documents.length}
-          items={documents}
-          cat={docCat}
-          setCat={setDocCat}
-          sub={docSub}
-          setSub={setDocSub}
+      <div className="flex gap-4 items-start">
+        {/* ── Sidebar tree ─────────────────────── */}
+        <FolderSidebar
+          tree={tree}
+          selCat={selCat}
+          selSub={selSub}
+          onSelect={(cat, sub) => { setSelCat(cat); setSelSub(sub); }}
+          expanded={expanded}
+          onToggle={toggleExpanded}
+          onCreateCategory={createCategory}
+          onCreateSubcategory={createSubcategory}
+          onDrop={handleDrop}
+          uncatCount={uncatCount}
+          totalCount={documents.length + videos.length}
+          fr={fr}
         />
 
-        {loading ? (
-          <div className="py-6 text-center text-sm text-gray-400 italic">Loading…</div>
-        ) : documents.length === 0 ? (
-          <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500 italic">
-            {t('files', 'noDocuments')}
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="border-b border-gray-200 dark:border-gray-700">
-                <tr>
-                  <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('files', 'fileName')}</th>
-                  <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('common', 'size')}</th>
-                  <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('files', 'category')}</th>
-                  <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('files', 'scope')}</th>
-                  <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('files', 'uploaded')}</th>
-                  <th className="text-right pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('common', 'actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
-                {filteredDocs.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-6 text-center text-sm text-gray-400 dark:text-gray-500 italic">
-                      No documents match the filters.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredDocs.map((file) => (
-                    <tr key={file.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-2">
-                          <svg className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          <span className="font-medium text-sm">{file.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 text-sm text-gray-600 dark:text-gray-400">{formatSize(file.sizeBytes)}</td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-1.5">
-                          {file.category && <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-full">{file.category}</span>}
-                          {file.subCategory && <span className="text-xs bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 px-2 py-1 rounded-full">{file.subCategory}</span>}
-                        </div>
-                      </td>
-                      <td className="py-3 text-xs">
-                        {file.scope === 'client' ? (
-                          <span className="text-brand-700 dark:text-brand-300">
-                            {file.managedClient?.displayName || file.localBusiness?.name || t('files', 'scopeClient')}
-                          </span>
-                        ) : (
-                          <span className="text-gray-500 dark:text-gray-400">{t('files', 'scopeInternal')}</span>
-                        )}
-                      </td>
-                      <td className="py-3 text-sm text-gray-500 dark:text-gray-400">{formatDate(file.uploadedAt)}</td>
-                      <td className="py-3 text-right">
-                        <a
-                          href={`/api/files/documents/${file.id}/download`}
-                          className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm font-medium mr-3"
-                          download={file.name}
-                        >
-                          {t('files', 'download')}
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => setEditingDoc(file)}
-                          className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 text-sm font-medium mr-3"
-                        >
-                          {t('common', 'edit')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => deleteDocument(file)}
-                          className="text-red-500 hover:text-red-600 text-sm font-medium"
-                        >
-                          {t('common', 'delete')}
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        {/* ── Main pane ────────────────────────── */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-3 text-sm">
+            {selCat !== SEL_ALL && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => { setSelCat(SEL_ALL); setSelSub(null); }}
+                  className="text-xs text-gray-500 hover:text-brand-600 dark:hover:text-brand-300 underline underline-offset-2"
+                >
+                  {fr ? 'Tous' : 'All'}
+                </button>
+                <span className="text-gray-400">›</span>
+              </>
+            )}
+            <span className="font-medium text-gray-800 dark:text-gray-100">{breadcrumb}</span>
           </div>
-        )}
-      </div>
 
-      {/* ── Videos ───────────────────────────────── */}
-      <div className="card">
-        <ContainerHeader
-          title={t('files', 'videos')}
-          count={filteredVideos.length}
-          totalCount={videos.length}
-          items={videos}
-          cat={vidCat}
-          setCat={setVidCat}
-          sub={vidSub}
-          setSub={setVidSub}
-        />
+          {/* Documents */}
+          <div className="card mb-6">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                {t('files', 'documents')}
+                <span className="text-xs font-mono text-gray-400 dark:text-gray-500">
+                  {selCat === SEL_ALL
+                    ? documents.length
+                    : `${filteredDocs.length}/${documents.length}`}
+                </span>
+              </h2>
+            </div>
 
-        {loading ? (
-          <div className="py-6 text-center text-sm text-gray-400 italic">Loading…</div>
-        ) : videos.length === 0 ? (
-          <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500 italic">
-            {t('files', 'noVideos')}
-          </p>
-        ) : filteredVideos.length === 0 ? (
-          <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500 italic">
-            No videos match the filters.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredVideos.map((video) => (
-              <div key={video.id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md dark:shadow-gray-900/50 transition-shadow">
-                <div className="aspect-video bg-black">
-                  {video.vimeoId ? (
-                    <iframe
-                      src={`https://player.vimeo.com/video/${video.vimeoId}`}
-                      className="w-full h-full"
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <a href={video.vimeoUrl} target="_blank" rel="noreferrer" className="w-full h-full flex items-center justify-center text-white text-sm hover:underline">
-                      Open on Vimeo →
-                    </a>
-                  )}
-                </div>
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-medium text-sm flex-1">{video.title}</h3>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setEditingVideo(video)}
-                        className="text-xs text-brand-600 dark:text-brand-400 hover:underline"
-                      >
-                        {t('common', 'edit')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteVideo(video)}
-                        className="text-xs text-red-500 hover:underline"
-                      >
-                        {t('common', 'delete')}
-                      </button>
+            {loading ? (
+              <div className="py-6 text-center text-sm text-gray-400 italic">Loading…</div>
+            ) : documents.length === 0 ? (
+              <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500 italic">
+                {t('files', 'noDocuments')}
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                      <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('files', 'fileName')}</th>
+                      <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('common', 'size')}</th>
+                      <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('files', 'category')}</th>
+                      <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('files', 'scope')}</th>
+                      <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('files', 'uploaded')}</th>
+                      <th className="text-right pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('common', 'actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
+                    {filteredDocs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-6 text-center text-sm text-gray-400 dark:text-gray-500 italic">
+                          {fr ? 'Aucun document dans ce dossier.' : 'No documents in this folder.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredDocs.map((file) => (
+                        <tr
+                          key={file.id}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData(
+                              'application/json',
+                              JSON.stringify({ kind: 'doc', id: file.id } satisfies DragPayload),
+                            );
+                            e.dataTransfer.effectAllowed = 'move';
+                          }}
+                          className="hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-move"
+                          title={fr ? 'Glisser pour déplacer' : 'Drag to move'}
+                        >
+                          <td className="py-3 pr-4">
+                            <div className="flex items-center gap-2">
+                              <svg className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span className="font-medium text-sm">{file.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 text-sm text-gray-600 dark:text-gray-400">{formatSize(file.sizeBytes)}</td>
+                          <td className="py-3">
+                            <div className="flex items-center gap-1.5">
+                              {file.category && <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-full">{file.category}</span>}
+                              {file.subCategory && <span className="text-xs bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 px-2 py-1 rounded-full">{file.subCategory}</span>}
+                            </div>
+                          </td>
+                          <td className="py-3 text-xs">
+                            {file.scope === 'client' ? (
+                              <span className="text-brand-700 dark:text-brand-300">
+                                {file.managedClient?.displayName || file.localBusiness?.name || t('files', 'scopeClient')}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 dark:text-gray-400">{t('files', 'scopeInternal')}</span>
+                            )}
+                          </td>
+                          <td className="py-3 text-sm text-gray-500 dark:text-gray-400">{formatDate(file.uploadedAt)}</td>
+                          <td className="py-3 text-right">
+                            <a
+                              href={`/api/files/documents/${file.id}/download`}
+                              className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm font-medium mr-3"
+                              download={file.name}
+                            >
+                              {t('files', 'download')}
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => setEditingDoc(file)}
+                              className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 text-sm font-medium mr-3"
+                            >
+                              {t('common', 'edit')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteDocument(file)}
+                              className="text-red-500 hover:text-red-600 text-sm font-medium"
+                            >
+                              {t('common', 'delete')}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Videos */}
+          <div className="card">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                {t('files', 'videos')}
+                <span className="text-xs font-mono text-gray-400 dark:text-gray-500">
+                  {selCat === SEL_ALL
+                    ? videos.length
+                    : `${filteredVideos.length}/${videos.length}`}
+                </span>
+              </h2>
+            </div>
+
+            {loading ? (
+              <div className="py-6 text-center text-sm text-gray-400 italic">Loading…</div>
+            ) : videos.length === 0 ? (
+              <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500 italic">
+                {t('files', 'noVideos')}
+              </p>
+            ) : filteredVideos.length === 0 ? (
+              <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500 italic">
+                {fr ? 'Aucune vidéo dans ce dossier.' : 'No videos in this folder.'}
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredVideos.map((video) => (
+                  <div
+                    key={video.id}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(
+                        'application/json',
+                        JSON.stringify({ kind: 'video', id: video.id } satisfies DragPayload),
+                      );
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md dark:shadow-gray-900/50 transition-shadow cursor-move"
+                    title={fr ? 'Glisser pour déplacer' : 'Drag to move'}
+                  >
+                    <div className="aspect-video bg-black">
+                      {video.vimeoId ? (
+                        <iframe
+                          src={`https://player.vimeo.com/video/${video.vimeoId}`}
+                          className="w-full h-full"
+                          allow="autoplay; fullscreen; picture-in-picture"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <a href={video.vimeoUrl} target="_blank" rel="noreferrer" className="w-full h-full flex items-center justify-center text-white text-sm hover:underline">
+                          Open on Vimeo →
+                        </a>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-medium text-sm flex-1">{video.title}</h3>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setEditingVideo(video)}
+                            className="text-xs text-brand-600 dark:text-brand-400 hover:underline"
+                          >
+                            {t('common', 'edit')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteVideo(video)}
+                            className="text-xs text-red-500 hover:underline"
+                          >
+                            {t('common', 'delete')}
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {[video.category, video.subCategory].filter(Boolean).join(' • ')}
+                        {video.category || video.subCategory ? ' • ' : ''}
+                        {formatDate(video.uploadedAt)}
+                      </p>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {[video.category, video.subCategory].filter(Boolean).join(' • ')}
-                    {video.category || video.subCategory ? ' • ' : ''}
-                    {formatDate(video.uploadedAt)}
-                  </p>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* ── Modals ──────────────────────────────── */}
@@ -412,97 +636,197 @@ export default function AdminFilesPage() {
 }
 
 // ============================================================
-// ContainerHeader — title + category dropdowns
+// FolderSidebar — the left tree: All / Uncategorized / categories
 // ============================================================
-interface Filterable { category: string | null; subCategory: string | null; }
-
-function ContainerHeader<T extends Filterable>({
-  title, count, totalCount, items, cat, setCat, sub, setSub,
+function FolderSidebar({
+  tree, selCat, selSub, onSelect, expanded, onToggle,
+  onCreateCategory, onCreateSubcategory, onDrop,
+  uncatCount, totalCount, fr,
 }: {
-  title: string;
-  count: number;
+  tree: Record<string, string[]>;
+  selCat: string;
+  selSub: string | null;
+  onSelect: (cat: string, sub: string | null) => void;
+  expanded: Set<string>;
+  onToggle: (cat: string) => void;
+  onCreateCategory: () => void;
+  onCreateSubcategory: (cat: string) => void;
+  onDrop: (e: React.DragEvent, cat: string | null, sub: string | null) => void;
+  uncatCount: number;
   totalCount: number;
-  items: readonly T[];
-  cat: string;
-  setCat: (v: string) => void;
-  sub: string;
-  setSub: (v: string) => void;
+  fr: boolean;
 }) {
-  const { t, lang } = useLanguage();
-  const fr = lang === 'fr';
-
-  const categories = useMemo(
-    () => Array.from(new Set(items.map((i) => i.category).filter(Boolean) as string[])).sort(),
-    [items],
-  );
-  const subCategories = useMemo(() => {
-    const source = cat === ALL ? items : items.filter((i) => i.category === cat);
-    return Array.from(new Set(source.map((i) => i.subCategory).filter(Boolean) as string[])).sort();
-  }, [items, cat]);
-
-  const filtered = cat !== ALL || sub !== ALL;
+  const categories = Object.keys(tree).sort((a, b) => a.localeCompare(b));
 
   return (
-    <div className="flex flex-wrap items-center gap-3 mb-4">
-      <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-        {title}
-        <span className="text-xs font-mono text-gray-400 dark:text-gray-500">
-          {filtered ? `${count}/${totalCount}` : totalCount}
-        </span>
-      </h2>
+    <aside className="w-56 shrink-0 card p-3 sticky top-4 self-start max-h-[calc(100vh-120px)] overflow-y-auto">
+      <div className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 mb-2 px-1 tracking-wide">
+        {fr ? 'Dossiers' : 'Folders'}
+      </div>
 
-      <FilterSelect
-        label={t('files', 'category')}
-        value={cat}
-        onChange={(v) => { setCat(v); setSub(ALL); }}
-        allLabel={fr ? 'Toutes' : 'All'}
-        options={categories}
-      />
-      <FilterSelect
-        label={t('files', 'subCategory')}
-        value={sub}
-        onChange={setSub}
-        allLabel={fr ? 'Toutes' : 'All'}
-        options={subCategories}
-        disabled={subCategories.length === 0}
-      />
+      <div className="flex flex-col gap-0.5">
+        {/* All */}
+        <FolderNode
+          label={fr ? 'Tous les fichiers' : 'All files'}
+          icon="all"
+          active={selCat === SEL_ALL}
+          count={totalCount}
+          onClick={() => onSelect(SEL_ALL, null)}
+          droppable={false}
+        />
 
-      {filtered && (
+        {/* Uncategorized (only if there actually is anything uncategorized) */}
+        {uncatCount > 0 && (
+          <FolderNode
+            label={fr ? 'Sans catégorie' : 'Uncategorized'}
+            icon="uncat"
+            active={selCat === SEL_UNCAT}
+            count={uncatCount}
+            onClick={() => onSelect(SEL_UNCAT, null)}
+            droppable
+            onDrop={(e) => onDrop(e, null, null)}
+          />
+        )}
+
+        {/* Categories */}
+        {categories.map((cat) => {
+          const subs = tree[cat];
+          const isExpanded = expanded.has(cat);
+          const isActiveCat = selCat === cat && selSub == null;
+          return (
+            <div key={cat}>
+              <div className="flex items-stretch">
+                <button
+                  type="button"
+                  onClick={() => onToggle(cat)}
+                  className="px-1.5 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                >
+                  <svg
+                    className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                <FolderNode
+                  label={cat}
+                  icon="folder"
+                  active={isActiveCat}
+                  onClick={() => onSelect(cat, null)}
+                  droppable
+                  onDrop={(e) => onDrop(e, cat, null)}
+                  flexOne
+                />
+              </div>
+
+              {isExpanded && (
+                <div className="ml-5 flex flex-col gap-0.5 mt-0.5 border-l border-gray-100 dark:border-gray-700 pl-1">
+                  {subs.map((sub) => (
+                    <FolderNode
+                      key={sub}
+                      label={sub}
+                      icon="subfolder"
+                      active={selCat === cat && selSub === sub}
+                      onClick={() => onSelect(cat, sub)}
+                      droppable
+                      onDrop={(e) => onDrop(e, cat, sub)}
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => onCreateSubcategory(cat)}
+                    className="text-xs text-gray-400 hover:text-brand-600 dark:hover:text-brand-300 px-2 py-1 text-left"
+                  >
+                    + {fr ? 'Nouveau sous-dossier' : 'New subfolder'}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
         <button
           type="button"
-          onClick={() => { setCat(ALL); setSub(ALL); }}
-          className="text-xs text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-300 underline underline-offset-2"
+          onClick={onCreateCategory}
+          className="text-xs text-gray-400 hover:text-brand-600 dark:hover:text-brand-300 px-3 py-2 text-left mt-2 border-t border-gray-100 dark:border-gray-700 pt-2"
         >
-          {fr ? 'Effacer' : 'Clear'}
+          + {fr ? 'Nouveau dossier' : 'New folder'}
         </button>
-      )}
-    </div>
+      </div>
+    </aside>
   );
 }
 
-function FilterSelect({
-  label, value, onChange, allLabel, options, disabled,
+function FolderNode({
+  label, icon, active, count, onClick,
+  droppable, onDrop, flexOne,
 }: {
   label: string;
-  value: string;
-  onChange: (v: string) => void;
-  allLabel: string;
-  options: string[];
-  disabled?: boolean;
+  icon: 'all' | 'uncat' | 'folder' | 'subfolder';
+  active: boolean;
+  count?: number;
+  onClick: () => void;
+  droppable: boolean;
+  onDrop?: (e: React.DragEvent) => void;
+  flexOne?: boolean;
 }) {
+  const [hover, setHover] = useState(false);
+  const className =
+    `text-left px-2 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${
+      active
+        ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-medium'
+        : hover
+          ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 ring-1 ring-brand-300 dark:ring-brand-700'
+          : 'hover:bg-gray-100 dark:hover:bg-gray-700/40 text-gray-700 dark:text-gray-300'
+    } ${flexOne ? 'flex-1' : 'w-full'}`;
   return (
-    <label className="inline-flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-      <span>{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        className="text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <option value={ALL}>{allLabel}</option>
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </label>
+    <button
+      type="button"
+      onClick={onClick}
+      onDragOver={droppable ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setHover(true); } : undefined}
+      onDragLeave={droppable ? () => setHover(false) : undefined}
+      onDrop={droppable && onDrop ? (e) => { setHover(false); onDrop(e); } : undefined}
+      className={className}
+    >
+      <FolderIcon variant={icon} />
+      <span className="truncate flex-1">{label}</span>
+      {count != null && (
+        <span className="text-xs font-mono text-gray-400 dark:text-gray-500">{count}</span>
+      )}
+    </button>
+  );
+}
+
+function FolderIcon({ variant }: { variant: 'all' | 'uncat' | 'folder' | 'subfolder' }) {
+  if (variant === 'all') {
+    return (
+      <svg className="w-4 h-4 shrink-0 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    );
+  }
+  if (variant === 'uncat') {
+    return (
+      <svg className="w-4 h-4 shrink-0 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    );
+  }
+  if (variant === 'subfolder') {
+    return (
+      <svg className="w-4 h-4 shrink-0 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h4l2 3h10a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+      </svg>
+    );
+  }
+  // folder
+  return (
+    <svg className="w-4 h-4 shrink-0 text-brand-500 dark:text-brand-400" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M3 7a2 2 0 012-2h4l2 3h8a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+    </svg>
   );
 }
 
