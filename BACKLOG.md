@@ -1,7 +1,7 @@
 # Prisma — Backlog & Task List
 
 > Living list of everything on deck. Maintained jointly with Claude.
-> Last updated: 2026-04-20 — Fuzzy 4-5 suggestions on business link search (Businesses page + Leads panel) via shared `src/lib/fuzzy.ts`
+> Last updated: 2026-04-20 — In-place LeadEditPanel on People tab + fuzzy 4-5 suggestions on business link search
 
 Commands when talking to Claude:
 - **LIST** — show what's in this file / in memory
@@ -13,6 +13,11 @@ Commands when talking to Claude:
 ## In Progress (portal)
 
 *(none)*
+
+## Recently Shipped (2026-04-20)
+
+- [x] **In-place edit panel on People tab** — new `src/components/LeadEditPanel.tsx` is a right-side slide-in drawer that edits a Lead (name, email, phone, phone2, company, otherContacts, source, stage, estimatedValue, nextFollowUpAt, notes) via `PATCH /api/leads/[id]`. `/admin/people` now opens the drawer *in place* when Edit is clicked on a lead/unassigned row instead of navigating to `/admin/leads?id=…`. Users → team settings and contacts → businesses still navigate (same as before) — only the lead case was wrong. Escape closes; saving refetches `/api/people` so the row reflects the change immediately.
+- [x] **Fuzzy 4–5 suggestions on business link search (as-you-type)** — new shared `src/lib/fuzzy.ts` (`scoreNameSimilarity` + `topFuzzyMatches`). Wired into `/admin/businesses` QB search (no Enter / no button press) and into the Leads detail-panel biz search (fuzzy filter over a one-time-fetched ManagedClients cache). Both surfaces always show the top 4–5 closest matches — per `feedback_business_link_autocomplete.md`.
 
 ## Recently Shipped (2026-04-19 night)
 
@@ -48,7 +53,6 @@ Commands when talking to Claude:
 
 ## Deferred Backlog
 
-- [ ] **In-place edit panel — never navigate away from the current tab** *(WTB 2026-04-19 night)* — Clicking Edit on a person/lead/contact must open the detail panel as an overlay on whichever page Hugo is on. On `/admin/people`: stay on People, open the edit panel in place. On `/admin/leads`: same thing (it's already native there). Same saved data either way. Today the People tab routes to `/admin/leads?id=…` and opens the panel on the Prospects page — functional but wrong context. Plan: extract the lead detail panel into a reusable component (e.g. `LeadEditPanel`) accepting `id` + `onClose`, mount it behind an overlay on People (and anywhere else we surface Edit), keep the deep-link URL param for refresh-stability but stop navigating.
 - [ ] **In-app updater for station PCs** *(WTB 2026-04-14)* — robot service self-updates by polling `GET /api/releases/robot/latest` on Portal (returns `{version, download_url, sha256}`), downloads the build, verifies hash, swaps files, restarts. Same pattern for relfar. Reuses the existing HMAC-auth sync channel. Goal: customer PCs never touch SSH or git — installer + Portal URL is the entire setup. Must exist before shipping stations at scale; current SSH+git flow is dev-only.
 - [ ] **Machine tracking rearchitecture (phase 2)** — `machineData[]` blob inside `Station.notes` JSON still holds `{ serialNumber, machineType }` per line item. The dedicated `Machine` + `StationMachine` models already exist but aren't the source of truth yet. Needs: (1) migration moving serial+type from notes into Machine rows, (2) MachineItems component rewrite to read/write from Station.machines, (3) backend serializer cleanup. Non-trivial — schedule a dedicated session.
 - [ ] **QuickBooks token auto-refresh loop** — token cookie → DB migration already shipped. Still missing: a background/periodic refresh so tokens don't silently expire between user visits. Decide first whether to run it inside a Vercel cron, a Next route hit by an external scheduler, or piggyback on the always-on PC.

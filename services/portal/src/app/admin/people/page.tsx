@@ -18,9 +18,10 @@
 // pre-meeting leads not yet linked to a business.
 // ============================================================
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
+import LeadEditPanel from '@/components/LeadEditPanel';
 
 type StaffType = 'prisma' | 'client' | 'unassigned' | 'lead';
 
@@ -93,21 +94,28 @@ export default function PeoplePage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // In-place edit panel state — when a lead/unassigned row is edited,
+  // we open LeadEditPanel as an overlay *on this page* instead of
+  // navigating to /admin/leads?id=… (Hugo's rule: never leave the
+  // current tab when clicking Edit).
+  const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
+
+  const fetchPeople = useCallback(async () => {
+    try {
+      const res = await fetch('/api/people', { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load');
+      setPeople(data.people || []);
+    } catch (e: any) {
+      setErr(e.message || 'Failed to load');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('/api/people', { cache: 'no-store' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load');
-        setPeople(data.people || []);
-      } catch (e: any) {
-        setErr(e.message || 'Failed to load');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+    void fetchPeople();
+  }, [fetchPeople]);
 
   // Apply the global search once — then group by staffType.
   const grouped = useMemo(() => {
@@ -166,9 +174,18 @@ export default function PeoplePage() {
               rows={grouped[sec.key]}
               fr={fr}
               searching={search.trim().length > 0}
+              onEditLead={setEditingLeadId}
             />
           ))}
         </div>
+      )}
+
+      {editingLeadId && (
+        <LeadEditPanel
+          leadId={editingLeadId}
+          onClose={() => setEditingLeadId(null)}
+          onSaved={() => { void fetchPeople(); }}
+        />
       )}
     </div>
   );
@@ -181,11 +198,13 @@ function PeopleContainer({
   rows,
   fr,
   searching,
+  onEditLead,
 }: {
   section: typeof SECTIONS[number];
   rows: PeopleRecord[];
   fr: boolean;
   searching: boolean;
+  onEditLead: (leadId: string) => void;
 }) {
   // When the user is searching and a container has zero matches, hide it
   // to keep focus on what matched. When idle, show empty sections so the
@@ -212,7 +231,14 @@ function PeopleContainer({
         </div>
       ) : (
         <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-          {rows.map(p => <PersonRow key={`${p.source}:${p.id}`} p={p} fr={fr} />)}
+          {rows.map(p => (
+            <PersonRow
+              key={`${p.source}:${p.id}`}
+              p={p}
+              fr={fr}
+              onEditLead={onEditLead}
+            />
+          ))}
         </ul>
       )}
 
@@ -222,24 +248,35 @@ function PeopleContainer({
 
 // ── Row ────────────────────────────────────────────────────────────────────
 
-function PersonRow({ p, fr }: { p: PeopleRecord; fr: boolean }) {
+function PersonRow({
+  p,
+  fr,
+  onEditLead,
+}: {
+  p: PeopleRecord;
+  fr: boolean;
+  onEditLead: (leadId: string) => void;
+}) {
   const router = useRouter();
 
-  // Route an edit click to the right upstream management page based on the
-  // person's source record. User → team page, Contact → businesses (contacts
-  // are managed through their business), Lead → leads page *with the
-  // specific lead's detail panel auto-opened* via ?id=<leadId> so Hugo lands
-  // directly on the edit surface instead of the generic list.
-  const editHref = (() => {
-    switch (p.source) {
-      case 'user':    return '/admin/settings?tab=team';
-      case 'contact': return p.clientId
-        ? `/admin/businesses?client=${p.clientId}`
-        : '/admin/businesses';
-      case 'lead':    return `/admin/leads?id=${encodeURIComponent(p.id)}`;
-      default:        return '/admin/people';
+  // Edit routing:
+  //   • Lead / Unassigned → open LeadEditPanel AS AN OVERLAY on *this*
+  //     page (Hugo's rule: never leave the current tab when editing).
+  //   • User → team settings.
+  //   • Contact → businesses page (contacts are managed through their
+  //     owning business).
+  const handleEdit = () => {
+    if (p.source === 'lead') {
+      onEditLead(p.id);
+      return;
     }
-  })();
+    if (p.source === 'user') {
+      router.push('/admin/settings?tab=team');
+      return;
+    }
+    // contact
+    router.push(p.clientId ? `/admin/businesses?client=${p.clientId}` : '/admin/businesses');
+  };
 
   return (
     <li className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -260,7 +297,7 @@ function PersonRow({ p, fr }: { p: PeopleRecord; fr: boolean }) {
       </div>
       <button
         type="button"
-        onClick={() => router.push(editHref)}
+        onClick={handleEdit}
         title={fr ? 'Modifier' : 'Edit'}
         className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors flex-shrink-0"
       >
