@@ -1058,22 +1058,32 @@ function AdminBusinessesPageInner() {
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* TOP CONTAINER: Unlinked businesses + QB suggestions              */}
+      {/* ------------------------------------------------------------ */}
+      {/* Always rendered (even when empty) so Hugo can see where        */}
+      {/* unlinked local businesses land and has the QB fuzzy search    */}
+      {/* always at hand. Empty state explains what would appear here.   */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {unlinkedBusinesses.length > 0 && (
-        <div className="flex-shrink-0 border-b bg-amber-50/50 dark:bg-amber-900/10">
-          <div className="px-4 sm:px-6 py-3">
-            <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-              {fr ? 'Entreprises non reliées' : 'Businesses not linked yet'}
-              <span className="text-xs font-normal text-amber-600 dark:text-amber-400">({unlinkedBusinesses.length})</span>
-            </h2>
-          </div>
-          <div className="flex divide-x divide-amber-200 dark:divide-amber-800 max-h-[280px]">
-            {/* LEFT: Unlinked business list */}
-            <div className="w-1/2 overflow-y-auto">
-              {unlinkedBusinesses.map(biz => (
+      <div className="flex-shrink-0 border-b bg-amber-50/50 dark:bg-amber-900/10">
+        <div className="px-4 sm:px-6 py-3">
+          <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            {fr ? 'Entreprises non reliées' : 'Businesses not linked yet'}
+            <span className="text-xs font-normal text-amber-600 dark:text-amber-400">({unlinkedBusinesses.length})</span>
+          </h2>
+        </div>
+        <div className="flex divide-x divide-amber-200 dark:divide-amber-800 max-h-[280px] min-h-[140px]">
+          {/* LEFT: Unlinked business list */}
+          <div className="w-1/2 overflow-y-auto">
+            {unlinkedBusinesses.length === 0 ? (
+              <div className="px-4 py-6 text-xs text-amber-700 dark:text-amber-300/80 leading-relaxed">
+                {fr
+                  ? 'Aucune entreprise locale en attente. Les entreprises créées localement (depuis un prospect ou ajoutées manuellement) qui ne sont pas encore reliées à un client QuickBooks apparaissent ici pour que tu puisses les relier.'
+                  : 'No local businesses waiting. Businesses created locally (from a lead or added manually) that are not yet linked to a QuickBooks customer will show up here so you can match them.'}
+              </div>
+            ) : (
+              unlinkedBusinesses.map(biz => (
                 <button
                   key={biz.id}
                   onClick={() => handleSelectUnlinked(biz)}
@@ -1091,8 +1101,9 @@ function AdminBusinessesPageInner() {
                     </p>
                   )}
                 </button>
-              ))}
-            </div>
+              ))
+            )}
+          </div>
 
             {/* RIGHT: QB search / suggestions */}
             <div className="w-1/2 flex flex-col overflow-hidden">
@@ -1146,10 +1157,9 @@ function AdminBusinessesPageInner() {
                   </div>
                 )}
               </div>
-            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* BOTTOM CONTAINER: Linked businesses (managed clients)            */}
