@@ -1077,14 +1077,14 @@ export default function VisitsPage() {
                             </svg>
                           </button>
                         )}
-                        {/* End Visit button */}
+                        {/* End Visit button — opens the unified EndVisitModal
+                            directly. Main-contact selection and business linking
+                            are both handled inside that modal now, so we skip
+                            the legacy preflight alert + business-link step. */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            const group = visitGroups.find(g => g.id === vg.id);
-                            const hasMain = group?.visitors.some(v => v.isMainContact);
-                            if (!hasMain) { alert(t('liveVisits', 'selectMainContactFirst')); return; }
-                            setEndingGroupId(vg.id);
+                            setFinalizeGroupId(vg.id);
                           }}
                           className="flex-shrink-0 px-3 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 text-xs font-semibold transition-colors"
                         >
