@@ -1,16 +1,22 @@
 'use client';
 
 // ============================================================
-// UserEditPanel — reusable slide-in editor for a Prisma Staff
-// (User row). Mirrors LeadEditPanel so the People tab can open
-// an in-place drawer for any person type instead of navigating
-// to a different page.
+// UserEditPanel — reusable slide-in editor for a User row.
+// Handles BOTH Prisma Staff (role=admin) and Portal Clients
+// (role=client) — the People tab uses this drawer for any
+// person whose `source` is 'user'.
 //
 // Hugo's rule (2026-04-19): clicking Edit on a person must
 // NEVER leave the current tab.
 //
-// Fields: name / email / phone / subrole (sales/support/technician).
-// API: PATCH /api/admin/team/[id].
+// Fields:
+//   - Always: name / email / phone
+//   - Admin:  subrole (sales/support/technician)
+//   - Client: company (which client business they belong to)
+//
+// API:
+//   - GET   /api/admin/team/[id]  (any user, admin-auth)
+//   - PATCH /api/admin/team/[id]
 // ============================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -23,7 +29,9 @@ interface UserDetail {
   name: string;
   email: string;
   phone: string | null;
+  role: string;           // 'admin' | 'client' — drives which extra field is shown
   subrole: Subrole;
+  company: string | null; // only meaningful when role === 'client'
 }
 
 const INPUT_CLS =
@@ -53,27 +61,29 @@ export default function UserEditPanel({ userId, onClose, onSaved }: UserEditPane
   const [form, setForm] = useState<UserDetail | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
-  // Fetch the user. The /api/admin/team list endpoint returns all admins;
-  // we filter client-side for the target id since there's no single-user GET.
+  // Single-user GET — works for admins AND client-role users.
+  // Previously this fetched /api/admin/team (list) which is filtered
+  // to role='admin', so client users triggered "User not found".
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       setErr(null);
       try {
-        const res = await fetch('/api/admin/team', { cache: 'no-store' });
+        const res = await fetch(`/api/admin/team/${userId}`, { cache: 'no-store' });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to load');
         if (cancelled) return;
-        const list: any[] = data.admins || data.users || [];
-        const u = list.find(x => x.id === userId);
+        const u = data.user;
         if (!u) throw new Error('User not found');
         setForm({
           id: u.id,
           name: u.name || '',
           email: u.email || '',
           phone: u.phone || null,
+          role: u.role || 'admin',
           subrole: (u.subrole || '') as Subrole,
+          company: u.company || null,
         });
       } catch (e: any) {
         if (!cancelled) setErr(e.message || 'Failed to load');
@@ -103,15 +113,22 @@ export default function UserEditPanel({ userId, onClose, onSaved }: UserEditPane
     setSaving(true);
     setSaveErr(null);
     try {
+      // Only send fields the current role cares about. Admins get subrole,
+      // clients get company — sending both is harmless but noisy.
+      const body: any = {
+        name: form.name,
+        email: form.email,
+        phone: form.phone || null,
+      };
+      if (form.role === 'admin') {
+        body.subrole = form.subrole || null;
+      } else {
+        body.company = form.company || null;
+      }
       const res = await fetch(`/api/admin/team/${form.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          phone: form.phone || null,
-          subrole: form.subrole || null,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Save failed');
@@ -123,6 +140,18 @@ export default function UserEditPanel({ userId, onClose, onSaved }: UserEditPane
       setSaving(false);
     }
   };
+
+  const isAdmin = form?.role === 'admin';
+  const headerTitle = fr
+    ? (isAdmin ? 'Modifier le membre' : 'Modifier le client')
+    : (isAdmin ? 'Edit member' : 'Edit client');
+  const headerSubtitle = fr
+    ? (isAdmin
+        ? 'Personnel Prisma — enregistré dans le compte utilisateur.'
+        : 'Compte client du portail — enregistré dans le compte utilisateur.')
+    : (isAdmin
+        ? 'Prisma Staff — saves to the user account.'
+        : 'Portal client account — saves to the user account.');
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -140,10 +169,10 @@ export default function UserEditPanel({ userId, onClose, onSaved }: UserEditPane
         <header className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
-              {fr ? 'Modifier le membre' : 'Edit member'}
+              {headerTitle}
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {fr ? 'Personnel Prisma — enregistré dans le compte utilisateur.' : 'Prisma Staff — saves to the user account.'}
+              {headerSubtitle}
             </p>
           </div>
           <button
@@ -206,22 +235,36 @@ export default function UserEditPanel({ userId, onClose, onSaved }: UserEditPane
                 />
               </div>
 
-              <div className="col-span-2">
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  {fr ? 'Spécialisation' : 'Specialization'}
-                </label>
-                <select
-                  value={form.subrole}
-                  onChange={e => patch('subrole', e.target.value as Subrole)}
-                  className={INPUT_CLS}
-                >
-                  {SUBROLE_OPTIONS.map(s => (
-                    <option key={s.value || 'none'} value={s.value}>
-                      {fr ? s.labelFr : s.labelEn}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {isAdmin ? (
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    {fr ? 'Spécialisation' : 'Specialization'}
+                  </label>
+                  <select
+                    value={form.subrole}
+                    onChange={e => patch('subrole', e.target.value as Subrole)}
+                    className={INPUT_CLS}
+                  >
+                    {SUBROLE_OPTIONS.map(s => (
+                      <option key={s.value || 'none'} value={s.value}>
+                        {fr ? s.labelFr : s.labelEn}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    {fr ? 'Entreprise' : 'Company'}
+                  </label>
+                  <input
+                    type="text"
+                    value={form.company || ''}
+                    onChange={e => patch('company', e.target.value || null)}
+                    className={INPUT_CLS}
+                  />
+                </div>
+              )}
             </div>
           ) : null}
 

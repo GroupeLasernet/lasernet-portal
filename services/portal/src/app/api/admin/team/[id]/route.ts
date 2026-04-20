@@ -1,5 +1,9 @@
 // ============================================================
 // /api/admin/team/[id]
+// GET    — fetch a single user by id (admin OR client role).
+//          The People tab drawer hits this for any user row,
+//          not just admins, so the endpoint must not role-gate
+//          the RESULT — only the caller must be admin.
 // PATCH  — update an admin (status, name, or resend invite)
 // DELETE — remove an admin (or demote to client)
 //
@@ -21,6 +25,43 @@ async function countActiveAdminsExcluding(excludeId: string): Promise<number> {
   return prisma.user.count({
     where: { role: 'admin', status: 'active', NOT: { id: excludeId } },
   });
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const guard = await requireAdmin(request);
+  if ('error' in guard) return guard.error;
+
+  const user = await prisma.user.findUnique({
+    where: { id: params.id },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      subrole: true,
+      status: true,
+      company: true,
+      phone: true,
+      photo: true,
+      createdAt: true,
+      inviteExpiresAt: true,
+      accessAlways: true,
+      accessTimeFrom: true,
+      accessTimeTo: true,
+      accessDays: true,
+      accessDateFrom: true,
+      accessDateTo: true,
+    },
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+
+  return NextResponse.json({ user });
 }
 
 export async function PATCH(
@@ -60,6 +101,11 @@ export async function PATCH(
   // Field: phone — nullable
   if (body.phone !== undefined) {
     updates.phone = (typeof body.phone === 'string' && body.phone.trim()) ? body.phone.trim() : null;
+  }
+
+  // Field: company — nullable (used by client-role users in People drawer)
+  if (body.company !== undefined) {
+    updates.company = (typeof body.company === 'string' && body.company.trim()) ? body.company.trim() : null;
   }
 
   // Field: subrole — restricted set
