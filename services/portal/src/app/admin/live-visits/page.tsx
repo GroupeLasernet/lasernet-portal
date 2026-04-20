@@ -5,6 +5,7 @@ import { useLanguage } from '@/lib/LanguageContext';
 import { useQuickBooks } from '@/lib/QuickBooksContext';
 import AnimatedNumber from '@/components/AnimatedNumber';
 import EndVisitModal from '@/components/EndVisitModal';
+import CarriedOverMeetings from '@/components/CarriedOverMeetings';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -641,6 +642,14 @@ export default function VisitsPage() {
 
   return (
     <div className="space-y-6 pb-8">
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          SECTION 0 — CARRIED OVER (amber container, auto-hides when empty)
+          Visit groups still status='active' started before today + scheduled
+          meetings whose date has passed. Click reopens the unified finalize
+          modal. Added 2026-04-20 — surfaces anything Hugo forgot to close out.
+          ════════════════════════════════════════════════════════════════════════ */}
+      <CarriedOverMeetings />
 
       {/* ════════════════════════════════════════════════════════════════════════
           SECTION 1 — AGENDA (white container)
