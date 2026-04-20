@@ -1329,14 +1329,6 @@ function AdminBusinessesPageInner() {
                                         {mc.trainingCompleted ? (fr ? 'Formation completee' : 'Training completed') : (fr ? 'Formation non completee' : 'Training not completed')}
                                       </span>
                                     </div>
-                                    <div className="flex items-center text-[11px]">
-                                      <span className="flex-shrink-0 w-5 flex items-center text-gray-300 dark:text-gray-600">
-                                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2v8h8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                      </span>
-                                      <span className={`${mc.trainingPhoto ? 'text-green-600 dark:text-green-400' : 'text-red-400 dark:text-red-500'}`}>
-                                        {mc.trainingPhoto ? (fr ? 'Livret recu' : 'Booklet received') : (fr ? 'Livret non recu' : 'No booklet')}
-                                      </span>
-                                    </div>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-1 flex-shrink-0">
@@ -1398,14 +1390,6 @@ function AdminBusinessesPageInner() {
                                     </span>
                                     <span className={`${emp.trainingCompleted ? 'text-green-600 dark:text-green-400' : 'text-red-400 dark:text-red-500'}`}>
                                       {emp.trainingCompleted ? (fr ? 'Formation completee' : 'Training completed') : (fr ? 'Formation non completee' : 'Training not completed')}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center text-[11px]">
-                                    <span className="flex-shrink-0 w-5 flex items-center text-gray-300 dark:text-gray-600">
-                                      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2v8h8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                    </span>
-                                    <span className={`${emp.trainingPhoto ? 'text-green-600 dark:text-green-400' : 'text-red-400 dark:text-red-500'}`}>
-                                      {emp.trainingPhoto ? (fr ? 'Livret recu' : 'Booklet received') : (fr ? 'Livret non recu' : 'No booklet')}
                                     </span>
                                   </div>
                                 </div>

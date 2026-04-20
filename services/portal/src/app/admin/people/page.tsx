@@ -230,11 +230,11 @@ function PersonRow({ p, fr }: { p: PeopleRecord; fr: boolean }) {
   // are managed through their business), Lead → leads page with selection.
   const editHref = (() => {
     switch (p.source) {
-      case 'user':    return `/admin/team?edit=${p.id}`;
+      case 'user':    return '/admin/settings?tab=team';
       case 'contact': return p.clientId
-        ? `/admin/businesses?client=${p.clientId}&contact=${p.id}`
-        : `/admin/businesses?contact=${p.id}`;
-      case 'lead':    return `/admin/leads?lead=${p.id}`;
+        ? `/admin/businesses?client=${p.clientId}`
+        : '/admin/businesses';
+      case 'lead':    return '/admin/leads';
       default:        return '/admin/people';
     }
   })();

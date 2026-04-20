@@ -118,6 +118,7 @@ export interface Video {
   description: string;
   youtubeId: string;  // YouTube video ID for embedding
   category: string;
+  subCategory: string;
   uploadedAt: string;
   assignedTo: string[]; // client IDs who can see this video
 }
@@ -129,6 +130,7 @@ export interface ClientFile {
   size: string;
   uploadedAt: string;
   category: string;
+  subCategory: string;
   url: string;
   assignedTo: string[];
 }
@@ -164,6 +166,7 @@ export const mockVideos: Video[] = [
     description: 'A walkthrough of your new network configuration and how to manage basic settings.',
     youtubeId: 'dQw4w9WgXcQ', // placeholder - replace with real video IDs
     category: 'Setup Guides',
+    subCategory: 'Network',
     uploadedAt: '2024-11-15',
     assignedTo: ['2', '3'],
   },
@@ -173,6 +176,7 @@ export const mockVideos: Video[] = [
     description: 'Learn how to keep your network and data secure with these essential tips.',
     youtubeId: 'dQw4w9WgXcQ',
     category: 'Security',
+    subCategory: 'Best Practices',
     uploadedAt: '2024-12-01',
     assignedTo: ['2', '3'],
   },
@@ -182,6 +186,7 @@ export const mockVideos: Video[] = [
     description: 'Step-by-step guide to setting up and using your VPN for remote work.',
     youtubeId: 'dQw4w9WgXcQ',
     category: 'Setup Guides',
+    subCategory: 'VPN',
     uploadedAt: '2025-01-10',
     assignedTo: ['2'],
   },
@@ -191,6 +196,7 @@ export const mockVideos: Video[] = [
     description: 'Understanding your backup system and what to do in case of data loss.',
     youtubeId: 'dQw4w9WgXcQ',
     category: 'Maintenance',
+    subCategory: 'Backup',
     uploadedAt: '2025-02-20',
     assignedTo: ['3'],
   },
@@ -204,6 +210,7 @@ export const mockFiles: ClientFile[] = [
     size: '2.4 MB',
     uploadedAt: '2024-10-15',
     category: 'Documentation',
+    subCategory: 'Network',
     url: '#',
     assignedTo: ['2', '3'],
   },
@@ -214,6 +221,7 @@ export const mockFiles: ClientFile[] = [
     size: '1.8 MB',
     uploadedAt: '2024-12-01',
     category: 'Reports',
+    subCategory: 'Security',
     url: '#',
     assignedTo: ['2'],
   },
@@ -224,6 +232,7 @@ export const mockFiles: ClientFile[] = [
     size: '340 KB',
     uploadedAt: '2025-01-05',
     category: 'Licenses',
+    subCategory: 'Software',
     url: '#',
     assignedTo: ['2', '3'],
   },
@@ -234,6 +243,7 @@ export const mockFiles: ClientFile[] = [
     size: '890 KB',
     uploadedAt: '2025-02-15',
     category: 'Setup Guides',
+    subCategory: 'VPN',
     url: '#',
     assignedTo: ['3'],
   },

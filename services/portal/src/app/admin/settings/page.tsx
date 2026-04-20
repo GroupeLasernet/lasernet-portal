@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useQuickBooks } from '@/lib/QuickBooksContext';
 import HoldButton from '@/components/HoldButton';
@@ -64,10 +65,19 @@ const WEEKDAY_LABELS: Record<string, { fr: string; en: string }> = {
 
 export default function SettingsPage() {
   const { lang, setLang, t } = useLanguage();
+  const searchParams = useSearchParams();
   // Active horizontal tab. Starts on Language so the simplest thing is visible
   // first — Hugo asked for horizontal tabs so we stop showing every section at
-  // once.
-  const [tab, setTab] = useState<SettingsTab>('language');
+  // once. `?tab=team` (etc.) lets other pages deep-link in — e.g. the People
+  // tab's Edit button on staff rows sends here with ?tab=team.
+  const initialTab: SettingsTab = (() => {
+    const fromUrl = searchParams?.get('tab');
+    if (fromUrl && SETTINGS_TABS.some((t) => t.key === fromUrl)) {
+      return fromUrl as SettingsTab;
+    }
+    return 'language';
+  })();
+  const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [templates, setTemplates] = useState<TrainingTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
