@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useQuickBooks } from '@/lib/QuickBooksContext';
 import AnimatedNumber from '@/components/AnimatedNumber';
+import EndVisitModal from '@/components/EndVisitModal';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -244,27 +245,15 @@ export default function VisitsPage() {
     draggedPersonRef.current = null;
   }, [fetchVisitGroups, visitGroups]);
 
-  // ── End visit → moves to follow-up (blocked if no main contact) ──
+  // ── End visit → opens the unified finalize modal ──
+  // The modal (EndVisitModal) handles everything end-to-end:
+  // picks main contact, lets the operator promote attendees to
+  // leads, attaches them as co-leads of a project, and closes
+  // the VisitGroup in one transaction. See lib/finalizeVisit.ts.
+  const [finalizeGroupId, setFinalizeGroupId] = useState<string | null>(null);
   const handleEndVisit = useCallback(async (groupId: string) => {
-    const group = visitGroups.find(g => g.id === groupId);
-    if (!group) return;
-    // Check if a main contact has been designated
-    const hasMainContact = group.visitors.some(v => v.isMainContact);
-    if (!hasMainContact) {
-      alert(t('liveVisits', 'selectMainContactFirst'));
-      return;
-    }
-    try {
-      const followUp = new Date();
-      followUp.setDate(followUp.getDate() + 7); // default: follow up in 7 days
-      await fetch(`/api/visit-groups/${groupId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'completed', expectedFollowUpAt: followUp.toISOString() }),
-      });
-      await fetchVisitGroups();
-    } catch { /* silently fail */ }
-  }, [fetchVisitGroups, visitGroups, t]);
+    setFinalizeGroupId(groupId);
+  }, []);
 
   // ── Sidebar item drop onto a container → creates a VisitNeed ──
   const handleSidebarDrop = useCallback(async (groupId: string, itemName: string, itemType: string) => {
@@ -1690,6 +1679,17 @@ export default function VisitsPage() {
           </div>
         );
       })()}
+
+      {/* Unified finalize modal (added 2026-04-20). Opens after the
+          business-linkage step, or directly if the visit already has
+          a business set. Handles people + project + close-out. */}
+      {finalizeGroupId && (
+        <EndVisitModal
+          entry={{ kind: 'visitGroup', id: finalizeGroupId }}
+          onClose={() => setFinalizeGroupId(null)}
+          onFinished={() => { setFinalizeGroupId(null); fetchVisitGroups(); }}
+        />
+      )}
     </div>
   );
 }

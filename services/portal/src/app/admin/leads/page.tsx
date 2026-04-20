@@ -6,6 +6,8 @@ import { useLanguage } from '@/lib/LanguageContext';
 import { useQuickBooks } from '@/lib/QuickBooksContext';
 import PageHeader from '@/components/PageHeader';
 import { topFuzzyMatches } from '@/lib/fuzzy';
+import EndVisitModal from '@/components/EndVisitModal';
+import CarriedOverMeetings from '@/components/CarriedOverMeetings';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1427,6 +1429,11 @@ export default function AdminLeadsPage() {
               {activeTab === 'visits' && (
                 <div className="space-y-4">
 
+                  {/* Carried-over meetings (from previous days) — appears
+                      only when there's something unfinished. Click an
+                      item to reopen the finalize modal. Added 2026-04-20. */}
+                  <CarriedOverMeetings />
+
                   {/* ── Meetings Section ── */}
                   {editMode === 'project' && selectedProjectId && (
                     <div className="space-y-3">
@@ -2205,79 +2212,22 @@ export default function AdminLeadsPage() {
           </div>
         )}
 
-        {/* ── Complete meeting: pick main contact modal ── */}
-        {completingMeetingId && (() => {
-          const mtg = meetings.find(m => m.id === completingMeetingId);
-          if (!mtg) return null;
-          return (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('leads', 'selectMainContact')}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{t('leads', 'selectMainContactDesc')}</p>
-
-                {mtg.attendees.length === 0 ? (
-                  <p className="text-sm text-red-500 py-4 text-center">{t('leads', 'noAttendeesToSelect')}</p>
-                ) : (
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {mtg.attendees.map(att => {
-                      const isCurrentMain = att.leadId && att.leadId === selectedId;
-                      const isSelected = selectedMainContactAttendeeId === att.id;
-                      return (
-                        <button
-                          key={att.id}
-                          onClick={() => setSelectedMainContactAttendeeId(att.id)}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 transition text-left ${
-                            isSelected
-                              ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
-                              : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                          }`}
-                        >
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            isSelected ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                          }`}>
-                            <span className="text-xs font-bold">{(att.lead?.name || att.name || '?').charAt(0).toUpperCase()}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{att.lead?.name || att.name || '?'}</p>
-                            {(att.lead?.email || att.email) && (
-                              <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{att.lead?.email || att.email}</p>
-                            )}
-                          </div>
-                          {isCurrentMain && (
-                            <span className="text-[10px] font-semibold bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 px-2 py-0.5 rounded-full flex-shrink-0">
-                              {t('leads', 'mainContact')}
-                            </span>
-                          )}
-                          {isSelected && (
-                            <svg className="w-5 h-5 text-brand-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <div className="flex gap-2 justify-end pt-2">
-                  <button
-                    onClick={() => { setCompletingMeetingId(null); setSelectedMainContactAttendeeId(null); }}
-                    className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400"
-                  >
-                    {t('leads', 'cancel')}
-                  </button>
-                  <button
-                    onClick={confirmCompleteMeeting}
-                    disabled={completingSaving || !selectedMainContactAttendeeId}
-                    className="px-4 py-2 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium"
-                  >
-                    {completingSaving ? t('leads', 'saving') : t('leads', 'completeMeeting')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+        {/* ── Complete meeting → unified finalize modal (2026-04-20) ──
+            The old star-picker modal was replaced in favor of the
+            richer EndVisitModal which handles present/not-present,
+            promote-to-lead + attach-as-coleads, project picker, and
+            the create-new-project fallback. */}
+        {completingMeetingId && (
+          <EndVisitModal
+            entry={{ kind: 'meeting', id: completingMeetingId }}
+            onClose={() => { setCompletingMeetingId(null); setSelectedMainContactAttendeeId(null); }}
+            onFinished={() => {
+              setCompletingMeetingId(null);
+              setSelectedMainContactAttendeeId(null);
+              if (selectedProjectId) loadMeetings(selectedProjectId);
+            }}
+          />
+        )}
       </>
     );
   };
