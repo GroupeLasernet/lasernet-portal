@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useQuickBooks } from '@/lib/QuickBooksContext';
 import PageHeader from '@/components/PageHeader';
@@ -232,6 +233,15 @@ export default function AdminLeadsPage() {
   const { t, lang } = useLanguage();
   const fr = lang === 'fr';
 
+  // Deep-link support: the People tab routes Edit clicks to
+  // `/admin/leads?id=<leadId>` so Hugo lands directly on a specific lead's
+  // detail panel. We read the param here and apply it once leads finish
+  // loading (guarded by `appliedDeepLinkRef` so manually navigating away
+  // from the lead doesn't re-select it on every render).
+  const searchParams = useSearchParams();
+  const deepLinkId = searchParams?.get('id') ?? null;
+  const appliedDeepLinkRef = useRef(false);
+
   // ── Data state ──
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -451,6 +461,21 @@ export default function AdminLeadsPage() {
     fetchLeads();
     fetchTeam();
   }, []);
+
+  // Apply ?id=<leadId> deep link once leads are loaded. We only run this
+  // once per mount: if Hugo then clicks into a different lead the URL stays
+  // put but we don't keep forcing it back to the deep-linked one.
+  useEffect(() => {
+    if (appliedDeepLinkRef.current) return;
+    if (!deepLinkId) return;
+    if (leads.length === 0) return;
+    const match = leads.find(l => l.id === deepLinkId);
+    if (match) {
+      setSelectedId(match.id);
+      setEditMode('contact');
+      appliedDeepLinkRef.current = true;
+    }
+  }, [deepLinkId, leads]);
 
   // ── Populate detail form when selected lead changes ──
   useEffect(() => {

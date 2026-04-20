@@ -227,14 +227,16 @@ function PersonRow({ p, fr }: { p: PeopleRecord; fr: boolean }) {
 
   // Route an edit click to the right upstream management page based on the
   // person's source record. User → team page, Contact → businesses (contacts
-  // are managed through their business), Lead → leads page with selection.
+  // are managed through their business), Lead → leads page *with the
+  // specific lead's detail panel auto-opened* via ?id=<leadId> so Hugo lands
+  // directly on the edit surface instead of the generic list.
   const editHref = (() => {
     switch (p.source) {
       case 'user':    return '/admin/settings?tab=team';
       case 'contact': return p.clientId
         ? `/admin/businesses?client=${p.clientId}`
         : '/admin/businesses';
-      case 'lead':    return '/admin/leads';
+      case 'lead':    return `/admin/leads?id=${encodeURIComponent(p.id)}`;
       default:        return '/admin/people';
     }
   })();
