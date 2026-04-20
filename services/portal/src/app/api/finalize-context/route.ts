@@ -235,16 +235,19 @@ export async function GET(request: NextRequest) {
     });
     const leadIdList = leadIdsOfBiz.map((l) => l.id);
     if (leadIdList.length) {
+      // LeadProject uses `status` (active/won/lost/on_hold), not `stage`.
+      // We still expose it as `stage` in the response so EndVisitModal
+      // can keep its existing shape — it's a UI-layer label.
       const projects = await prisma.leadProject.findMany({
         where: {
-          stage: { notIn: ['won', 'lost'] },
+          status: { notIn: ['won', 'lost'] },
           OR: [
             { leadId: { in: leadIdList } },
             { assignments: { some: { leadId: { in: leadIdList } } } },
           ],
         },
         select: {
-          id: true, name: true, stage: true,
+          id: true, name: true, status: true,
           lead: { select: { name: true } },
           assignments: { select: { lead: { select: { name: true } } } },
         },
@@ -254,7 +257,7 @@ export async function GET(request: NextRequest) {
         const names = new Set<string>();
         if (p.lead?.name) names.add(p.lead.name);
         for (const a of p.assignments) if (a.lead?.name) names.add(a.lead.name);
-        return { id: p.id, name: p.name, stage: p.stage, leadNames: Array.from(names) };
+        return { id: p.id, name: p.name, stage: p.status, leadNames: Array.from(names) };
       });
     }
   }

@@ -144,10 +144,14 @@ export async function runFinalize(input: FinalizeInput): Promise<FinalizeResult>
         });
       }
     } else {
+      // Note: LeadProject has `status` (active/won/lost/on_hold), not `stage`.
+      // The modal's "Stage" dropdown sends Lead-pipeline values (new/qualified/…)
+      // which don't fit LeadProject.status — we just let status default to 'active'
+      // and optionally promote the main contact Lead's stage instead.
       const created = await tx.leadProject.create({
         data: {
           name: input.project.name.trim() || 'Untitled project',
-          stage: input.project.stage || 'new',
+          status: 'active',
           objective: input.project.objective?.trim() || null,
           notes: input.project.notes?.trim() || null,
           leadId: mainContactLeadId,
@@ -157,6 +161,15 @@ export async function runFinalize(input: FinalizeInput): Promise<FinalizeResult>
         },
         select: { id: true, name: true },
       });
+
+      // If the modal sent a Lead-pipeline stage, promote the main contact's
+      // Lead.stage so the pipeline reflects where this new project sits.
+      if (input.project.stage && input.project.stage !== 'new') {
+        await tx.lead.update({
+          where: { id: mainContactLeadId },
+          data: { stage: input.project.stage },
+        });
+      }
       projectId = created.id;
     }
 
