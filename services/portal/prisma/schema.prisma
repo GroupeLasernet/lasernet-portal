@@ -768,7 +768,8 @@ model Lead {
   visits          Visit[]
   messages        LeadMessage[]
   activities      LeadActivity[]
-  projects        LeadProject[]
+  projects        LeadProject[]                           // projects where THIS lead is primary
+  projectAssignments LeadProjectAssignment[] @relation("LeadProjectAssignment") // co-led projects (join table)
   meetingAttendances MeetingAttendee[]
 
   @@index([managedClientId])
@@ -885,6 +886,11 @@ model LeadActivity {
 
 model LeadProject {
   id                  String   @id @default(cuid())
+
+  // leadId is the ORIGINAL/primary lead (the one who created the project).
+  // Kept for backward-compat and to avoid cascade of renames across the app.
+  // The CANONICAL list of leads tied to a project lives in `assignments`
+  // (many-to-many join table). Always include the primary in that list too.
   leadId              String
   lead                Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
@@ -903,7 +909,31 @@ model LeadProject {
 
   quotes              Quote[]
   meetings            ProjectMeeting[]
+  assignments         LeadProjectAssignment[]
 
+  @@index([leadId])
+}
+
+// ============================================================
+// LeadProjectAssignment — many-to-many join between LeadProject
+// and Lead. A project can have multiple leads (co-led opportunity)
+// and a lead can participate in multiple projects. On the Projects
+// tab, projects are grouped by unique lead-set: solo projects
+// appear in a Lead's own bloc; shared projects appear in a
+// combined bloc that lists every participating lead.
+// ============================================================
+model LeadProjectAssignment {
+  id        String   @id @default(cuid())
+  projectId String
+  leadId    String
+
+  project   LeadProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lead      Lead        @relation("LeadProjectAssignment", fields: [leadId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, leadId])
+  @@index([projectId])
   @@index([leadId])
 }
 

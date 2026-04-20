@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
-// GET /api/projects/[id] — Get project with quotes + items
+// ============================================================
+// GET /api/projects/[id]
+// ------------------------------------------------------------
+// Returns the project with its full lead set (via assignments),
+// its quotes, and any meetings.
+// ============================================================
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
@@ -15,6 +20,10 @@ export async function GET(
           include: { items: { orderBy: { sortOrder: 'asc' } } },
           orderBy: { createdAt: 'desc' },
         },
+        assignments: {
+          orderBy: { createdAt: 'asc' },
+          include: { lead: true },
+        },
       },
     });
     if (!project) {
@@ -27,7 +36,18 @@ export async function GET(
   }
 }
 
-// PATCH /api/projects/[id] — Update project name/status/notes
+// ============================================================
+// PATCH /api/projects/[id]
+// ------------------------------------------------------------
+// Standard fields: name/status/notes/callbackReason/suggestedProducts/
+// objective/budget/refuseAllQuotes.
+//
+// NEW: `leadIds` — when provided, replaces the full set of leads on
+// the project (via LeadProjectAssignment). Must include ≥1 lead.
+// If the primary (LeadProject.leadId) is removed from the set,
+// we pick one of the remaining leads as the new primary so the
+// legacy field stays populated.
+// ============================================================
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -45,7 +65,7 @@ export async function PATCH(
     if (body.objective !== undefined) data.objective = body.objective || null;
     if (body.budget !== undefined) data.budget = body.budget != null ? parseFloat(String(body.budget)) : null;
 
-    // When refusing a project, mark all its quotes as "refused"
+    // Refuse-all-quotes toggle — unchanged semantics.
     if (body.refuseAllQuotes) {
       await prisma.quote.updateMany({
         where: { projectId: id },
@@ -53,24 +73,84 @@ export async function PATCH(
       });
     }
 
-    const project = await prisma.leadProject.update({
-      where: { id },
-      data,
-      include: {
-        quotes: {
-          include: { items: { orderBy: { sortOrder: 'asc' } } },
-          orderBy: { createdAt: 'desc' },
+    // Sync the leads set if provided. De-dupe, drop empties, require ≥1.
+    let syncedLeadIds: string[] | null = null;
+    if (Array.isArray(body.leadIds)) {
+      const clean = Array.from(new Set((body.leadIds as unknown[]).filter(
+        (x): x is string => typeof x === 'string' && x.trim().length > 0
+      )));
+      if (clean.length === 0) {
+        return NextResponse.json(
+          { error: 'A project must have at least one lead.' },
+          { status: 400 }
+        );
+      }
+      syncedLeadIds = clean;
+    }
+
+    // Run the writes in a transaction so the assignment table and the
+    // legacy `leadId` field never disagree.
+    const project = await prisma.$transaction(async (tx) => {
+      if (syncedLeadIds) {
+        // Verify every lead exists before we touch anything.
+        const existing = await tx.lead.findMany({
+          where: { id: { in: syncedLeadIds } },
+          select: { id: true },
+        });
+        if (existing.length !== syncedLeadIds.length) {
+          throw new Error('One or more leads not found.');
+        }
+
+        // Reset the join table to match the new set.
+        await tx.leadProjectAssignment.deleteMany({
+          where: { projectId: id, leadId: { notIn: syncedLeadIds } },
+        });
+        for (const leadId of syncedLeadIds) {
+          await tx.leadProjectAssignment.upsert({
+            where: { projectId_leadId: { projectId: id, leadId } },
+            create: { projectId: id, leadId },
+            update: {},
+          });
+        }
+
+        // Ensure the primary leadId points at a member of the set.
+        const current = await tx.leadProject.findUnique({
+          where: { id },
+          select: { leadId: true },
+        });
+        if (current && !syncedLeadIds.includes(current.leadId)) {
+          data.leadId = syncedLeadIds[0];
+        }
+      }
+
+      return tx.leadProject.update({
+        where: { id },
+        data,
+        include: {
+          quotes: {
+            include: { items: { orderBy: { sortOrder: 'asc' } } },
+            orderBy: { createdAt: 'desc' },
+          },
+          assignments: {
+            orderBy: { createdAt: 'asc' },
+            include: { lead: true },
+          },
         },
-      },
+      });
     });
+
     return NextResponse.json({ project });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating project:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const msg = error?.message || 'Internal server error';
+    const status = /not found/i.test(msg) ? 400 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }
 
-// DELETE /api/projects/[id] — Delete a project (cascades to quotes + items)
+// ============================================================
+// DELETE /api/projects/[id] — cascades to quotes + assignments.
+// ============================================================
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: { id: string } }

@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
-// GET /api/leads/[id]/projects — List projects for a lead (with quotes + items)
+// ============================================================
+// GET /api/leads/[id]/projects
+// ------------------------------------------------------------
+// Returns every project where this lead is ATTACHED — either as
+// the primary (LeadProject.leadId) OR as a co-lead via the
+// LeadProjectAssignment join table. A shared project will show
+// up for every lead it's assigned to.
+// ============================================================
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
@@ -9,11 +16,20 @@ export async function GET(
   try {
     const { id } = params;
     const projects = await prisma.leadProject.findMany({
-      where: { leadId: id },
+      where: {
+        OR: [
+          { leadId: id },
+          { assignments: { some: { leadId: id } } },
+        ],
+      },
       include: {
         quotes: {
           include: { items: { orderBy: { sortOrder: 'asc' } } },
           orderBy: { createdAt: 'desc' },
+        },
+        assignments: {
+          orderBy: { createdAt: 'asc' },
+          include: { lead: { select: { id: true, name: true, email: true, company: true } } },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -25,7 +41,14 @@ export async function GET(
   }
 }
 
-// POST /api/leads/[id]/projects — Create a new project
+// ============================================================
+// POST /api/leads/[id]/projects
+// ------------------------------------------------------------
+// Creates a new project under this lead. The creating lead is
+// recorded as the primary (LeadProject.leadId) AND inserted into
+// the assignment join table so it shows up as a co-lead too —
+// that keeps the "assignments" list the canonical source.
+// ============================================================
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -53,9 +76,15 @@ export async function POST(
         suggestedProducts: suggestedProducts || null,
         objective: objective || null,
         budget: budget != null ? parseFloat(budget) : null,
+        // Auto-insert the creating lead into the assignment table so
+        // the Projects tab grouping finds it under this lead's bloc.
+        assignments: {
+          create: { leadId: id },
+        },
       },
       include: {
         quotes: { include: { items: true } },
+        assignments: { include: { lead: true } },
       },
     });
 
