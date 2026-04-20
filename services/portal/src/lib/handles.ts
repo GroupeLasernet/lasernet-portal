@@ -13,13 +13,24 @@
 //
 //   Handles are DERIVED, not persisted — so if a name changes
 //   the handle changes automatically, and no migration is needed.
+//
+// NOTE: we deliberately avoid Unicode property escapes (\p{L}\p{N})
+// and the /u flag because Next.js 14's TS target (es5-ish) rejects
+// them at compile time. Instead we NFD-normalize + strip combining
+// marks to reduce accented letters to ASCII, then match on a plain
+// ASCII class. This handles French names (é, è, ç, ô…) correctly.
 // ============================================================
+
+/** Strip diacritics so "Hugo Bergeron" and "Hugó Bergerón" both map to ASCII. */
+function asciiFold(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
 
 /** "Hugo Bergeron" → "hugob" (first name + first letter of last name, lowercased) */
 export function personSlug(fullName: string): string {
-  const parts = fullName
+  const parts = asciiFold(fullName)
     .trim()
-    .replace(/[^\p{L}\p{N}\s'-]/gu, '')
+    .replace(/[^a-zA-Z0-9\s'-]/g, '')
     .split(/\s+/)
     .filter(Boolean);
   if (parts.length === 0) return '';
@@ -35,12 +46,10 @@ export function personSlug(fullName: string): string {
  */
 export function companySlug(company: string | null | undefined): string {
   if (!company) return '';
-  const suffixRe = /\b(inc|ltd|ltee|ltée|llc|corp|corporation|sa|srl|gmbh|co|company|entreprise|enterprise|group|groupe)\b\.?/giu;
-  return company
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // strip diacritics
+  const suffixRe = /\b(inc|ltd|ltee|llc|corp|corporation|sa|srl|gmbh|co|company|entreprise|enterprise|group|groupe)\b\.?/gi;
+  return asciiFold(company)
     .replace(suffixRe, '')
-    .replace(/[^\p{L}\p{N}\s]/gu, '')
+    .replace(/[^a-zA-Z0-9\s]/g, '')
     .trim()
     .split(/\s+/)
     .join('')
