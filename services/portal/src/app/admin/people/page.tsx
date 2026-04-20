@@ -196,7 +196,7 @@ function PeopleContainer({
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100 dark:border-gray-700">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             {fr ? section.titleFr : section.titleEn}
             <span className={`text-xs font-mono ${section.accent}`}>{rows.length}</span>
           </h2>
