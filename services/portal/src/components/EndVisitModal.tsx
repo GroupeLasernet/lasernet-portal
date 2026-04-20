@@ -393,11 +393,16 @@ export default function EndVisitModal({ entry, onClose, onFinished, allowPromote
             </div>
           ) : ctx ? (
             <>
-              {/* Legend */}
-              <div className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-4">
-                <span>★ = main contact</span>
-                <span>checkbox = attach as co-lead on the project</span>
-                <span>← / → = move between columns</span>
+              {/* Section prompt + legend */}
+              <div className="space-y-1.5">
+                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">
+                  Please select who will receive information about this meeting
+                </h3>
+                <div className="text-sm text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span>★ = main contact</span>
+                  <span>checkbox = attach as co-lead on the project</span>
+                  <span>← / → = move between columns</span>
+                </div>
               </div>
 
               {/* Two-column lists */}
@@ -532,10 +537,7 @@ export default function EndVisitModal({ entry, onClose, onFinished, allowPromote
         </div>
 
         {/* Footer */}
-        <footer className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
-          <div className="text-[11px] text-gray-500 dark:text-gray-400">
-            {starKey ? 'Main contact set.' : 'Pick a main contact (★) before finishing.'}
-          </div>
+        <footer className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-3">
           <div className="flex items-center gap-2">
             <button
               type="button"

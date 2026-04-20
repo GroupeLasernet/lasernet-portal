@@ -1,16 +1,21 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useQuickBooks } from '@/lib/QuickBooksContext';
 import HoldButton from '@/components/HoldButton';
 import PageHeader from '@/components/PageHeader';
 import QuickBooksStatus from '@/components/QuickBooksStatus';
+import SettingsTabReorderModal, {
+  applySettingsTabOrder,
+  loadSettingsTabOrder,
+} from '@/components/SettingsTabReorderModal';
+import { useToast } from '@/lib/ToastContext';
 
 // Horizontal tabs (2026-04-19) — replaces the old vertically stacked sections.
 // Order here drives horizontal order of the tab bar.
-type SettingsTab = 'language' | 'team' | 'training' | 'visitSidebar' | 'qbInventory' | 'apis';
+type SettingsTab = 'language' | 'team' | 'training' | 'visitSidebar' | 'qbInventory' | 'apis' | 'projects';
 const SETTINGS_TABS: { key: SettingsTab; labelKey: string }[] = [
   { key: 'language',     labelKey: 'tabLanguage' },
   { key: 'team',         labelKey: 'tabTeam' },
@@ -18,7 +23,42 @@ const SETTINGS_TABS: { key: SettingsTab; labelKey: string }[] = [
   { key: 'visitSidebar', labelKey: 'tabVisitSidebar' },
   { key: 'qbInventory',  labelKey: 'tabQuickBooksInventory' },
   { key: 'apis',         labelKey: 'tabApis' },
+  { key: 'projects',     labelKey: 'tabProjects' },
 ];
+
+// Default project stages — seed the local-storage list the first time
+// Hugo visits the Projects tab. Keys are the persisted identifier; label
+// is what's shown in drop-downs.
+const DEFAULT_PROJECT_STAGES: { key: string; label: string }[] = [
+  { key: 'new',             label: 'New' },
+  { key: 'qualified',       label: 'Qualified' },
+  { key: 'demo_scheduled',  label: 'Demo scheduled' },
+  { key: 'demo_done',       label: 'Demo done' },
+  { key: 'quote_sent',      label: 'Quote sent' },
+  { key: 'negotiation',     label: 'Negotiation' },
+];
+const PROJECT_STAGES_STORAGE_KEY = 'prisma_project_stages';
+function loadProjectStages(): { key: string; label: string }[] {
+  if (typeof window === 'undefined') return DEFAULT_PROJECT_STAGES;
+  try {
+    const raw = localStorage.getItem(PROJECT_STAGES_STORAGE_KEY);
+    if (!raw) return DEFAULT_PROJECT_STAGES;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_PROJECT_STAGES;
+    return parsed;
+  } catch { return DEFAULT_PROJECT_STAGES; }
+}
+function saveProjectStages(list: { key: string; label: string }[]) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(PROJECT_STAGES_STORAGE_KEY, JSON.stringify(list));
+}
+function slugifyStage(label: string): string {
+  return label
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '') || `stage_${Date.now()}`;
+}
 
 interface TrainingFile {
   id: string;
@@ -65,6 +105,7 @@ const WEEKDAY_LABELS: Record<string, { fr: string; en: string }> = {
 
 export default function SettingsPage() {
   const { lang, setLang, t } = useLanguage();
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   // Active horizontal tab. Starts on Language so the simplest thing is visible
   // first — Hugo asked for horizontal tabs so we stop showing every section at
@@ -78,6 +119,59 @@ export default function SettingsPage() {
     return 'language';
   })();
   const [tab, setTab] = useState<SettingsTab>(initialTab);
+
+  // ── Tab reorder (persisted in localStorage via SettingsTabReorderModal) ──
+  const [tabOrder, setTabOrder] = useState<string[] | null>(null);
+  const [showTabReorder, setShowTabReorder] = useState(false);
+  useEffect(() => { setTabOrder(loadSettingsTabOrder()); }, []);
+  const orderedTabs = useMemo(
+    () => applySettingsTabOrder(SETTINGS_TABS, tabOrder),
+    [tabOrder]
+  );
+
+  // ── Project stages (localStorage-backed, edited on the Projects tab) ──
+  const [projectStages, setProjectStages] = useState<{ key: string; label: string }[]>(DEFAULT_PROJECT_STAGES);
+  const [editingStageKey, setEditingStageKey] = useState<string | null>(null);
+  const [editingStageLabel, setEditingStageLabel] = useState('');
+  const [newStageLabel, setNewStageLabel] = useState('');
+  useEffect(() => { setProjectStages(loadProjectStages()); }, []);
+
+  const persistStages = useCallback((next: { key: string; label: string }[]) => {
+    setProjectStages(next);
+    saveProjectStages(next);
+    toast.saved();
+  }, [toast]);
+
+  const handleAddStage = () => {
+    const label = newStageLabel.trim();
+    if (!label) return;
+    let key = slugifyStage(label);
+    // avoid duplicate keys
+    const existing = new Set(projectStages.map((s) => s.key));
+    if (existing.has(key)) { let i = 2; while (existing.has(`${key}_${i}`)) i++; key = `${key}_${i}`; }
+    persistStages([...projectStages, { key, label }]);
+    setNewStageLabel('');
+  };
+  const handleDeleteStage = (key: string) => {
+    if (!confirm(t('settings', 'projectsStagesConfirmDelete'))) return;
+    persistStages(projectStages.filter((s) => s.key !== key));
+    if (editingStageKey === key) setEditingStageKey(null);
+  };
+  const handleSaveStageEdit = (key: string) => {
+    const label = editingStageLabel.trim();
+    if (!label) { setEditingStageKey(null); return; }
+    persistStages(projectStages.map((s) => (s.key === key ? { ...s, label } : s)));
+    setEditingStageKey(null);
+  };
+  const handleMoveStage = (key: string, dir: -1 | 1) => {
+    const idx = projectStages.findIndex((s) => s.key === key);
+    const newIdx = idx + dir;
+    if (idx < 0 || newIdx < 0 || newIdx >= projectStages.length) return;
+    const next = [...projectStages];
+    const [moved] = next.splice(idx, 1);
+    next.splice(newIdx, 0, moved);
+    persistStages(next);
+  };
   const [templates, setTemplates] = useState<TrainingTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -424,15 +518,21 @@ export default function SettingsPage() {
     <div>
       <PageHeader title={t('settings', 'title')} />
 
-      {/* Horizontal tab bar */}
-      <div className="mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-        <nav className="flex gap-1 min-w-max" aria-label="Settings sections">
-          {SETTINGS_TABS.map(st => {
+      {/* Horizontal tab bar — scrollbar-hide kills the browser's
+          native scroll arrows on overflow containers. The Reorder
+          button on the right lets Hugo drag-reorder the tabs
+          (persisted in localStorage, same pattern as the sidebar). */}
+      <div className="mb-6 border-b border-gray-200 dark:border-gray-700 flex items-end">
+        <nav
+          className="flex gap-1 flex-1 overflow-x-auto scrollbar-hide"
+          aria-label="Settings sections"
+        >
+          {orderedTabs.map(st => {
             const active = tab === st.key;
             return (
               <button
                 key={st.key}
-                onClick={() => setTab(st.key)}
+                onClick={() => setTab(st.key as SettingsTab)}
                 className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
                   active
                     ? 'border-brand-500 text-brand-700 dark:text-brand-300'
@@ -444,7 +544,26 @@ export default function SettingsPage() {
             );
           })}
         </nav>
+        <button
+          type="button"
+          onClick={() => setShowTabReorder(true)}
+          className="ml-2 mb-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1.5 flex-shrink-0"
+          title={t('settings', 'reorderTabs')}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          {t('settings', 'reorderTabs')}
+        </button>
       </div>
+
+      {/* Reorder modal */}
+      <SettingsTabReorderModal
+        open={showTabReorder}
+        tabs={SETTINGS_TABS.map((x) => ({ key: x.key, label: t('settings', x.labelKey) }))}
+        onClose={() => setShowTabReorder(false)}
+        onSave={(order) => setTabOrder(order)}
+      />
 
       {/* Language Section */}
       {tab === 'language' && (
@@ -985,6 +1104,127 @@ export default function SettingsPage() {
             <div className="flex-shrink-0">
               <QuickBooksStatus />
             </div>
+          </div>
+        </div>
+      </div>
+      )}
+
+      {/* Projects tab — manage the list of project stages shown in
+          drop-downs (Finish this meeting, project panel, etc.).
+          Backed by localStorage via loadProjectStages/saveProjectStages. */}
+      {tab === 'projects' && (
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('settings', 'projectsStagesTitle')}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings', 'projectsStagesDesc')}</p>
+        </div>
+        <div className="p-6 space-y-4">
+          {projectStages.length === 0 ? (
+            <p className="text-sm text-gray-400 dark:text-gray-500">{t('settings', 'projectsStagesEmpty')}</p>
+          ) : (
+            <div className="space-y-2">
+              {projectStages.map((stage, idx) => {
+                const isEditing = editingStageKey === stage.key;
+                return (
+                  <div
+                    key={stage.key}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40"
+                  >
+                    {/* Up/down */}
+                    <div className="flex flex-col gap-0.5 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveStage(stage.key, -1)}
+                        disabled={idx === 0}
+                        className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30"
+                        title="Move up"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveStage(stage.key, 1)}
+                        disabled={idx === projectStages.length - 1}
+                        className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30"
+                        title="Move down"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </button>
+                    </div>
+                    <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 w-5 flex-shrink-0">
+                      {idx + 1}
+                    </span>
+                    {/* Label / editor */}
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editingStageLabel}
+                        onChange={(e) => setEditingStageLabel(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveStageEdit(stage.key);
+                          if (e.key === 'Escape') setEditingStageKey(null);
+                        }}
+                        autoFocus
+                        className="flex-1 px-2 py-1 text-sm rounded border border-brand-400 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 focus:outline-none"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setEditingStageKey(stage.key); setEditingStageLabel(stage.label); }}
+                        className="flex-1 text-left text-sm text-gray-800 dark:text-gray-100 hover:text-brand-600 dark:hover:text-brand-400 truncate"
+                        title="Rename"
+                      >
+                        {stage.label}
+                      </button>
+                    )}
+                    <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 flex-shrink-0 hidden sm:inline">
+                      {stage.key}
+                    </span>
+                    {/* Actions */}
+                    {isEditing ? (
+                      <button
+                        type="button"
+                        onClick={() => handleSaveStageEdit(stage.key)}
+                        className="flex-shrink-0 px-2.5 py-1 text-xs font-medium rounded-md bg-brand-600 text-white hover:bg-brand-700"
+                      >
+                        {t('settings', 'projectsStagesSave')}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteStage(stage.key)}
+                        className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded"
+                        title={t('settings', 'projectsStagesDelete')}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Add new */}
+          <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+            <input
+              type="text"
+              value={newStageLabel}
+              onChange={(e) => setNewStageLabel(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAddStage(); }}
+              placeholder={t('settings', 'projectsStagesNew')}
+              className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-brand-500"
+            />
+            <button
+              type="button"
+              onClick={handleAddStage}
+              disabled={!newStageLabel.trim()}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              ＋ {t('settings', 'projectsStagesAdd')}
+            </button>
           </div>
         </div>
       </div>

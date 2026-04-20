@@ -162,3 +162,16 @@
 .animate-toast-in {
   animation: toast-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+
+/* Hide scrollbars (keep the scrolling behavior) — used on horizontal tab bars
+   so the browser doesn't draw the native up/down/left/right scroll arrows
+   on the edge of an overflow-x container. */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE / old Edge */
+  scrollbar-width: none;      /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;              /* Chrome / Safari / Edge */
+  width: 0;
+  height: 0;
+}

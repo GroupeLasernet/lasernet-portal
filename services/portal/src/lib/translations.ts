@@ -520,6 +520,22 @@ const translations = {
     tabVisitSidebar: { fr: 'Menu de visite', en: 'Visit sidebar' },
     tabQuickBooksInventory: { fr: 'Inventaire QuickBooks', en: 'QuickBooks inventory' },
     tabApis: { fr: 'APIs', en: 'APIs' },
+    tabProjects: { fr: 'Projets', en: 'Projects' },
+    // Reorder tabs
+    reorderTabs: { fr: 'Réorganiser les onglets', en: 'Reorder tabs' },
+    reorderTabsTitle: { fr: 'Réorganiser les onglets', en: 'Reorder tabs' },
+    reorderTabsHint: { fr: 'Glissez pour réorganiser', en: 'Drag to reorder' },
+    reorderTabsReset: { fr: 'Réinitialiser', en: 'Reset' },
+    reorderTabsDone: { fr: 'Terminé', en: 'Done' },
+    // Projects (stages management)
+    projectsStagesTitle: { fr: 'Étapes de projet', en: 'Project stages' },
+    projectsStagesDesc: { fr: 'Étapes visibles dans les menus déroulants de projet (Terminer la réunion, panneau de projet…). Ajouter, renommer ou supprimer selon votre processus de vente.', en: 'Stages that show up in project drop-downs (Finish this meeting, project panel…). Add, rename, or remove to match your sales process.' },
+    projectsStagesAdd: { fr: 'Ajouter une étape', en: 'Add a stage' },
+    projectsStagesNew: { fr: 'Nouvelle étape', en: 'New stage' },
+    projectsStagesEmpty: { fr: 'Aucune étape configurée.', en: 'No stages configured.' },
+    projectsStagesSave: { fr: 'Enregistrer', en: 'Save' },
+    projectsStagesDelete: { fr: 'Supprimer', en: 'Delete' },
+    projectsStagesConfirmDelete: { fr: 'Supprimer cette étape ?', en: 'Delete this stage?' },
     // APIs tab
     apisTitle: { fr: 'APIs et connexions', en: 'APIs & connections' },
     apisDesc: { fr: 'Services externes connectés à Prisma.', en: 'External services connected to Prisma.' },
