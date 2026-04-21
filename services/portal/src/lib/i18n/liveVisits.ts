@@ -1,0 +1,105 @@
+// ============================================================
+// i18n — `liveVisits` namespace (French default, English fallback).
+// Auto-split from the former monolithic src/lib/translations.ts.
+// Merge back in src/lib/i18n/index.ts.
+// ============================================================
+
+
+  // ============================================================
+  // LIVE VISITS (big-screen dashboard)
+  // ============================================================
+export const liveVisits = {
+  title: { fr: 'Visites', en: 'Visits' },
+  subtitle: { fr: 'Agenda, suivis et visites en cours', en: 'Agenda, follow-ups and live visits' },
+  // Page sections
+  agendaTitle: { fr: 'Agenda', en: 'Agenda' },
+  followUpTitle: { fr: 'Rappels prévus', en: 'Callback scheduled' },
+  liveTitle: { fr: 'Visites en cours', en: 'Live Visits' },
+  noFollowUps: { fr: 'Aucun rappel prévu', en: 'No callbacks scheduled' },
+  openVisitForDetails: { fr: 'Ouvrir cette visite pour voir ce qu\'il faut faire', en: 'Open this visit to see what the callback is about' },
+  noActiveVisits: { fr: 'Aucune visite en cours', en: 'No active visits' },
+  // Agenda
+  mon: { fr: 'L', en: 'M' },
+  tue: { fr: 'M', en: 'T' },
+  wed: { fr: 'M', en: 'W' },
+  thu: { fr: 'J', en: 'T' },
+  fri: { fr: 'V', en: 'F' },
+  sat: { fr: 'S', en: 'S' },
+  sun: { fr: 'D', en: 'S' },
+  today: { fr: "Aujourd'hui", en: 'Today' },
+  visitingSince: { fr: 'En visite depuis', en: 'Visiting since' },
+  mainContact: { fr: 'Contact principal', en: 'Main contact' },
+  visitors: { fr: 'Visiteurs', en: 'Visitors' },
+  needs: { fr: 'Besoins', en: 'Needs' },
+  expectedFollowUp: { fr: 'Suivi attendu', en: 'Expected follow-up' },
+  notes: { fr: 'Notes', en: 'Notes' },
+  businessAddress: { fr: 'Adresse', en: 'Address' },
+  individualVisitor: { fr: 'Visiteur individuel', en: 'Individual Visitor' },
+  qbClient: { fr: 'Client QB', en: 'QB Client' },
+  localBusiness: { fr: 'Local', en: 'Local' },
+  // Drag-and-drop / grouping
+  linkBusiness: { fr: 'Relier', en: 'Link' },
+  createBusiness: { fr: 'Créer une entreprise', en: 'Create Business' },
+  unnamedGroup: { fr: 'Groupe sans nom', en: 'Unnamed Group' },
+  editName: { fr: 'Renommer', en: 'Rename' },
+  setMainContact: { fr: 'Définir comme contact principal', en: 'Set as main contact' },
+  selectMainContactFirst: { fr: 'Veuillez sélectionner un contact principal (étoile) avant de terminer la visite.', en: 'Please select a main contact (star) before ending the visit.' },
+  selectMainContact: { fr: 'Sélectionner le contact principal', en: 'Select Main Contact' },
+  selectMainContactDesc: { fr: 'Choisissez qui est le contact principal pour ce projet avant de terminer la réunion.', en: 'Choose who is the main contact for this project before completing the meeting.' },
+  noAttendeesToSelect: { fr: 'Aucun participant à sélectionner. Ajoutez des participants avant de terminer.', en: 'No attendees to select. Add attendees before completing.' },
+  moveVisitor: { fr: 'Déplacer le visiteur', en: 'Move visitor' },
+  moveTo: { fr: 'Déplacer vers...', en: 'Move to...' },
+  newGroup: { fr: 'Nouveau groupe', en: 'New Group' },
+  addPerson: { fr: 'Ajouter une personne', en: 'Add Person' },
+  searchPeople: { fr: 'Rechercher une personne...', en: 'Search people...' },
+  unassigned: { fr: 'Non assignés', en: 'Unassigned' },
+  searchBusiness: { fr: 'Rechercher une entreprise...', en: 'Search business...' },
+  businessName: { fr: 'Nom de l\'entreprise', en: 'Business name' },
+  address: { fr: 'Adresse', en: 'Address' },
+  city: { fr: 'Ville', en: 'City' },
+  province: { fr: 'Province', en: 'Province' },
+  phone: { fr: 'Téléphone', en: 'Phone' },
+  email: { fr: 'Courriel', en: 'Email' },
+  create: { fr: 'Créer', en: 'Create' },
+  cancel: { fr: 'Annuler', en: 'Cancel' },
+  save: { fr: 'Enregistrer', en: 'Save' },
+  linked: { fr: 'Lié', en: 'Linked' },
+  totalVisitors: { fr: 'visiteurs au total', en: 'total visitors' },
+  visitCount: { fr: 'visite(s)', en: 'visit(s)' },
+  lead: { fr: 'Prospect', en: 'Lead' },
+  // Need types
+  need_info: { fr: 'Information', en: 'Information' },
+  need_quote: { fr: 'Soumission', en: 'Quote' },
+  need_manual: { fr: 'Manuel', en: 'Manual' },
+  need_photos: { fr: 'Photos', en: 'Photos' },
+  need_videos: { fr: 'Vidéos', en: 'Videos' },
+  need_reports: { fr: 'Rapports', en: 'Reports' },
+  need_other: { fr: 'Autre', en: 'Other' },
+  // Need statuses
+  status_pending: { fr: 'En attente', en: 'Pending' },
+  status_in_progress: { fr: 'En cours', en: 'In Progress' },
+  status_sent: { fr: 'Envoyé', en: 'Sent' },
+  status_completed: { fr: 'Complété', en: 'Completed' },
+  // End visit / sidebar
+  endVisit: { fr: 'Terminer la visite', en: 'End Visit' },
+  endVisitConfirm: { fr: 'Confirmer la fin de la visite ?', en: 'Confirm end visit?' },
+  inventory: { fr: 'Inventaire', en: 'Inventory' },
+  quotes: { fr: 'Soumissions', en: 'Quotes' },
+  manuals: { fr: 'Manuels', en: 'Manuals' },
+  documents: { fr: 'Documents', en: 'Documents' },
+  addNote: { fr: 'Ajouter une note...', en: 'Add a note...' },
+  noItems: { fr: 'Aucun article', en: 'No items' },
+  loadingItems: { fr: 'Chargement...', en: 'Loading...' },
+  notConnected: { fr: 'QuickBooks non connecté', en: 'QuickBooks not connected' },
+  collapse: { fr: 'Réduire', en: 'Collapse' },
+  // Meeting banner + business display
+  meetingPrefix: { fr: 'Réunion', en: 'Meeting' },
+  businessNotRegistered: { fr: 'Entreprise non liée', en: 'Business not linked' },
+  linkedBusiness: { fr: 'Entreprise liée', en: 'Linked business' },
+  // End meeting modal
+  endMeetingTitle: { fr: 'Terminer la réunion', en: 'End Meeting' },
+  endMeetingConfirmMsg: { fr: 'Voulez-vous terminer cette réunion ?', en: 'Do you want to end this meeting?' },
+  businessRequired: { fr: 'Une entreprise doit être liée avant de terminer la réunion.', en: 'A business must be linked before ending the meeting.' },
+  linkBusinessFirst: { fr: 'Relier une entreprise', en: 'Link a business' },
+  confirmEnd: { fr: 'Confirmer', en: 'Confirm' },
+} as const;

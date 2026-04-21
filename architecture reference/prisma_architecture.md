@@ -121,7 +121,16 @@ Prisma/                                  (monorepo root)
     │   ├── src/components/
     │   │   └── admin/Sidebar.tsx        ← expandable groups (children property)
     │   ├── src/lib/
-    │   │   └── quickbooks.ts            ← QB API helpers incl. createQBEntity()
+    │   │   ├── quickbooks.ts            ← QB API helpers incl. createQBEntity()
+    │   │   ├── QuickBooksContext.tsx    ← React-Query-backed QB data cache (Phase 3)
+    │   │   ├── ReactQueryProvider.tsx   ← QueryClient, mounted once in admin layout
+    │   │   ├── i18n/                    ← per-namespace translation modules (Phase 4)
+    │   │   │   ├── index.ts             ← merges namespaces + exports t() / Language
+    │   │   │   ├── common.ts, nav.ts, login.ts, forgot.ts, dashboard.ts
+    │   │   │   ├── clients.ts, stations.ts, stationPcs.ts, machines.ts
+    │   │   │   ├── trainingPage.ts, tickets.ts, files.ts, settings.ts
+    │   │   │   └── leads.ts, emails.ts, businesses.ts, liveVisits.ts
+    │   │   └── translations.ts          ← thin barrel re-export over ./i18n/ (back-compat)
     │   ├── prisma/                      ← ORM schema + migrations
     │   └── package.json
     ├── robot/                           (Python FastAPI)
@@ -353,6 +362,12 @@ APIs: `/api/files/documents` (GET list, POST upload multipart — accepts `folde
 - **Files page — folder-tree UI + modular split (2026-04-20, branch `files-drive`):** `/admin/files` replaced flat-list + dropdown filters with a left folder-tree sidebar. Tree shows All / Uncategorized (conditional) / categories with chevron expand + subcategories; `+ New folder` and `+ New subfolder` buttons create ephemeral folders that persist once a file lands in them (they're re-derived from DB data on reload via `buildTree()`). Document rows and video cards are HTML5-draggable with `{kind, id}` JSON payload; folder nodes are drop targets that PATCH `/api/files/documents/:id` or `/api/files/videos/:id` with `{category, subCategory}`. Upload button pre-fills category/subCategory when a real folder is selected. Drive stays flat — all organization is DB-driven via the existing `category`/`subCategory` columns, no Drive folder API calls. Same commit refactored the monolith into 10 single-concern files under `src/app/admin/files/`: `page.tsx` (174 lines, orchestrator), `useFilesData.ts` (246, hook for all data I/O + tree/selection state), `FolderSidebar.tsx` (220), `DocumentsTable.tsx` (141), `VideosGrid.tsx` (115), `VideoModal.tsx` (108), `EditDocumentModal.tsx` (82), `types.ts` (51, incl. `SEL_ALL`/`SEL_UNCAT` sentinels + `DragPayload`), `utils.ts` (46, `formatSize`/`formatDate`/`buildTree`), `ModalShell.tsx` (44, shared modal chrome). Delete logic collapsed into a single `deleteAsset(kind, id)`. Behavior unchanged; pure refactor.
 - **Full-page Project Editor (2026-04-20):** new route `/admin/projects/[id]/edit` (`src/app/admin/projects/[id]/edit/page.tsx`) is the canonical one-page editor for a `LeadProject`. Sections: core fields (name/status/objective/notes/callbackReason/budget/suggestedProducts) → inline leads manager (pills with ✕, search-to-add from `/api/leads`, primary flagged, minimum 1 enforced) → meetings list with inline "＋ Schedule" form (`POST /api/projects/[id]/meetings`) → quotes summary with deep-link to `/admin/quotes?project=…` → Activity timeline. New endpoint `GET /api/projects/[id]/activity` merges `LeadActivity` rows across the primary lead + every co-lead (pulls `leadIds` from `project.leadId ∪ project.assignments[].leadId`). Save flows into the existing `PATCH /api/projects/[id]` with every field + `leadIds[]` in a single call. Entry point: on `/admin/projects`, each project card is now wrapped in `<Link href={/admin/projects/${id}/edit}>`; the inner "Leads" drawer button + "Set main contact" CTA use `e.stopPropagation()` so they still fire without routing.
 
+**Clean-refactor sweep (2026-04-21) — 4-phase cleanup, all merged to main:**
+- **Phase 1 — `/admin/files` decomposition (commit `f351671`):** the 1009-line monolith was already split into 10 single-concern files on `files-drive-deep`; Phase 1 finished the job by pulling the remaining data/state logic out of `page.tsx` into `useFilesData.ts` (data I/O + tree/selection) and further splitting `FolderSidebar.tsx` into `FolderRow.tsx` + `FolderSubtree.tsx` + `InlineNameInput.tsx`. `page.tsx` is now pure orchestration. Zero behavior change. Preview → merged to main 2026-04-21.
+- **Phase 2 — Thin routes / fat services for files API (commit `50e8dce`):** every `/api/files/*` route handler was rewritten as a ≤30-line wrapper around a pure service layer at `src/lib/files/`. New modules: `folders.ts` (listTree / createFolder / renameFolder / moveFolder / deleteFolderCascade — the cycle guard + BFS delete logic), `documents.ts` (listDocuments / uploadDocument / patchDocument / deleteDocument — Drive calls + DB writes in one tx), `videos.ts`, `skuLinks.ts`, `bySku.ts`. Route files now only parse request + call service + shape response. Easier to unit-test and to share logic from the finalize flow later. All five existing endpoints preserved their wire contract — consumers on `/admin/files`, `SkuPicker`, `RelatedFilesChip` are unchanged.
+- **Phase 3 — `QuickBooksContext` migrated to React Query (commit `3914949`):** the hand-rolled polling/caching provider was replaced with `@tanstack/react-query` v5 under the hood. New `ReactQueryProvider.tsx` mounts a single `QueryClient` (staleTime 30 s, gcTime 5 min, retry 1, refetch-on-focus on) in `admin/layout.tsx` above `QuickBooksProvider`. Inside `QuickBooksContext.tsx`: `qbKeys` = `{all: ['qb'], status: ['qb','status'], dataset: (k) => ['qb', k]}`; six `useQuery` calls — one for status, five for datasets (invoices / customers / inventory / accounts / taxCodes) — gated on `enabled: status === 'connected'` with `refetchInterval: 60_000`. A `toSlot<T>()` adapter maps `UseQueryResult → CacheSlot<T>` so every consumer's `{data, loading, source, error, fetchedAt}` shape is identical — 13 consumer files untouched. `invalidate(key)` now calls `queryClient.invalidateQueries({queryKey: qbKeys.dataset(key)})`. Smoke-tested: status hydrates to `connected`, `/admin/invoices` renders 610 rows, `useQBInvoices()` / `useQBCustomers()` etc. behave identically. Pre-existing QB refresh-token 500s on `/api/quickbooks/inventory` + `/api/quickbooks/accounts` are still in the backlog — not a regression.
+- **Phase 4 — `translations.ts` split (commit `TBD`):** the 1128-line monolith was split into 17 per-namespace modules under `src/lib/i18n/` (`common`, `nav`, `login`, `forgot`, `dashboard`, `clients`, `stations`, `machines`, `trainingPage`, `tickets`, `files`, `settings`, `stationPcs`, `leads`, `emails`, `businesses`, `liveVisits`). `src/lib/i18n/index.ts` imports each namespace, reassembles the `translations` object, and re-exports `t()` + `Language` + `SectionKey`. `src/lib/translations.ts` is now a 16-line barrel that re-exports the same public API — all four existing consumers (`LanguageContext.tsx`, `api/training/events`, `api/invite`, `api/reset-password`) keep working with zero changes. Adding a new namespace is now: (1) create `./<name>.ts`, (2) import + add one line to `i18n/index.ts`. No schema.prisma split (Prisma's `prismaSchemaFolder` is a preview feature with risk to migrations + generator — deferred; schema stays as one 1231-line file with domain-marker comments for now).
+
 **Not yet built / blocked:**
 - Portal `/api/sync/push` + `/api/sync/pull` — NOT BUILT, sync disabled.
 - In-app updater for stations — backlogged (must exist before shipping at scale).
@@ -370,11 +385,4 @@ APIs: `/api/files/documents` (GET list, POST upload multipart — accepts `folde
 2. Robot PC: `python run.py` from `C:\Prisma\services\robot` (port 8080).
 3. Robot PC: `python relfar_server.py` from `C:\Prisma\services\relfar` (port 5000).
 4. Portal: paste Robot PC's LAN IP into `/admin/station-pcs/[id]` → `localIp` field.
-5. From any same-LAN browser: `/admin/machines` → click a card → **Open software** → opens `http://<lan-ip>:8080|5000`.
-
-## 14. When in doubt
-
-- Read `HANDOFF.md` in the Prisma root FIRST.
-- Check `BACKLOG.md` for "where were we".
-- Check `services/portal/TODO.md` for portal-specific shipped/in-progress items.
-- Check individual memory files for specifics (see MEMORY.md index).
+5. From any sam

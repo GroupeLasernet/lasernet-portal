@@ -2,6 +2,37 @@
 // PRISMA SCHEMA — LaserNet Portal Database
 // Run: npx prisma migrate dev --name init
 // ============================================================
+//
+// DOMAIN INDEX (Ctrl+F the banner to jump)
+// ------------------------------------------------------------
+//   auth / tenancy:
+//     User, QBToken, QBCache
+//   clients & contacts:
+//     ManagedClient, Contact
+//   support tickets:
+//     Ticket, TicketAttachment
+//   stations & hardware:
+//     Station, StationInvoice, StationMachine,
+//     Machine, StationPC, StationPCAssignment, MachineEvent,
+//     StationRobotProgram, StationLaserPreset, MachineStateLog
+//   training:
+//     TrainingTemplate, TrainingFile, TrainingEvent, TrainingAttendee
+//   businesses & visits (kiosk):
+//     LocalBusiness, VisitGroup, VisitFile, VisitNeed
+//   CRM / sales pipeline:
+//     Lead, Call, Visit, LeadMessage, LeadActivity,
+//     LeadProject, LeadProjectAssignment, ProjectMeeting, MeetingAttendee
+//   quotes:
+//     Quote, QuoteAttachment, QuoteItem
+//   files & media:
+//     FileAsset, VideoAsset, FileFolder, FileAssetSku, VideoAssetSku
+//   ops tracking:
+//     Improvement
+//
+// Schema stays as one file on purpose: Prisma's `prismaSchemaFolder`
+// is still a preview feature and splitting introduces migration /
+// generator risk. Domain markers below are the structural boundary.
+// ============================================================
 
 generator client {
   provider = "prisma-client-js"
