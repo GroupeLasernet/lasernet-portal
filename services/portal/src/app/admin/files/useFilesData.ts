@@ -54,7 +54,10 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
     }
   }, [toast]);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => {
+    console.log('[files] useFilesData mounted / loadAll ref changed — running loadAll');
+    loadAll();
+  }, [loadAll]);
 
   // ── Derived state ───────────────────────────────────────
   const tree = useMemo(
@@ -201,8 +204,13 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
   // "only the first folder is kept" bug.)
   const createCategory = useCallback((name: string) => {
     const clean = name.trim();
+    console.log('[files] createCategory call →', JSON.stringify(clean));
     if (!clean) return;
-    setEphemeralCats((prev) => (prev.includes(clean) ? prev : [...prev, clean]));
+    setEphemeralCats((prev) => {
+      const next = prev.includes(clean) ? prev : [...prev, clean];
+      console.log('[files] ephemeralCats:', prev, '→', next);
+      return next;
+    });
     setExpanded((prev) => {
       const n = new Set(prev);
       n.add(clean);
@@ -214,11 +222,16 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
 
   const createSubcategory = useCallback((cat: string, name: string) => {
     const clean = name.trim();
+    console.log('[files] createSubcategory call →', cat, JSON.stringify(clean));
     if (!clean) return;
-    setEphemeralSubs((prev) => ({
-      ...prev,
-      [cat]: prev[cat]?.includes(clean) ? prev[cat] : [...(prev[cat] || []), clean],
-    }));
+    setEphemeralSubs((prev) => {
+      const next = {
+        ...prev,
+        [cat]: prev[cat]?.includes(clean) ? prev[cat] : [...(prev[cat] || []), clean],
+      };
+      console.log('[files] ephemeralSubs:', prev, '→', next);
+      return next;
+    });
     setExpanded((prev) => {
       const n = new Set(prev);
       n.add(cat);
