@@ -16,41 +16,41 @@ datasource db {
 // USERS — Admin and client accounts
 // ============================================================
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  name        String
-  password    String?  // bcrypt hash (legacy rows may still be plaintext — rehashed on next successful login)
-  role        String   @default("client") // "client" | "admin"
-  subrole     String?  // null | "sales" | "support" | "technician" — admin sub-specialization
-  company     String?
-  phone       String?
-  photo       String?  @db.Text // base64 data URL or null
-  language    String   @default("fr") // "fr" or "en"
-  status      String   @default("invited") // "invited" | "active" | "disabled"
-  inviteToken String?  @db.Text
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String
+  password        String? // bcrypt hash (legacy rows may still be plaintext — rehashed on next successful login)
+  role            String    @default("client") // "client" | "admin"
+  subrole         String? // null | "sales" | "support" | "technician" — admin sub-specialization
+  company         String?
+  phone           String?
+  photo           String?   @db.Text // base64 data URL or null
+  language        String    @default("fr") // "fr" or "en"
+  status          String    @default("invited") // "invited" | "active" | "disabled"
+  inviteToken     String?   @db.Text
   inviteExpiresAt DateTime?
 
   // Access schedule
-  accessAlways    Boolean  @default(true)       // true = 24/7 access
-  accessTimeFrom  String?                        // e.g. "08:00"
-  accessTimeTo    String?                        // e.g. "17:00"
-  accessDays      String?                        // JSON array e.g. ["mon","tue","wed","thu","fri"]
-  accessDateFrom  DateTime?                      // access valid from this date
-  accessDateTo    DateTime?                      // access valid until this date
+  accessAlways   Boolean   @default(true) // true = 24/7 access
+  accessTimeFrom String? // e.g. "08:00"
+  accessTimeTo   String? // e.g. "17:00"
+  accessDays     String? // JSON array e.g. ["mon","tue","wed","thu","fri"]
+  accessDateFrom DateTime? // access valid from this date
+  accessDateTo   DateTime? // access valid until this date
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  tickets     Ticket[] @relation("CreatedByUser")
+  tickets Ticket[] @relation("CreatedByUser")
 
   // CRM relations
-  assignedLeads   Lead[]          @relation("LeadAssignee")
-  loggedCalls     Call[]          @relation("CallLogger")
-  receivedVisits  Visit[]         @relation("VisitReceiver")
-  sentMessages    LeadMessage[]   @relation("MessageSender")
-  leadActivities  LeadActivity[]  @relation("ActivityActor")
-  improvements    Improvement[]   @relation("ImprovementCreator")
+  assignedLeads   Lead[]           @relation("LeadAssignee")
+  loggedCalls     Call[]           @relation("CallLogger")
+  receivedVisits  Visit[]          @relation("VisitReceiver")
+  sentMessages    LeadMessage[]    @relation("MessageSender")
+  leadActivities  LeadActivity[]   @relation("ActivityActor")
+  improvements    Improvement[]    @relation("ImprovementCreator")
   createdMeetings ProjectMeeting[] @relation("MeetingCreator")
 }
 
@@ -70,30 +70,30 @@ model QBToken {
 // MANAGED CLIENTS — Clients imported from QuickBooks
 // ============================================================
 model ManagedClient {
-  id        String   @id @default(cuid())
-  addedAt   DateTime @default(now())
+  id      String   @id @default(cuid())
+  addedAt DateTime @default(now())
 
   // QuickBooks client data (cached locally)
-  qbId          String  @unique
-  displayName   String
-  companyName   String
-  email         String?
-  phone         String?
-  address       String?
-  city          String?
-  province      String?
-  postalCode    String?
+  qbId        String  @unique
+  displayName String
+  companyName String
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  province    String?
+  postalCode  String?
 
   // Relations
-  contacts        Contact[]
-  tickets         Ticket[]
-  stations        Station[]
-  machines        Machine[]
-  trainingEvents  TrainingEvent[]
-  leads           Lead[]
-  visitGroups     VisitGroup[]
-  fileAssets      FileAsset[]
-  videoAssets     VideoAsset[]
+  contacts       Contact[]
+  tickets        Ticket[]
+  stations       Station[]
+  machines       Machine[]
+  trainingEvents TrainingEvent[]
+  leads          Lead[]
+  visitGroups    VisitGroup[]
+  fileAssets     FileAsset[]
+  videoAssets    VideoAsset[]
 }
 
 // ============================================================
@@ -106,17 +106,17 @@ model Contact {
   managedClientId String
   managedClient   ManagedClient @relation(fields: [managedClientId], references: [id], onDelete: Cascade)
 
-  name    String
-  email   String  @unique
-  phone   String?
-  role    String?
-  photo   String? @db.Text // base64 data URL or null
-  type    String  // "maincontact" or "staff"  (legacy values: "responsible"/"employee" migrated via 20260413_rename_contact_type.sql)
+  name  String
+  email String  @unique
+  phone String?
+  role  String?
+  photo String? @db.Text // base64 data URL or null
+  type  String // "maincontact" or "staff"  (legacy values: "responsible"/"employee" migrated via 20260413_rename_contact_type.sql)
 
   // Training fields
-  trainingPhoto     String?  @db.Text // base64 of training booklet photo
-  trainingInvoiceId String?  // QB invoice ID linked to training
-  trainingCompleted Boolean  @default(false)
+  trainingPhoto     String? @db.Text // base64 of training booklet photo
+  trainingInvoiceId String? // QB invoice ID linked to training
+  trainingCompleted Boolean @default(false)
 
   // Soft-delete: null = active, set = archived timestamp
   archivedAt DateTime?
@@ -129,23 +129,23 @@ model Contact {
 // TICKETS — Support tickets
 // ============================================================
 model Ticket {
-  id                  String   @id @default(cuid())
-  ticketNumber        String   @unique
-  managedClientId     String
-  managedClient       ManagedClient @relation(fields: [managedClientId], references: [id], onDelete: Cascade)
-  clientCompanyName   String
+  id                String        @id @default(cuid())
+  ticketNumber      String        @unique
+  managedClientId   String
+  managedClient     ManagedClient @relation(fields: [managedClientId], references: [id], onDelete: Cascade)
+  clientCompanyName String
 
   // Who created it
-  createdByUserId     String?
-  createdByUser       User?    @relation("CreatedByUser", fields: [createdByUserId], references: [id])
-  createdByName       String
-  createdByEmail      String
-  createdByRole       String
+  createdByUserId String?
+  createdByUser   User?   @relation("CreatedByUser", fields: [createdByUserId], references: [id])
+  createdByName   String
+  createdByEmail  String
+  createdByRole   String
 
   subject     String
-  description String   @db.Text
-  priority    String   @default("medium") // critical, high, medium, low
-  status      String   @default("open")   // open, in_progress, waiting, resolved, closed
+  description String @db.Text
+  priority    String @default("medium") // critical, high, medium, low
+  status      String @default("open") // open, in_progress, waiting, resolved, closed
 
   linkedInvoiceId     String?
   linkedInvoiceNumber String?
@@ -176,25 +176,25 @@ model TicketAttachment {
 // (Renamed from "Job" on 2026-04-13 via 20260413_jobs_to_stations.sql)
 // ============================================================
 model Station {
-  id              String   @id @default(cuid())
-  stationNumber   String   @unique
+  id              String        @id @default(cuid())
+  stationNumber   String        @unique
   managedClientId String
   managedClient   ManagedClient @relation(fields: [managedClientId], references: [id], onDelete: Cascade)
 
-  title       String
-  notes       String?  @db.Text
-  status      String   @default("draft") // "draft", "in_progress", "testing", "completed", "archived"
+  title  String
+  notes  String? @db.Text
+  status String  @default("draft") // "draft", "in_progress", "testing", "completed", "archived"
 
   // Deployment address. All NULL = fall back to ManagedClient billing address
   // ("use business address" in the UI). Set = custom install site.
   // `addressLocked` is a UI-side guardrail to prevent accidental edits once
   // the address has been verified on Street View / the map.
-  addressLine    String?
-  city           String?
-  province       String?
-  postalCode     String?
-  country        String?
-  addressLocked  Boolean  @default(false)
+  addressLine   String?
+  city          String?
+  province      String?
+  postalCode    String?
+  country       String?
+  addressLocked Boolean @default(false)
 
   // Physical computer deployed to run this station. Nullable: a Station can
   // exist before a PC is assigned (sold-but-not-shipped), and a PC can be
@@ -206,11 +206,11 @@ model Station {
   updatedAt DateTime @updatedAt
 
   // Relations
-  invoices         StationInvoice[]
-  machines         StationMachine[]
-  robotPrograms    StationRobotProgram[]
-  laserPresets     StationLaserPreset[]
-  stateLog         MachineStateLog[]
+  invoices      StationInvoice[]
+  machines      StationMachine[]
+  robotPrograms StationRobotProgram[]
+  laserPresets  StationLaserPreset[]
+  stateLog      MachineStateLog[]
 }
 
 // ============================================================
@@ -218,13 +218,13 @@ model Station {
 // Also carries optional line-item selection metadata (8.4C).
 // ============================================================
 model StationInvoice {
-  id           String @id @default(cuid())
-  stationId    String
-  station      Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  stationId String
+  station   Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
 
   qbInvoiceId   String
   invoiceNumber String
-  invoiceType   String @default("general") // "robot", "laser", "general", "service"
+  invoiceType   String   @default("general") // "robot", "laser", "general", "service"
   amount        Float?
   linkedAt      DateTime @default(now())
 
@@ -234,14 +234,14 @@ model StationInvoice {
   lineItemsJson String? @db.Text
 
   // Machines sold on this invoice
-  machines     Machine[]
+  machines Machine[]
 }
 
 // ============================================================
 // STATION-MACHINE LINK — Many-to-many: which machines are in a station
 // ============================================================
 model StationMachine {
-  id        String @id @default(cuid())
+  id        String  @id @default(cuid())
   stationId String
   station   Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
   machineId String
@@ -256,8 +256,8 @@ model StationMachine {
 // MACHINES — Individual tracked equipment (robots & lasers)
 // ============================================================
 model Machine {
-  id              String   @id @default(cuid())
-  serialNumber    String   @unique
+  id           String  @id @default(cuid())
+  serialNumber String  @unique
   // Taxonomy (replaces legacy `type` column — migrated 2026-04-15):
   //   category     "robot"   | "accessory"
   //   subcategory  null       (for robots)
@@ -267,37 +267,37 @@ model Machine {
   //                (others empty until defined)
   // The subcategory/model pair drives which UI/software interface the
   // machine routes into (robot app, Relfar controller, or none-yet).
-  category        String   // "robot" | "accessory"
-  subcategory     String?  // null for robots; see comment above for accessories
-  model           String   // e.g. "E03", "Cleaning"
-  nickname        String?  // optional friendly name
+  category     String // "robot" | "accessory"
+  subcategory  String? // null for robots; see comment above for accessories
+  model        String // e.g. "E03", "Cleaning"
+  nickname     String? // optional friendly name
 
   // Network identity — MAC is the reliable identifier (survives IP changes,
   // AP-mode vs station-mode, DHCP reassignment). IP may drift; MAC doesn't.
   // Unique-if-set so we don't clobber on import when MAC isn't known yet.
-  macAddress      String?  @unique
-  ipAddress       String?
+  macAddress String? @unique
+  ipAddress  String?
 
   // Physical location (for map)
-  address         String?
-  city            String?
-  province        String?
-  postalCode      String?
-  country         String?  @default("Canada")
-  latitude        Float?
-  longitude       Float?
+  address    String?
+  city       String?
+  province   String?
+  postalCode String?
+  country    String? @default("Canada")
+  latitude   Float?
+  longitude  Float?
 
   // Status
-  status          String   @default("active") // "active", "in_repair", "refunded", "decommissioned"
+  status String @default("active") // "active", "in_repair", "refunded", "decommissioned"
 
   // ---------- Licensing / kill-switch (§9.1, added 2026-04-13 session 3) ----------
   // licenseMode: "unlicensed" (default), "sold", "rented", "killed".
   //   sold     = runs indefinitely
   //   rented   = expires at expiresAt
   //   killed   = kill-switch flipped, robot refuses operation immediately
-  licenseMode        String    @default("unlicensed")
-  expiresAt          DateTime? // null for sold/unlicensed; set for rented
-  killSwitchActive   Boolean   @default(false)
+  licenseMode          String    @default("unlicensed")
+  expiresAt            DateTime? // null for sold/unlicensed; set for rented
+  killSwitchActive     Boolean   @default(false)
   // When the robot last successfully fetched its license from the portal.
   licenseLastCheckedAt DateTime?
   // --------------------------------------------------------------------------------
@@ -307,18 +307,18 @@ model Machine {
   managedClient   ManagedClient? @relation(fields: [managedClientId], references: [id], onDelete: SetNull)
 
   // Original invoice this machine was sold on
-  invoiceId       String?
-  invoice         StationInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  invoiceId String?
+  invoice   StationInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  events          MachineEvent[]
-  stations        StationMachine[]
-  robotPrograms   StationRobotProgram[]
-  laserPresets    StationLaserPreset[]
-  stateLog        MachineStateLog[]
+  events        MachineEvent[]
+  stations      StationMachine[]
+  robotPrograms StationRobotProgram[]
+  laserPresets  StationLaserPreset[]
+  stateLog      MachineStateLog[]
 }
 
 // ============================================================
@@ -330,19 +330,19 @@ model Machine {
 // One-to-one with Station (today) via Station.stationPCId.
 // ============================================================
 model StationPC {
-  id           String   @id @default(cuid())
+  id          String   @id @default(cuid())
   // Deployment identifier (e.g. "COBOTDSM-001"). Matches the ROBOT_SERIAL
   // env var set on the PC's robot service. Primary key for the robot-side
   // heartbeat, license fetch, and sync channels.
-  serial       String   @unique
-  macAddress   String?  @unique
-  hostname     String?  // OS hostname reported by the PC
-  nickname     String?  // admin-friendly label
-  installedAt  DateTime @default(now())
+  serial      String   @unique
+  macAddress  String?  @unique
+  hostname    String? // OS hostname reported by the PC
+  nickname    String? // admin-friendly label
+  installedAt DateTime @default(now())
 
   // Software stack running on the PC. Populated by heartbeat.
-  robotVersion   String?
-  relfarVersion  String?
+  robotVersion    String?
+  relfarVersion   String?
   lastHeartbeatAt DateTime?
   lastHeartbeatIp String?
   // Operator-entered LAN IP of the PC (e.g. "192.168.1.42"). Used to build
@@ -355,27 +355,27 @@ model StationPC {
   //   "online"       — heartbeat within threshold
   //   "offline"      — no heartbeat beyond threshold
   //   "retired"      — decommissioned, kept for history
-  status       String   @default("provisioning")
+  status String @default("provisioning")
 
   // Quarantine flag for self-registered PCs. A PC created via
   // POST /api/station-pcs/register starts with approved=false and
   // heartbeats from it are accepted (to populate versions/IP) but it stays
   // visually flagged in the admin UI until an operator clicks "Approve".
   // PCs created manually via the admin page are approved=true by default.
-  approved      Boolean  @default(false)
+  approved Boolean @default(false)
 
-  notes        String?  @db.Text
+  notes String? @db.Text
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Back-relation to the Station currently running on this PC (if any).
-  station      Station?
+  station Station?
 
   // Assign/detach audit trail — every time this PC is bound to or released
   // from a Station we append a row. Survives Station deletion (see
   // StationPCAssignment.stationId — no FK, with a snapshot of number/title).
-  assignments  StationPCAssignment[]
+  assignments StationPCAssignment[]
 }
 
 // ============================================================
@@ -385,9 +385,9 @@ model StationPC {
 // trace who moved a PC where and why.
 // ============================================================
 model StationPCAssignment {
-  id            String   @id @default(cuid())
-  stationPCId   String
-  stationPC     StationPC @relation(fields: [stationPCId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  stationPCId String
+  stationPC   StationPC @relation(fields: [stationPCId], references: [id], onDelete: Cascade)
 
   // The Station involved. Nullable because 'detached' events outlive the
   // Station row when a station is deleted. We snapshot number+title below
@@ -396,14 +396,14 @@ model StationPCAssignment {
   stationNumber String?
   stationTitle  String?
 
-  action        String   // 'assigned' | 'detached'
-  reason        String?  // 'manual' | 'station_deleted' | 'reassigned' | 'pc_retired' | ...
+  action String // 'assigned' | 'detached'
+  reason String? // 'manual' | 'station_deleted' | 'reassigned' | 'pc_retired' | ...
 
-  actorEmail    String?
-  actorName     String?
+  actorEmail String?
+  actorName  String?
 
-  note          String?
-  createdAt     DateTime @default(now())
+  note      String?
+  createdAt DateTime @default(now())
 
   @@index([stationPCId])
   @@index([stationId])
@@ -413,106 +413,106 @@ model StationPCAssignment {
 // MACHINE EVENTS — Full lifecycle history for each machine
 // ============================================================
 model MachineEvent {
-  id          String   @id @default(cuid())
-  machineId   String
-  machine     Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  machineId String
+  machine   Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
 
-  eventType   String   // "installed", "repair", "refund", "model_change", "reassigned", "relocated"
-  notes       String?  @db.Text
+  eventType String // "installed", "repair", "refund", "model_change", "reassigned", "relocated"
+  notes     String? @db.Text
 
   // For reassignment events
   fromClientId String?
   toClientId   String?
 
   // For relocation events
-  fromAddress  String?
-  toAddress    String?
-  fromIp       String?
-  toIp         String?
+  fromAddress String?
+  toAddress   String?
+  fromIp      String?
+  toIp        String?
 
-  createdAt   DateTime @default(now())
-  createdBy   String?  // admin user who made the change
+  createdAt DateTime @default(now())
+  createdBy String? // admin user who made the change
 }
 
 // ============================================================
 // STATION ROBOT PROGRAMS — Saved robot pathways/programs
 // ============================================================
 model StationRobotProgram {
-  id          String @id @default(cuid())
-  stationId   String
-  station     Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
-  machineId   String?
-  machine     Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  id        String   @id @default(cuid())
+  stationId String
+  station   Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  machineId String?
+  machine   Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
 
-  name           String
-  description    String? @db.Text
-  status         String  @default("development") // "development", "testing", "production", "archived"
-  dxfFilename    String?
-  dxfData        String? @db.Text
-  waypoints      String? @db.Text // JSON array of waypoints
+  name        String
+  description String? @db.Text
+  status      String  @default("development") // "development", "testing", "production", "archived"
+  dxfFilename String?
+  dxfData     String? @db.Text
+  waypoints   String? @db.Text // JSON array of waypoints
 
   // Motion parameters
-  speed          Float @default(50.0)
-  acceleration   Float @default(100.0)
-  blendRadius    Float @default(0.5)
+  speed        Float @default(50.0)
+  acceleration Float @default(100.0)
+  blendRadius  Float @default(0.5)
 
   // Origin coordinates (mm, mm, mm)
-  originX        Float @default(400.0)
-  originY        Float @default(0.0)
-  originZ        Float @default(200.0)
+  originX Float @default(400.0)
+  originY Float @default(0.0)
+  originZ Float @default(200.0)
 
   // Orientation (degrees)
-  orientationRx  Float @default(180.0)
-  orientationRy  Float @default(0.0)
-  orientationRz  Float @default(0.0)
+  orientationRx Float @default(180.0)
+  orientationRy Float @default(0.0)
+  orientationRz Float @default(0.0)
 
   // Approach height (mm)
   approachHeight Float @default(20.0)
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
 }
 
 // ============================================================
 // STATION LASER PRESETS — Saved laser controller configurations
 // ============================================================
 model StationLaserPreset {
-  id          String @id @default(cuid())
-  stationId   String
-  station     Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
-  machineId   String?
-  machine     Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  id        String   @id @default(cuid())
+  stationId String
+  station   Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  machineId String?
+  machine   Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
 
   name        String
   description String? @db.Text
   status      String  @default("development") // "development", "testing", "production", "archived"
 
   // Laser controller settings
-  registers   String @db.Text // JSON object of register address→value pairs
-  port        String?
-  baudRate    Int?
-  parity      String?
-  slaveId     Int?
-  rs485Mode   String @default("normal")
+  registers String  @db.Text // JSON object of register address→value pairs
+  port      String?
+  baudRate  Int?
+  parity    String?
+  slaveId   Int?
+  rs485Mode String  @default("normal")
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
 }
 
 // ============================================================
 // MACHINE STATE LOG — Historical logging of robot/laser state
 // ============================================================
 model MachineStateLog {
-  id        String @id @default(cuid())
+  id        String   @id @default(cuid())
   stationId String?
   station   Station? @relation(fields: [stationId], references: [id], onDelete: SetNull)
   machineId String?
   machine   Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
 
   source    String // "robot" or "laser"
-  data      String @db.Text // JSON blob of state snapshot
+  data      String   @db.Text // JSON blob of state snapshot
   timestamp DateTime @default(now())
 }
 
@@ -522,65 +522,65 @@ model MachineStateLog {
 
 // Training templates — reusable training definitions (Settings)
 model TrainingTemplate {
-  id          String @id @default(cuid())
+  id          String          @id @default(cuid())
   name        String // e.g. "Laser Training", "Cobot Training"
-  description String @db.Text
+  description String          @db.Text
   files       TrainingFile[]
   events      TrainingEvent[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 }
 
 // Training files — PDFs, videos, docs attached to templates
 model TrainingFile {
-  id         String @id @default(cuid())
+  id         String            @id @default(cuid())
   templateId String?
   template   TrainingTemplate? @relation(fields: [templateId], references: [id], onDelete: Cascade)
   name       String
   fileType   String // "pdf", "video", "image", "other"
-  fileData   String @db.Text // base64 data or URL
-  fileSize   Int?   // size in bytes
-  createdAt  DateTime @default(now())
+  fileData   String            @db.Text // base64 data or URL
+  fileSize   Int? // size in bytes
+  createdAt  DateTime          @default(now())
 
   // Files can also be attached to events directly
-  eventId    String?
-  event      TrainingEvent? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId String?
+  event   TrainingEvent? @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
 
 // Training events — scheduled trainings (Agenda)
 model TrainingEvent {
-  id              String @id @default(cuid())
+  id              String            @id @default(cuid())
   templateId      String?
   template        TrainingTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   managedClientId String?
-  managedClient   ManagedClient? @relation(fields: [managedClientId], references: [id], onDelete: SetNull)
+  managedClient   ManagedClient?    @relation(fields: [managedClientId], references: [id], onDelete: SetNull)
   title           String
-  description     String?  @db.Text
+  description     String?           @db.Text
   date            DateTime
-  duration        Int?     // duration in minutes
-  status          String   @default("scheduled") // scheduled, completed, cancelled
+  duration        Int? // duration in minutes
+  status          String            @default("scheduled") // scheduled, completed, cancelled
 
   attendees   TrainingAttendee[]
   files       TrainingFile[]
-  visitGroups VisitGroup[]       // auto-created visit groups for this training day
+  visitGroups VisitGroup[] // auto-created visit groups for this training day
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Training attendees — staff linked to training events
 model TrainingAttendee {
-  id            String @id @default(cuid())
-  eventId       String
-  event         TrainingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  contactId     String
-  name          String
-  email         String
-  inviteSent    Boolean  @default(false)
-  inviteSentAt  DateTime?
-  confirmed     Boolean  @default(false)
-  confirmedAt   DateTime?
-  createdAt     DateTime @default(now())
+  id           String        @id @default(cuid())
+  eventId      String
+  event        TrainingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  contactId    String
+  name         String
+  email        String
+  inviteSent   Boolean       @default(false)
+  inviteSentAt DateTime?
+  confirmed    Boolean       @default(false)
+  confirmedAt  DateTime?
+  createdAt    DateTime      @default(now())
 
   @@unique([eventId, contactId])
 }
@@ -599,19 +599,19 @@ model QBCache {
 // Added 2026-04-16: Editable business profiles for walk-in visitors
 // ============================================================
 model LocalBusiness {
-  id          String   @id @default(cuid())
-  name        String
-  address     String?
-  city        String?
-  province    String?
-  postalCode  String?
-  country     String?  @default("Canada")
-  phone       String?
-  email       String?
-  website     String?
-  notes       String?  @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  name       String
+  address    String?
+  city       String?
+  province   String?
+  postalCode String?
+  country    String?  @default("Canada")
+  phone      String?
+  email      String?
+  website    String?
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   visitGroups VisitGroup[]
   leads       Lead[]
@@ -625,10 +625,10 @@ model LocalBusiness {
 // the overall visit lifecycle: active → completed → follow-up sent.
 // ============================================================
 model VisitGroup {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Custom display name (editable by admin)
-  displayName     String?
+  displayName String?
 
   // Link to business (at most one of these)
   managedClientId String?
@@ -637,27 +637,27 @@ model VisitGroup {
   localBusiness   LocalBusiness? @relation(fields: [localBusinessId], references: [id], onDelete: SetNull)
 
   // Main contact from the group (lead ID)
-  mainContactId   String?
+  mainContactId String?
 
   // Status
-  status          String   @default("active") // "active" | "completed"
-  notes           String?  @db.Text
+  status String  @default("active") // "active" | "completed"
+  notes  String? @db.Text
 
   expectedFollowUpAt DateTime?
-  completedAt     DateTime?
-  summarySentAt   DateTime?  // when summary was emailed to main contact
+  completedAt        DateTime?
+  summarySentAt      DateTime? // when summary was emailed to main contact
 
   // Training link — when auto-created from a TrainingEvent
   trainingEventId String?
   trainingEvent   TrainingEvent? @relation(fields: [trainingEventId], references: [id], onDelete: SetNull)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  visits          Visit[]
-  files           VisitFile[]
-  needs           VisitNeed[]
+  visits Visit[]
+  files  VisitFile[]
+  needs  VisitNeed[]
 
   @@index([status])
   @@index([managedClientId])
@@ -669,19 +669,19 @@ model VisitGroup {
 // VISIT FILES — Photos, documents, files attached to a visit group
 // ============================================================
 model VisitFile {
-  id              String   @id @default(cuid())
-  visitGroupId    String
-  visitGroup      VisitGroup @relation(fields: [visitGroupId], references: [id], onDelete: Cascade)
+  id           String     @id @default(cuid())
+  visitGroupId String
+  visitGroup   VisitGroup @relation(fields: [visitGroupId], references: [id], onDelete: Cascade)
 
-  fileName        String
-  fileType        String   // "image" | "document" | "video" | "other"
-  fileData        String   @db.Text // base64 data URL or file URL
-  fileSize        Int?     // bytes
+  fileName String
+  fileType String // "image" | "document" | "video" | "other"
+  fileData String @db.Text // base64 data URL or file URL
+  fileSize Int? // bytes
 
-  uploadedById    String?
-  notes           String?
+  uploadedById String?
+  notes        String?
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([visitGroupId])
 }
@@ -692,22 +692,22 @@ model VisitFile {
 // a status and optional expected delivery date.
 // ============================================================
 model VisitNeed {
-  id              String   @id @default(cuid())
-  visitGroupId    String
-  visitGroup      VisitGroup @relation(fields: [visitGroupId], references: [id], onDelete: Cascade)
+  id           String     @id @default(cuid())
+  visitGroupId String
+  visitGroup   VisitGroup @relation(fields: [visitGroupId], references: [id], onDelete: Cascade)
 
   // "info" | "quote" | "manual" | "photos" | "videos" | "reports" | "other"
-  type            String
-  description     String?  @db.Text
-  status          String   @default("pending") // "pending" | "in_progress" | "sent" | "completed"
-  expectedDate    DateTime?
-  completedAt     DateTime?
+  type         String
+  description  String?   @db.Text
+  status       String    @default("pending") // "pending" | "in_progress" | "sent" | "completed"
+  expectedDate DateTime?
+  completedAt  DateTime?
 
-  assignedToId    String?
-  notes           String?  @db.Text
+  assignedToId String?
+  notes        String? @db.Text
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([visitGroupId])
 }
@@ -721,7 +721,7 @@ model VisitNeed {
 // walk-in, inbound call, outbound call, referral, or web inquiry.
 // May link to an existing ManagedClient (returning buyer) or stand alone (new prospect).
 model Lead {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Link to existing client (null = new prospect)
   managedClientId String?
@@ -732,47 +732,47 @@ model Lead {
   localBusiness   LocalBusiness? @relation(fields: [localBusinessId], references: [id], onDelete: SetNull)
 
   // Contact info (always populated, even if linked to ManagedClient)
-  name            String
-  email           String?
-  phone           String?
-  phone2          String?    // secondary phone
-  company         String?
-  otherContacts   String?  @db.Text // free-text: other people to reach
-  photo           String?  @db.Text // selfie from kiosk (base64 data URL)
+  name          String
+  email         String?
+  phone         String?
+  phone2        String? // secondary phone
+  company       String?
+  otherContacts String? @db.Text // free-text: other people to reach
+  photo         String? @db.Text // selfie from kiosk (base64 data URL)
 
   // Pipeline
-  stage           String   @default("new")
+  stage  String @default("new")
   // Stages: new → qualified → demo_scheduled → demo_done → quote_sent → negotiation → won | lost
-  source          String   // walk_in, inbound_call, outbound_call, referral, web
+  source String // walk_in, inbound_call, outbound_call, referral, web
 
   // Sales context
-  callbackReason  String?  @db.Text // why we need to call this person back
-  objective       String?  @db.Text // what the client wants to achieve
-  budget          Float?             // average budget
+  callbackReason     String? @db.Text // why we need to call this person back
+  objective          String? @db.Text // what the client wants to achieve
+  budget             Float? // average budget
   productsOfInterest String? @db.Text // JSON array of QB item IDs/names
 
   // Assignment
-  assignedToId    String?
-  assignedTo      User?    @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedToId String?
+  assignedTo   User?   @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   // Sales data
-  estimatedValue  Float?
-  nextFollowUpAt  DateTime?
-  wonAt           DateTime?
-  lostAt          DateTime?
-  lostReason      String?
+  estimatedValue Float?
+  nextFollowUpAt DateTime?
+  wonAt          DateTime?
+  lostAt         DateTime?
+  lostReason     String?
 
-  notes           String?  @db.Text
+  notes String? @db.Text
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  calls           Call[]
-  visits          Visit[]
-  messages        LeadMessage[]
-  activities      LeadActivity[]
-  projects        LeadProject[]                           // projects where THIS lead is primary
+  calls              Call[]
+  visits             Visit[]
+  messages           LeadMessage[]
+  activities         LeadActivity[]
+  projects           LeadProject[] // projects where THIS lead is primary
   projectAssignments LeadProjectAssignment[] @relation("LeadProjectAssignment") // co-led projects (join table)
   meetingAttendances MeetingAttendee[]
 
@@ -785,51 +785,51 @@ model Lead {
 
 // A phone call — inbound or outbound — linked to a lead.
 model Call {
-  id              String   @id @default(cuid())
-  leadId          String
-  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  loggedById      String?
-  loggedBy        User?    @relation("CallLogger", fields: [loggedById], references: [id], onDelete: SetNull)
+  loggedById String?
+  loggedBy   User?   @relation("CallLogger", fields: [loggedById], references: [id], onDelete: SetNull)
 
-  type            String   // "inbound" | "outbound"
-  clientType      String   @default("new") // "existing" | "new" — did the caller already buy?
-  duration        Int?     // seconds
-  notes           String?  @db.Text
-  outcome         String?  // "reached" | "no_answer" | "voicemail" | "callback_scheduled"
+  type       String // "inbound" | "outbound"
+  clientType String  @default("new") // "existing" | "new" — did the caller already buy?
+  duration   Int? // seconds
+  notes      String? @db.Text
+  outcome    String? // "reached" | "no_answer" | "voicemail" | "callback_scheduled"
 
-  calledAt        DateTime @default(now())
-  createdAt       DateTime @default(now())
+  calledAt  DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([leadId])
 }
 
 // A walk-in visit registered at the kiosk (or logged manually by staff).
 model Visit {
-  id              String   @id @default(cuid())
-  leadId          String
-  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   // Group visit (null = solo visitor)
-  visitGroupId    String?
-  visitGroup      VisitGroup? @relation(fields: [visitGroupId], references: [id], onDelete: SetNull)
+  visitGroupId String?
+  visitGroup   VisitGroup? @relation(fields: [visitGroupId], references: [id], onDelete: SetNull)
 
   // Self-registered info from kiosk
-  visitorName     String
-  visitorEmail    String?
-  visitorPhone    String?
-  visitorCompany  String?
-  visitorPhoto    String?  @db.Text // selfie (base64 data URL)
+  visitorName    String
+  visitorEmail   String?
+  visitorPhone   String?
+  visitorCompany String?
+  visitorPhoto   String? @db.Text // selfie (base64 data URL)
 
   // Who received them
-  receivedById    String?
-  receivedBy      User?    @relation("VisitReceiver", fields: [receivedById], references: [id], onDelete: SetNull)
+  receivedById String?
+  receivedBy   User?   @relation("VisitReceiver", fields: [receivedById], references: [id], onDelete: SetNull)
 
-  purpose         String?  // "inquiry" | "demo" | "meeting" | "service" | "other"
-  notes           String?  @db.Text
+  purpose String? // "inquiry" | "demo" | "meeting" | "service" | "other"
+  notes   String? @db.Text
 
-  visitedAt       DateTime @default(now())
-  createdAt       DateTime @default(now())
+  visitedAt DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([leadId])
 }
@@ -837,46 +837,46 @@ model Visit {
 // Messages on a lead thread — salesperson ↔ client, all logged.
 // Client messages arrive via unique link (no portal login needed).
 model LeadMessage {
-  id              String   @id @default(cuid())
-  leadId          String
-  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   // Internal user who sent (null when client sends via unique link)
-  senderId        String?
-  sender          User?    @relation("MessageSender", fields: [senderId], references: [id], onDelete: SetNull)
+  senderId String?
+  sender   User?   @relation("MessageSender", fields: [senderId], references: [id], onDelete: SetNull)
 
   // Denormalized for display (client name when isFromClient=true)
-  senderName      String
-  senderEmail     String?
-  isFromClient    Boolean  @default(false)
+  senderName   String
+  senderEmail  String?
+  isFromClient Boolean @default(false)
 
-  content         String   @db.Text
-  subject         String?
+  content String  @db.Text
+  subject String?
 
-  sentAt          DateTime @default(now())
+  sentAt DateTime @default(now())
 
   @@index([leadId])
 }
 
 // Audit trail: every meaningful event on a lead.
 model LeadActivity {
-  id              String   @id @default(cuid())
-  leadId          String
-  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  actorId         String?
-  actor           User?    @relation("ActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
-  actorName       String?
+  actorId   String?
+  actor     User?   @relation("ActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorName String?
 
   // "stage_change" | "note" | "call_logged" | "visit_logged" | "message_sent" | "assignment_change"
-  type            String
-  description     String   @db.Text
+  type        String
+  description String @db.Text
 
   // For stage changes
-  fromStage       String?
-  toStage         String?
+  fromStage String?
+  toStage   String?
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([leadId])
 }
@@ -889,31 +889,31 @@ model LeadActivity {
 // ============================================================
 
 model LeadProject {
-  id                  String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // leadId is the ORIGINAL/primary lead (the one who created the project).
   // Kept for backward-compat and to avoid cascade of renames across the app.
   // The CANONICAL list of leads tied to a project lives in `assignments`
   // (many-to-many join table). Always include the primary in that list too.
-  leadId              String
-  lead                Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  name                String   // e.g. "Laser cleaning system — warehouse"
-  status              String   @default("active") // "active" | "won" | "lost" | "on_hold"
-  notes               String?  @db.Text
+  name   String // e.g. "Laser cleaning system — warehouse"
+  status String  @default("active") // "active" | "won" | "lost" | "on_hold"
+  notes  String? @db.Text
 
   // Project-specific sales fields (override lead-level defaults)
-  callbackReason      String?            // reason for this specific project
-  suggestedProducts   String?  @db.Text  // JSON array of product names
-  objective           String?
-  budget              Float?
+  callbackReason    String? // reason for this specific project
+  suggestedProducts String? @db.Text // JSON array of product names
+  objective         String?
+  budget            Float?
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  quotes              Quote[]
-  meetings            ProjectMeeting[]
-  assignments         LeadProjectAssignment[]
+  quotes      Quote[]
+  meetings    ProjectMeeting[]
+  assignments LeadProjectAssignment[]
 
   @@index([leadId])
 }
@@ -927,12 +927,12 @@ model LeadProject {
 // combined bloc that lists every participating lead.
 // ============================================================
 model LeadProjectAssignment {
-  id        String   @id @default(cuid())
+  id        String @id @default(cuid())
   projectId String
   leadId    String
 
-  project   LeadProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  lead      Lead        @relation("LeadProjectAssignment", fields: [leadId], references: [id], onDelete: Cascade)
+  project LeadProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lead    Lead        @relation("LeadProjectAssignment", fields: [leadId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -945,24 +945,24 @@ model LeadProjectAssignment {
 // PROJECT MEETINGS — Scheduled meetings linked to a project
 // ============================================================
 model ProjectMeeting {
-  id              String   @id @default(cuid())
-  projectId       String
-  project         LeadProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String      @id @default(cuid())
+  projectId String
+  project   LeadProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   title           String
   scheduledAt     DateTime
   durationMinutes Int      @default(60)
-  location        String?          // e.g. "Office", "Zoom", address
+  location        String? // e.g. "Office", "Zoom", address
   notes           String?  @db.Text
   status          String   @default("scheduled") // "scheduled" | "completed" | "cancelled"
 
-  createdById     String?
-  createdBy       User?    @relation("MeetingCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   User?   @relation("MeetingCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  attendees       MeetingAttendee[]
+  attendees MeetingAttendee[]
 
   @@index([projectId])
   @@index([scheduledAt])
@@ -972,21 +972,21 @@ model ProjectMeeting {
 // MEETING ATTENDEES — People invited to a project meeting
 // ============================================================
 model MeetingAttendee {
-  id              String   @id @default(cuid())
-  meetingId       String
-  meeting         ProjectMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  id        String         @id @default(cuid())
+  meetingId String
+  meeting   ProjectMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 
   // Link to a lead (contact)
-  leadId          String?
-  lead            Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
 
   // Or free-text name (for external people not in the system)
-  name            String?
-  email           String?
+  name  String?
+  email String?
 
-  status          String   @default("invited") // "invited" | "confirmed" | "declined" | "attended"
+  status String @default("invited") // "invited" | "confirmed" | "declined" | "attended"
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([meetingId, leadId])
   @@index([meetingId])
@@ -994,72 +994,72 @@ model MeetingAttendee {
 }
 
 model Quote {
-  id              String   @id @default(cuid())
-  projectId       String
-  project         LeadProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String      @id @default(cuid())
+  projectId String
+  project   LeadProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  quoteNumber     String?          // human-readable quote reference (e.g. "Q-2026-042")
-  status          String   @default("draft") // "draft" | "pending" | "accepted" | "refused"
-  notes           String?  @db.Text
+  quoteNumber String? // human-readable quote reference (e.g. "Q-2026-042")
+  status      String  @default("draft") // "draft" | "pending" | "accepted" | "refused"
+  notes       String? @db.Text
 
   // Customer-facing message shown on the quote PDF
-  quoteMessage    String?  @db.Text // "Message affiché sur le devis"
+  quoteMessage String? @db.Text // "Message affiché sur le devis"
 
   // Set when this quote was duplicated from another
-  parentQuoteId   String?
+  parentQuoteId String?
 
   // QuickBooks sync
-  qbEstimateId    String?          // QB Estimate Id once pushed
-  qbSyncedAt      DateTime?        // last time this was pushed to QB
+  qbEstimateId String? // QB Estimate Id once pushed
+  qbSyncedAt   DateTime? // last time this was pushed to QB
 
-  sentAt          DateTime?
-  acceptedAt      DateTime?
-  rejectedAt      DateTime?
-  expiresAt       DateTime?
+  sentAt     DateTime?
+  acceptedAt DateTime?
+  rejectedAt DateTime?
+  expiresAt  DateTime?
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  items           QuoteItem[]
-  attachments     QuoteAttachment[]
+  items       QuoteItem[]
+  attachments QuoteAttachment[]
 
   @@index([projectId])
 }
 
 // File attachments for a quote (stored base64 in DB to keep deploy simple on Vercel)
 model QuoteAttachment {
-  id          String   @id @default(cuid())
-  quoteId     String
-  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
-  filename    String
-  mimeType    String
-  size        Int        // bytes
-  data        String     @db.Text // base64-encoded file content
+  filename     String
+  mimeType     String
+  size         Int // bytes
+  data         String  @db.Text // base64-encoded file content
   uploadedById String?
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([quoteId])
 }
 
 model QuoteItem {
-  id              String   @id @default(cuid())
-  quoteId         String
-  quote           Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
-  description     String   @db.Text   // line item description (multi-line)
-  quantity        Float    @default(1)
-  unitPrice       Float    @default(0)
-  unit            String?            // "each" | "hour" | "month" | etc.
-  serviceDate     DateTime?          // "Date du service" per line
-  productService  String?            // "Pièce" | "Notes" | "Service" | etc. (Produit/Service)
-  taxCode         String   @default("TPS/TVQ") // "TPS/TVQ" | "TPS" | "TVQ" | "Exempt"
-  notes           String?  @db.Text
-  sortOrder       Int      @default(0)
+  description    String    @db.Text // line item description (multi-line)
+  quantity       Float     @default(1)
+  unitPrice      Float     @default(0)
+  unit           String? // "each" | "hour" | "month" | etc.
+  serviceDate    DateTime? // "Date du service" per line
+  productService String? // "Pièce" | "Notes" | "Service" | etc. (Produit/Service)
+  taxCode        String    @default("TPS/TVQ") // "TPS/TVQ" | "TPS" | "TVQ" | "Exempt"
+  notes          String?   @db.Text
+  sortOrder      Int       @default(0)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([quoteId])
 }
@@ -1071,17 +1071,24 @@ model QuoteItem {
 // Drive API on upload — all reads/streams go through there.
 // ============================================================
 model FileAsset {
-  id          String   @id @default(cuid())
-  driveFileId String   @unique
+  id          String @id @default(cuid())
+  driveFileId String @unique
   name        String
   mimeType    String
   sizeBytes   BigInt
 
+  // Deep folder hierarchy — see FileFolder model. folderId=null → Uncategorized.
+  folderId String?
+  folder   FileFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  // LEGACY (migration 20260420c) — kept for one release so old Preview URLs
+  // don't 500 while Prod rolls forward. Read path tolerates both, write path
+  // uses folderId only. Drop in a follow-up migration once backfill verified.
   category    String?
   subCategory String?
 
   // Scope: "internal" (visible to all admins) or "client" (linked to a business)
-  scope       String   @default("internal")
+  scope String @default("internal")
 
   // Optional business link when scope = "client"
   managedClientId String?
@@ -1096,6 +1103,7 @@ model FileAsset {
   @@index([scope])
   @@index([managedClientId])
   @@index([localBusinessId])
+  @@index([folderId])
   @@index([category])
 }
 
@@ -1104,16 +1112,21 @@ model FileAsset {
 // No file bytes stored here — just the URL + metadata.
 // ============================================================
 model VideoAsset {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   title       String
-  vimeoUrl    String   // full https://vimeo.com/... or player.vimeo.com URL
-  vimeoId     String?  // extracted numeric ID, if parseable
-  description String?  @db.Text
+  vimeoUrl    String // full https://vimeo.com/... or player.vimeo.com URL
+  vimeoId     String? // extracted numeric ID, if parseable
+  description String? @db.Text
 
+  // Deep folder hierarchy — see FileFolder model. folderId=null → Uncategorized.
+  folderId String?
+  folder   FileFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  // LEGACY (migration 20260420c) — see FileAsset comment.
   category    String?
   subCategory String?
 
-  scope       String   @default("internal")
+  scope String @default("internal")
 
   managedClientId String?
   managedClient   ManagedClient? @relation(fields: [managedClientId], references: [id], onDelete: SetNull)
@@ -1127,26 +1140,32 @@ model VideoAsset {
   @@index([scope])
   @@index([managedClientId])
   @@index([localBusinessId])
+  @@index([folderId])
   @@index([category])
 }
 
 // ============================================================
 // FILE FOLDERS — Persisted folder tree for /admin/files.
-// Two-level tree; matches FileAsset.category/.subCategory
-// string columns. parent = null → top-level category,
-// parent = "<name>" → subfolder of that category. FileAsset
-// and VideoAsset keep their string columns (not FKs) — the
-// folders API cascades renames/deletes into those columns.
+// Self-referencing: parentId=null → top-level category, any
+// other parentId → nested subfolder at arbitrary depth.
+// FileAsset.folderId / VideoAsset.folderId are FKs into this
+// table, so renames/moves are trivial (no string cascade).
 // ============================================================
 model FileFolder {
-  id        String   @id @default(cuid())
-  name      String
-  parent    String?
+  id       String  @id @default(cuid())
+  name     String
+  parentId String?
+
+  parent   FileFolder?  @relation("FolderChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children FileFolder[] @relation("FolderChildren")
+
+  fileAssets  FileAsset[]
+  videoAssets VideoAsset[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([parent])
+  @@index([parentId])
 }
 
 // ============================================================
@@ -1156,8 +1175,8 @@ model Improvement {
   id          String   @id @default(cuid())
   title       String
   description String?  @db.Text
-  priority    String   @default("medium")   // "critical" | "high" | "medium" | "low"
-  status      String   @default("new")      // "new" | "in_progress" | "done" | "dismissed"
+  priority    String   @default("medium") // "critical" | "high" | "medium" | "low"
+  status      String   @default("new") // "new" | "in_progress" | "done" | "dismissed"
   createdById String
   createdBy   User     @relation("ImprovementCreator", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())

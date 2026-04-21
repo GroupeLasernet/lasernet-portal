@@ -38,12 +38,14 @@ export async function GET(request: NextRequest) {
   const managedClientId = searchParams.get('managedClientId');
   const localBusinessId = searchParams.get('localBusinessId');
   const category = searchParams.get('category');
+  const folderId = searchParams.get('folderId');
 
   const where: any = {};
   if (scope) where.scope = scope;
   if (managedClientId) where.managedClientId = managedClientId;
   if (localBusinessId) where.localBusinessId = localBusinessId;
   if (category) where.category = category;
+  if (folderId) where.folderId = folderId;
 
   const rows = await prisma.videoAsset.findMany({
     where,
@@ -71,14 +73,18 @@ export async function POST(request: NextRequest) {
   const vimeoId = extractVimeoId(vimeoUrl);
   const uploadedById = ('userId' in guard.user && guard.user.userId) || guard.user.id || null;
 
+  const folderId = typeof body.folderId === 'string' && body.folderId ? body.folderId : null;
+
   const row = await prisma.videoAsset.create({
     data: {
       title,
       vimeoUrl,
       vimeoId,
       description: body.description ?? null,
-      category: body.category ?? null,
-      subCategory: body.subCategory ?? null,
+      folderId,
+      // LEGACY — see documents POST route.
+      category: folderId ? null : (body.category ?? null),
+      subCategory: folderId ? null : (body.subCategory ?? null),
       scope: body.scope || 'internal',
       managedClientId: body.managedClientId ?? null,
       localBusinessId: body.localBusinessId ?? null,

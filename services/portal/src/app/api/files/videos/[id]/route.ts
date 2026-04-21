@@ -32,8 +32,16 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     updates.vimeoId = extractVimeoId(body.vimeoUrl.trim());
   }
   if ('description' in body) updates.description = body.description || null;
-  if ('category' in body) updates.category = body.category || null;
-  if ('subCategory' in body) updates.subCategory = body.subCategory || null;
+  if ('folderId' in body) {
+    updates.folderId = body.folderId || null;
+    updates.category = null;
+    updates.subCategory = null;
+  }
+  // LEGACY: still honored when folderId isn't in the payload.
+  if (!('folderId' in body)) {
+    if ('category' in body) updates.category = body.category || null;
+    if ('subCategory' in body) updates.subCategory = body.subCategory || null;
+  }
   if ('scope' in body) updates.scope = body.scope || 'internal';
   if ('managedClientId' in body) updates.managedClientId = body.managedClientId || null;
   if ('localBusinessId' in body) updates.localBusinessId = body.localBusinessId || null;

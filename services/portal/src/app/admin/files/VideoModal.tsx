@@ -8,15 +8,18 @@
 import { useCallback, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useToast } from '@/lib/ToastContext';
+import { FolderPicker } from './FolderPicker';
 import { Field, ModalShell } from './ModalShell';
-import type { VideoAssetRow } from './types';
+import type { FolderNode, VideoAssetRow } from './types';
 
 export function VideoModal({
   row,
+  folders,
   onClose,
   onSaved,
 }: {
   row: VideoAssetRow | null;
+  folders: FolderNode[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -26,8 +29,7 @@ export function VideoModal({
   const [title, setTitle] = useState(row?.title || '');
   const [vimeoUrl, setVimeoUrl] = useState(row?.vimeoUrl || '');
   const [description, setDescription] = useState(row?.description || '');
-  const [category, setCategory] = useState(row?.category || '');
-  const [subCategory, setSubCategory] = useState(row?.subCategory || '');
+  const [folderId, setFolderId] = useState<string | null>(row?.folderId ?? null);
   const [scope, setScope] = useState<'internal' | 'client'>(row?.scope || 'internal');
   const [saving, setSaving] = useState(false);
 
@@ -42,8 +44,7 @@ export function VideoModal({
         title,
         vimeoUrl,
         description: description || null,
-        category: category || null,
-        subCategory: subCategory || null,
+        folderId,
         scope,
       };
       const res = await fetch(
@@ -65,7 +66,7 @@ export function VideoModal({
     } finally {
       setSaving(false);
     }
-  }, [editing, row, title, vimeoUrl, description, category, subCategory, scope, onSaved, toast, t]);
+  }, [editing, row, title, vimeoUrl, description, folderId, scope, onSaved, toast, t]);
 
   return (
     <ModalShell title={editing ? t('files', 'editVideo') : t('files', 'addVideo')} onClose={onClose}>
@@ -83,14 +84,9 @@ export function VideoModal({
       <Field label={t('files', 'description')}>
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="input-field" rows={2} />
       </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label={t('files', 'category')}>
-          <input value={category} onChange={(e) => setCategory(e.target.value)} className="input-field" />
-        </Field>
-        <Field label={t('files', 'subCategory')}>
-          <input value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="input-field" />
-        </Field>
-      </div>
+      <Field label={t('files', 'category') || 'Folder'}>
+        <FolderPicker folders={folders} value={folderId} onChange={setFolderId} />
+      </Field>
       <Field label={t('files', 'scope')}>
         <select value={scope} onChange={(e) => setScope(e.target.value as 'internal' | 'client')} className="input-field">
           <option value="internal">{t('files', 'scopeInternal')}</option>

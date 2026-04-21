@@ -205,25 +205,28 @@ Read from `services/robot/.env` via `load_dotenv()` in `config.py`:
 
 Documents uploaded through `/admin/files` are stored in a Google Workspace **Shared Drive**. The portal authenticates as a **Service Account** (no per-user OAuth), which must be a Content Manager member of that Shared Drive.
 
-**⚠ Status (2026-04-20):** All code lives on branch **`files-drive`** (commit `fc49e91`) — NOT merged to `main`. Production `/admin/files` still shows the old mock UI with non-working Edit/Delete buttons. The merge is gated on three manual setup steps (see "Pre-merge setup" below); if `files-drive` lands on `main` before those steps, production will 500 the moment anyone opens `/admin/files`.
+**⚠ Status (2026-04-20):** Two branches stacked. `files-drive` (commit `fc49e91`) ships the Google Drive integration + flat two-level folders with non-persisted parent strings. `files-drive-deep` (branched off `files-drive`) upgrades to an **arbitrarily deep recursive folder tree** backed by a self-referencing FK on `FileFolder` and a `folderId` FK on `FileAsset`/`VideoAsset`. Neither is merged yet. If anything lands on `main` before the Drive env setup + the new folder-FK migration run, production will 500.
 
 | Var | Purpose |
 |---|---|
 | `GOOGLE_SERVICE_ACCOUNT_KEY` | Full Service Account JSON key, pasted as a single-line string. Read by `src/lib/google-drive.ts::driveClient()` and passed to `GoogleAuth` with scope `drive`. |
 | `GOOGLE_DRIVE_FOLDER_ID` | Shared Drive root folder ID — every upload lands here. Read by `getDriveFolderId()`. |
 
-Tables backing the UI:
-- `FileAsset` — `{ driveFileId, name, mimeType, sizeBytes, category, subCategory, scope, managedClientId?, localBusinessId? }`. Drive holds the bytes, DB holds metadata + ACL.
-- `VideoAsset` — Vimeo-linked, no storage on our side. `{ title, vimeoUrl, vimeoId, description, category, subCategory, scope, managedClientId?, localBusinessId? }`.
-- `FileFolder` — Persisted folder tree. `{ id, name, parent? }`. Top-level when `parent` is null; subfolder otherwise. Two-level only. Empty folders survive reload (this is the whole point of the table). NOT an FK target of `FileAsset`/`VideoAsset`: the string columns `category` / `subCategory` stay denormalized; the folder API cascades renames/deletes into them. Added 2026-04-20 migration `20260420_file_folders.sql`.
+Tables backing the UI (as of `files-drive-deep`):
+- `FileAsset` — `{ driveFileId, name, mimeType, sizeBytes, folderId?, scope, managedClientId?, localBusinessId? }` + legacy `category` / `subCategory` string columns still on the table for backward-read compatibility (shim during rollout; write path nulls them whenever `folderId` is set). `folderId` → `FileFolder(id)` with `ON DELETE SET NULL`.
+- `VideoAsset` — Vimeo-linked, no storage on our side. Same folder treatment as `FileAsset`: `folderId` FK + legacy category strings.
+- `FileFolder` — Recursive folder tree. `{ id, name, parentId? }` with self-referencing FK `parent → FileFolder(id)` and `ON DELETE CASCADE` on children. `parentId IS NULL` = top-level. Siblings uniqued by `(name, COALESCE(parentId, ''))`. Arbitrary depth; cycles prevented at the API layer (PATCH refuses to move a folder into its own subtree). Added 2026-04-20 migration `20260420_folder_fk_hierarchy.sql` — backfills legacy `category`/`subCategory` strings into FK rows.
 
-APIs: `/api/files/documents` (GET list, POST upload multipart), `/api/files/documents/[id]` (PATCH rename/recategorize + Drive rename, DELETE Drive+DB), `/api/files/documents/[id]/download` (GET stream from Drive), `/api/files/videos` (GET, POST), `/api/files/videos/[id]` (PATCH, DELETE), `/api/files/folders` (GET list, POST create `{name, parent?}`), `/api/files/folders/[id]` (PATCH rename — cascades into FileAsset/VideoAsset string columns + child FileFolder.parent; DELETE — cascades to null on contained rows, files preserved).
+APIs: `/api/files/documents` (GET list, POST upload multipart — accepts `folderId`), `/api/files/documents/[id]` (PATCH rename + `folderId` move + Drive rename, DELETE Drive+DB), `/api/files/documents/[id]/download` (GET stream from Drive), `/api/files/videos` (GET, POST with `folderId`), `/api/files/videos/[id]` (PATCH, DELETE), `/api/files/folders` (GET list, POST create `{name, parentId?}`), `/api/files/folders/[id]` (PATCH rename + move — cycle-guarded against self/descendant parents, sibling-unique; DELETE — BFS the subtree, null `folderId` on every contained FileAsset/VideoAsset, then delete the root — CASCADE handles descendant folders).
 
 **Pre-merge setup (required on each environment):**
 1. **Google Cloud** — create project `Prisma Portal` → enable "Google Drive API" → create service account `prisma-drive-writer` → Keys tab → Add Key → JSON → download.
 2. **Google Workspace** — create Shared Drive `Prisma Files` → Manage members → add the service account email as **Content Manager** (no notify) → copy folder ID from URL after `/folders/`.
 3. **Env vars** — paste JSON + folder ID into that environment's env store (`.env.local` for localhost, Vercel project settings for Preview + Production). JSON key must be compacted to a single line (`Get-Content ... | ConvertFrom-Json | ConvertTo-Json -Compress`).
-4. **Migration** — run `services/portal/prisma/migrations/20260420_file_assets.sql` against that environment's Neon branch (localhost dev branch via `npx prisma db execute --file ...`, or production branch via Neon SQL editor).
+4. **Migrations** — run in order against that environment's Neon branch (localhost dev branch via `npx prisma db execute --file ...`, or production branch via Neon SQL editor):
+   1. `20260420_file_assets.sql` (Drive metadata tables)
+   2. `20260420_file_folders.sql` (initial flat folder table — only needed if that branch ran first)
+   3. `20260420_folder_fk_hierarchy.sql` (recursive folder tree — adds `parentId` + `folderId` FKs, backfills legacy strings). **Idempotent** — every INSERT/UPDATE gated by existence checks, safe to re-run.
 5. **Regenerate Prisma Client** — `npx prisma generate` after pulling the branch; otherwise `prisma.fileAsset` / `prisma.videoAsset` are undefined and every `/api/files/*` call 500s. Next.js hot-reload does NOT pick up a fresh client — restart `npm run dev`.
 
 **Local dev status on DEV_computer (as of 2026-04-20):** step 4 ✓, step 5 ✓, step 3 ✗ (no Google env vars yet → Upload 500s, but Edit/Delete work once rows exist).

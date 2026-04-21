@@ -1,30 +1,32 @@
 'use client';
 
 // ============================================================
-// EditDocumentModal — rename + recategorize + set scope on
-// an existing FileAsset. PATCHes /api/files/documents/:id.
+// EditDocumentModal — rename + reassign folder on an existing
+// FileAsset. PATCHes /api/files/documents/:id.
 // ============================================================
 
 import { useCallback, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useToast } from '@/lib/ToastContext';
+import { FolderPicker } from './FolderPicker';
 import { Field, ModalShell } from './ModalShell';
-import type { FileAssetRow } from './types';
+import type { FileAssetRow, FolderNode } from './types';
 
 export function EditDocumentModal({
   row,
+  folders,
   onClose,
   onSaved,
 }: {
   row: FileAssetRow;
+  folders: FolderNode[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [name, setName] = useState(row.name);
-  const [category, setCategory] = useState(row.category || '');
-  const [subCategory, setSubCategory] = useState(row.subCategory || '');
+  const [folderId, setFolderId] = useState<string | null>(row.folderId);
   const [saving, setSaving] = useState(false);
 
   // NOTE: scope (internal/client) is intentionally NOT edited here.
@@ -36,11 +38,7 @@ export function EditDocumentModal({
       const res = await fetch(`/api/files/documents/${row.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          category: category || null,
-          subCategory: subCategory || null,
-        }),
+        body: JSON.stringify({ name, folderId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -53,18 +51,15 @@ export function EditDocumentModal({
     } finally {
       setSaving(false);
     }
-  }, [row.id, name, category, subCategory, onSaved, toast]);
+  }, [row.id, name, folderId, onSaved, toast]);
 
   return (
     <ModalShell title={t('files', 'editDocument')} onClose={onClose}>
       <Field label={t('files', 'fileName')}>
         <input value={name} onChange={(e) => setName(e.target.value)} className="input-field" />
       </Field>
-      <Field label={t('files', 'category')}>
-        <input value={category} onChange={(e) => setCategory(e.target.value)} className="input-field" />
-      </Field>
-      <Field label={t('files', 'subCategory')}>
-        <input value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="input-field" />
+      <Field label={t('files', 'category') || 'Folder'}>
+        <FolderPicker folders={folders} value={folderId} onChange={setFolderId} />
       </Field>
       <div className="flex items-center justify-end gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-secondary">{t('files', 'cancel')}</button>

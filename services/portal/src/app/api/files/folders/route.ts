@@ -2,13 +2,14 @@
 // /api/files/folders
 // ------------------------------------------------------------
 // GET  — list every persisted folder. The admin/files page
-//        merges this with file-derived categories to build the
-//        sidebar tree. Folders persist across reloads even
-//        when empty.
-// POST — create a new folder. Body: { name, parent? }.
-//        parent = null/omitted → top-level category.
-//        parent = "<categoryName>" → subfolder of that category.
-//        Returns 409 if (name, parent) already exists.
+//        builds a recursive tree on the client via FileFolder
+//        .parentId self-reference. Empty folders persist across
+//        reloads.
+// POST — create a new folder. Body: { name, parentId? }.
+//        parentId = null/omitted → top-level.
+//        parentId = "<id>" → nested under that folder at any
+//        depth. Returns 409 if (name, parentId) would collide
+//        with an existing sibling.
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -22,7 +23,14 @@ export async function GET(request: NextRequest) {
   if ('error' in guard) return guard.error;
 
   const rows = await prisma.fileFolder.findMany({
-    orderBy: [{ parent: 'asc' }, { name: 'asc' }],
+    orderBy: [{ parentId: 'asc' }, { name: 'asc' }],
+    select: {
+      id: true,
+      name: true,
+      parentId: true,
+      createdAt: true,
+      updatedAt: true,
+    },
   });
   return NextResponse.json(rows);
 }
@@ -33,31 +41,25 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
   const name = typeof body.name === 'string' ? body.name.trim() : '';
-  const parent = typeof body.parent === 'string' && body.parent.trim()
-    ? body.parent.trim()
-    : null;
+  const parentId =
+    typeof body.parentId === 'string' && body.parentId.trim()
+      ? body.parentId.trim()
+      : null;
 
   if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
 
-  // If subfolder, parent category must exist as a folder OR be
-  // present in a FileAsset/VideoAsset row (it was created by
-  // being typed into the category field directly).
-  if (parent) {
-    const [folderExists, assetExists, videoExists] = await Promise.all([
-      prisma.fileFolder.findFirst({ where: { name: parent, parent: null } }),
-      prisma.fileAsset.findFirst({ where: { category: parent } }),
-      prisma.videoAsset.findFirst({ where: { category: parent } }),
-    ]);
-    if (!folderExists && !assetExists && !videoExists) {
-      return NextResponse.json({ error: 'Parent category not found' }, { status: 400 });
+  // Validate parent (if any).
+  if (parentId) {
+    const parent = await prisma.fileFolder.findUnique({ where: { id: parentId } });
+    if (!parent) {
+      return NextResponse.json({ error: 'Parent folder not found' }, { status: 400 });
     }
   }
 
-  // Uniqueness check: (name, parent) — duplicates silently
-  // collapse to the existing row rather than erroring out.
-  const dup = await prisma.fileFolder.findFirst({ where: { name, parent } });
-  if (dup) return NextResponse.json(dup);
+  // Uniqueness check within siblings.
+  const dup = await prisma.fileFolder.findFirst({ where: { name, parentId } });
+  if (dup) return NextResponse.json(dup); // idempotent — return the existing one
 
-  const row = await prisma.fileFolder.create({ data: { name, parent } });
+  const row = await prisma.fileFolder.create({ data: { name, parentId } });
   return NextResponse.json(row);
 }

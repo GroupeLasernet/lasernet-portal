@@ -6,20 +6,18 @@
 // Documents live in Google Drive (Shared Drive) — managed by
 // /api/files/documents. Videos are Vimeo links — managed by
 // /api/files/videos. Organization happens entirely in the
-// portal via the category/subCategory columns on each row —
-// Drive stays flat (it's just storage).
+// portal via the folderId FK on each row — Drive stays flat
+// (it's just storage).
 //
 // UI layout (all sub-components live in this folder):
-//   • FolderSidebar     — left tree (category → subCategory)
+//   • FolderSidebar     — left tree, recursive / arbitrary depth
 //   • DocumentsTable    — draggable rows, right pane top
 //   • VideosGrid        — draggable cards, right pane bottom
-//   • EditDocumentModal — rename + recategorize a doc
+//   • EditDocumentModal — rename + reassign folder
 //   • VideoModal        — create or edit a Vimeo video entry
 //
 // All data I/O + tree/selection state lives in useFilesData.
 // This file just wires that hook into the layout + modal state.
-//
-// Refactored 2026-04-20 (split from a 1009-line monolith).
 // ============================================================
 
 import { useRef, useState } from 'react';
@@ -51,6 +49,9 @@ export default function AdminFilesPage() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const isRealFolderSelected =
+    data.selectedFolderId !== SEL_ALL && data.selectedFolderId !== SEL_UNCAT;
+
   return (
     <div>
       <PageHeader
@@ -75,7 +76,7 @@ export default function AdminFilesPage() {
               onClick={() => fileInputRef.current?.click()}
               className="btn-primary flex items-center gap-2"
               title={
-                data.selCat !== SEL_ALL && data.selCat !== SEL_UNCAT
+                isRealFolderSelected
                   ? (fr ? `Téléverser dans: ${data.breadcrumb}` : `Upload into: ${data.breadcrumb}`)
                   : undefined
               }
@@ -103,13 +104,11 @@ export default function AdminFilesPage() {
       <div className="flex gap-4 items-start">
         <FolderSidebar
           tree={data.tree}
-          selCat={data.selCat}
-          selSub={data.selSub}
+          selectedFolderId={data.selectedFolderId}
           onSelect={data.select}
           expanded={data.expanded}
           onToggle={data.toggleExpanded}
-          onCreateCategory={data.createCategory}
-          onCreateSubcategory={data.createSubcategory}
+          onCreateFolder={data.createFolder}
           onRenameFolder={data.renameFolder}
           onDeleteFolder={data.deleteFolder}
           onDrop={data.handleDrop}
@@ -120,11 +119,11 @@ export default function AdminFilesPage() {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-3 text-sm">
-            {data.selCat !== SEL_ALL && (
+            {data.selectedFolderId !== SEL_ALL && (
               <>
                 <button
                   type="button"
-                  onClick={() => data.select(SEL_ALL, null)}
+                  onClick={() => data.select(SEL_ALL)}
                   className="text-xs text-gray-500 hover:text-brand-600 dark:hover:text-brand-300 underline underline-offset-2"
                 >
                   {fr ? 'Tous' : 'All'}
@@ -139,7 +138,8 @@ export default function AdminFilesPage() {
             all={data.documents}
             filtered={data.filteredDocs}
             loading={data.loading}
-            selCat={data.selCat}
+            selectedFolderId={data.selectedFolderId}
+            folderPathById={data.folderPathById}
             fr={fr}
             onEdit={setEditingDoc}
             onDelete={(row) => data.deleteAsset('doc', row.id)}
@@ -149,7 +149,8 @@ export default function AdminFilesPage() {
             all={data.videos}
             filtered={data.filteredVideos}
             loading={data.loading}
-            selCat={data.selCat}
+            selectedFolderId={data.selectedFolderId}
+            folderPathById={data.folderPathById}
             fr={fr}
             onEdit={setEditingVideo}
             onDelete={(row) => data.deleteAsset('video', row.id)}
@@ -160,6 +161,7 @@ export default function AdminFilesPage() {
       {editingDoc && (
         <EditDocumentModal
           row={editingDoc}
+          folders={data.tree}
           onClose={() => setEditingDoc(null)}
           onSaved={() => { setEditingDoc(null); data.loadAll(); }}
         />
@@ -167,6 +169,7 @@ export default function AdminFilesPage() {
       {(editingVideo || addingVideo) && (
         <VideoModal
           row={editingVideo}
+          folders={data.tree}
           onClose={() => { setEditingVideo(null); setAddingVideo(false); }}
           onSaved={() => { setEditingVideo(null); setAddingVideo(false); data.loadAll(); }}
         />

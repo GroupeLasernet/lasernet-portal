@@ -34,8 +34,18 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       console.error('Drive rename failed', e);
     }
   }
-  if ('category' in body) updates.category = body.category || null;
-  if ('subCategory' in body) updates.subCategory = body.subCategory || null;
+  if ('folderId' in body) {
+    updates.folderId = body.folderId || null;
+    // Clear legacy columns when folderId is explicitly set — the
+    // FK is the source of truth going forward.
+    updates.category = null;
+    updates.subCategory = null;
+  }
+  // LEGACY: still honored when folderId isn't in the payload.
+  if (!('folderId' in body)) {
+    if ('category' in body) updates.category = body.category || null;
+    if ('subCategory' in body) updates.subCategory = body.subCategory || null;
+  }
   if ('scope' in body) updates.scope = body.scope || 'internal';
   if ('managedClientId' in body) updates.managedClientId = body.managedClientId || null;
   if ('localBusinessId' in body) updates.localBusinessId = body.localBusinessId || null;

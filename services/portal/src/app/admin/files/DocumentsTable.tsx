@@ -14,7 +14,8 @@ export function DocumentsTable({
   all,
   filtered,
   loading,
-  selCat,
+  selectedFolderId,
+  folderPathById,
   fr,
   onEdit,
   onDelete,
@@ -22,12 +23,26 @@ export function DocumentsTable({
   all: FileAssetRow[];
   filtered: FileAssetRow[];
   loading: boolean;
-  selCat: string;
+  selectedFolderId: string;
+  /** Folder id → full path segments (root→leaf). Optional — when absent the badge is rendered as plain name. */
+  folderPathById?: Map<string, string[]>;
   fr: boolean;
   onEdit: (row: FileAssetRow) => void;
   onDelete: (row: FileAssetRow) => void;
 }) {
   const { t } = useLanguage();
+
+  const pathFor = (row: FileAssetRow): string[] => {
+    if (row.folderId && folderPathById?.get(row.folderId)) {
+      return folderPathById.get(row.folderId)!;
+    }
+    // Fallback to legacy category/subCategory strings during the
+    // migration window — ensures old rows still render a chip.
+    const out: string[] = [];
+    if (row.category) out.push(row.category);
+    if (row.subCategory) out.push(row.subCategory);
+    return out;
+  };
 
   return (
     <div className="card mb-6">
@@ -35,7 +50,7 @@ export function DocumentsTable({
         <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
           {t('files', 'documents')}
           <span className="text-xs font-mono text-gray-400 dark:text-gray-500">
-            {selCat === SEL_ALL ? all.length : `${filtered.length}/${all.length}`}
+            {selectedFolderId === SEL_ALL ? all.length : `${filtered.length}/${all.length}`}
           </span>
         </h2>
       </div>
@@ -53,7 +68,7 @@ export function DocumentsTable({
               <tr>
                 <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('files', 'fileName')}</th>
                 <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('common', 'size')}</th>
-                <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('files', 'category')}</th>
+                <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{fr ? 'Dossier' : 'Folder'}</th>
                 <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('files', 'scope')}</th>
                 <th className="text-left pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('files', 'uploaded')}</th>
                 <th className="text-right pb-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('common', 'actions')}</th>
@@ -67,70 +82,89 @@ export function DocumentsTable({
                   </td>
                 </tr>
               ) : (
-                filtered.map((file) => (
-                  <tr
-                    key={file.id}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(
-                        'application/json',
-                        JSON.stringify({ kind: 'doc', id: file.id } satisfies DragPayload),
-                      );
-                      e.dataTransfer.effectAllowed = 'move';
-                    }}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-move"
-                    title={fr ? 'Glisser pour déplacer' : 'Drag to move'}
-                  >
-                    <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="font-medium text-sm">{file.name}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 text-sm text-gray-600 dark:text-gray-400">{formatSize(file.sizeBytes)}</td>
-                    <td className="py-3">
-                      <div className="flex items-center gap-1.5">
-                        {file.category && <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-full">{file.category}</span>}
-                        {file.subCategory && <span className="text-xs bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 px-2 py-1 rounded-full">{file.subCategory}</span>}
-                      </div>
-                    </td>
-                    <td className="py-3 text-xs">
-                      {file.scope === 'client' ? (
-                        <span className="text-brand-700 dark:text-brand-300">
-                          {file.managedClient?.displayName || file.localBusiness?.name || t('files', 'scopeClient')}
-                        </span>
-                      ) : (
-                        <span className="text-gray-500 dark:text-gray-400">{t('files', 'scopeInternal')}</span>
-                      )}
-                    </td>
-                    <td className="py-3 text-sm text-gray-500 dark:text-gray-400">{formatDate(file.uploadedAt)}</td>
-                    <td className="py-3 text-right">
-                      <a
-                        href={`/api/files/documents/${file.id}/download`}
-                        className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm font-medium mr-3"
-                        download={file.name}
-                      >
-                        {t('files', 'download')}
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => onEdit(file)}
-                        className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 text-sm font-medium mr-3"
-                      >
-                        {t('common', 'edit')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(file)}
-                        className="text-red-500 hover:text-red-600 text-sm font-medium"
-                      >
-                        {t('common', 'delete')}
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                filtered.map((file) => {
+                  const path = pathFor(file);
+                  return (
+                    <tr
+                      key={file.id}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData(
+                          'application/json',
+                          JSON.stringify({ kind: 'doc', id: file.id } satisfies DragPayload),
+                        );
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-move"
+                      title={fr ? 'Glisser pour déplacer' : 'Drag to move'}
+                    >
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span className="font-medium text-sm">{file.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 text-sm text-gray-600 dark:text-gray-400">{formatSize(file.sizeBytes)}</td>
+                      <td className="py-3">
+                        {path.length > 0 ? (
+                          <div className="flex items-center flex-wrap gap-1 text-xs">
+                            {path.map((part, idx) => (
+                              <span key={idx} className="flex items-center gap-1">
+                                <span
+                                  className={
+                                    idx === path.length - 1
+                                      ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 px-2 py-1 rounded-full'
+                                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-full'
+                                  }
+                                >
+                                  {part}
+                                </span>
+                                {idx < path.length - 1 && <span className="text-gray-300 dark:text-gray-600">›</span>}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">{fr ? 'Sans dossier' : 'Unfiled'}</span>
+                        )}
+                      </td>
+                      <td className="py-3 text-xs">
+                        {file.scope === 'client' ? (
+                          <span className="text-brand-700 dark:text-brand-300">
+                            {file.managedClient?.displayName || file.localBusiness?.name || t('files', 'scopeClient')}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500 dark:text-gray-400">{t('files', 'scopeInternal')}</span>
+                        )}
+                      </td>
+                      <td className="py-3 text-sm text-gray-500 dark:text-gray-400">{formatDate(file.uploadedAt)}</td>
+                      <td className="py-3 text-right">
+                        <a
+                          href={`/api/files/documents/${file.id}/download`}
+                          className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-sm font-medium mr-3"
+                          download={file.name}
+                        >
+                          {t('files', 'download')}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => onEdit(file)}
+                          className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 text-sm font-medium mr-3"
+                        >
+                          {t('common', 'edit')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDelete(file)}
+                          className="text-red-500 hover:text-red-600 text-sm font-medium"
+                        >
+                          {t('common', 'delete')}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

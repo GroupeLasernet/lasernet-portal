@@ -1,34 +1,31 @@
 'use client';
 
 // ============================================================
-// FolderSidebar — the left tree.
-// Shows: All files / Uncategorized (if any) / categories +
-// their subfolders / "+ New folder" affordances.
+// FolderSidebar — the recursive left tree.
 //
-// Every user-created folder has rename + delete affordances
-// (pencil + trash icons, visible on hover). The "All files"
-// and "Uncategorized" rows do NOT — they're virtual.
+// Shows: All files / Uncategorized (if any) / every folder in
+// the tree, nested arbitrarily deep. Every folder row has:
+//   • click-to-select
+//   • chevron toggle (when it has children)
+//   • drop target for files + in-page row drags
+//   • hover pencil (rename) + trash (delete)
+//   • "+ New subfolder" affordance while expanded
 //
-// Folder nodes are drop targets; the caller owns the handler.
+// "All files" and "Uncategorized" rows are virtual — no rename
+// / delete, no children.
 // ============================================================
 
 import { useEffect, useRef, useState } from 'react';
 import { SEL_ALL, SEL_UNCAT } from './types';
-
-type FolderAction = {
-  onRename: (parent: string | null, oldName: string, newName: string) => void;
-  onDelete: (parent: string | null, name: string) => void;
-};
+import type { FolderNode } from './types';
 
 export function FolderSidebar({
   tree,
-  selCat,
-  selSub,
+  selectedFolderId,
   onSelect,
   expanded,
   onToggle,
-  onCreateCategory,
-  onCreateSubcategory,
+  onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
   onDrop,
@@ -36,51 +33,56 @@ export function FolderSidebar({
   totalCount,
   fr,
 }: {
-  tree: Record<string, string[]>;
-  selCat: string;
-  selSub: string | null;
-  onSelect: (cat: string, sub: string | null) => void;
+  tree: FolderNode[];
+  selectedFolderId: string;
+  onSelect: (folderId: string) => void;
   expanded: Set<string>;
-  onToggle: (cat: string) => void;
-  onCreateCategory: (name: string) => void;
-  onCreateSubcategory: (cat: string, name: string) => void;
-  onRenameFolder: (parent: string | null, oldName: string, newName: string) => void;
-  onDeleteFolder: (parent: string | null, name: string) => void;
-  onDrop: (e: React.DragEvent, cat: string | null, sub: string | null) => void;
+  onToggle: (folderId: string) => void;
+  /** parentId=null creates a top-level folder. */
+  onCreateFolder: (parentId: string | null, name: string) => void;
+  onRenameFolder: (folderId: string, newName: string) => void;
+  onDeleteFolder: (folderId: string) => void;
+  /** targetFolderId=null means drop onto the virtual root (no folder). */
+  onDrop: (e: React.DragEvent, targetFolderId: string | null) => void;
   uncatCount: number;
   totalCount: number;
   fr: boolean;
 }) {
-  const categories = Object.keys(tree).sort((a, b) => a.localeCompare(b));
+  // Which folder is currently accepting a new child via inline input.
+  // `null` = creating a top-level folder. `undefined` = nothing.
+  const [creatingChildOf, setCreatingChildOf] = useState<string | null | undefined>(undefined);
+  const [childDraft, setChildDraft] = useState('');
 
-  const [creatingCat, setCreatingCat] = useState(false);
-  const [catDraft, setCatDraft] = useState('');
-  const [creatingSubFor, setCreatingSubFor] = useState<string | null>(null);
-  const [subDraft, setSubDraft] = useState('');
-
-  // Rename state — keyed by "parent|name" so top vs sub never clash.
-  const [renamingKey, setRenamingKey] = useState<string | null>(null);
+  // Inline rename state — single folderId or null.
+  const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
 
-  const actions: FolderAction = {
-    onRename: onRenameFolder,
-    onDelete: onDeleteFolder,
-  };
-
-  const renameKey = (parent: string | null, name: string) => `${parent ?? ''}|${name}`;
-
-  const startRename = (parent: string | null, name: string) => {
-    setRenameDraft(name);
-    setRenamingKey(renameKey(parent, name));
+  const startRename = (id: string, currentName: string) => {
+    setRenameDraft(currentName);
+    setRenamingId(id);
   };
   const cancelRename = () => {
     setRenameDraft('');
-    setRenamingKey(null);
+    setRenamingId(null);
   };
-  const submitRename = (parent: string | null, oldName: string) => {
+  const submitRename = (id: string, oldName: string) => {
     const next = renameDraft.trim();
-    if (next && next !== oldName) actions.onRename(parent, oldName, next);
+    if (next && next !== oldName) onRenameFolder(id, next);
     cancelRename();
+  };
+
+  const startCreateChild = (parentId: string | null) => {
+    setChildDraft('');
+    setCreatingChildOf(parentId);
+  };
+  const cancelCreateChild = () => {
+    setChildDraft('');
+    setCreatingChildOf(undefined);
+  };
+  const submitCreateChild = (parentId: string | null) => {
+    const name = childDraft.trim();
+    if (name) onCreateFolder(parentId, name);
+    cancelCreateChild();
   };
 
   return (
@@ -90,167 +92,74 @@ export function FolderSidebar({
       </div>
 
       <div className="flex flex-col gap-0.5">
-        <FolderNode
+        {/* Virtual — All */}
+        <FolderRow
           label={fr ? 'Tous les fichiers' : 'All files'}
           icon="all"
-          active={selCat === SEL_ALL}
+          active={selectedFolderId === SEL_ALL}
           count={totalCount}
-          onClick={() => onSelect(SEL_ALL, null)}
-          droppable
-          onDrop={(e) => onDrop(e, null, null)}
+          onClick={() => onSelect(SEL_ALL)}
+          onDrop={(e) => onDrop(e, null)}
+          depth={0}
+          fr={fr}
         />
 
+        {/* Virtual — Uncategorized (only if any) */}
         {uncatCount > 0 && (
-          <FolderNode
+          <FolderRow
             label={fr ? 'Sans catégorie' : 'Uncategorized'}
             icon="uncat"
-            active={selCat === SEL_UNCAT}
+            active={selectedFolderId === SEL_UNCAT}
             count={uncatCount}
-            onClick={() => onSelect(SEL_UNCAT, null)}
-            droppable
-            onDrop={(e) => onDrop(e, null, null)}
+            onClick={() => onSelect(SEL_UNCAT)}
+            onDrop={(e) => onDrop(e, null)}
+            depth={0}
+            fr={fr}
           />
         )}
 
-        {categories.map((cat) => {
-          const subs = tree[cat];
-          const isExpanded = expanded.has(cat);
-          const isActiveCat = selCat === cat && selSub == null;
-          const catRenameKey = renameKey(null, cat);
-          const isRenamingCat = renamingKey === catRenameKey;
-          return (
-            <div key={cat}>
-              <div className="flex items-stretch">
-                <button
-                  type="button"
-                  onClick={() => onToggle(cat)}
-                  className="px-1.5 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                  aria-label={isExpanded ? 'Collapse' : 'Expand'}
-                >
-                  <svg
-                    className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-                {isRenamingCat ? (
-                  <InlineNameInput
-                    value={renameDraft}
-                    onChange={setRenameDraft}
-                    placeholder={fr ? 'Nouveau nom' : 'New name'}
-                    onSubmit={() => submitRename(null, cat)}
-                    onCancel={cancelRename}
-                  />
-                ) : (
-                  <FolderNode
-                    label={cat}
-                    icon="folder"
-                    active={isActiveCat}
-                    onClick={() => onSelect(cat, null)}
-                    droppable
-                    onDrop={(e) => onDrop(e, cat, null)}
-                    flexOne
-                    onRename={() => startRename(null, cat)}
-                    onDelete={() => actions.onDelete(null, cat)}
-                    fr={fr}
-                  />
-                )}
-              </div>
+        {/* Real tree */}
+        {tree.map((node) => (
+          <FolderSubtree
+            key={node.id}
+            node={node}
+            selectedFolderId={selectedFolderId}
+            onSelect={onSelect}
+            expanded={expanded}
+            onToggle={onToggle}
+            onDrop={onDrop}
+            renamingId={renamingId}
+            renameDraft={renameDraft}
+            onChangeRenameDraft={setRenameDraft}
+            onStartRename={startRename}
+            onSubmitRename={submitRename}
+            onCancelRename={cancelRename}
+            onDeleteFolder={onDeleteFolder}
+            creatingChildOf={creatingChildOf}
+            childDraft={childDraft}
+            onChangeChildDraft={setChildDraft}
+            onStartCreateChild={startCreateChild}
+            onSubmitCreateChild={submitCreateChild}
+            onCancelCreateChild={cancelCreateChild}
+            fr={fr}
+          />
+        ))}
 
-              {isExpanded && (
-                <div className="ml-5 flex flex-col gap-0.5 mt-0.5 border-l border-gray-100 dark:border-gray-700 pl-1">
-                  {subs.map((sub) => {
-                    const subKey = renameKey(cat, sub);
-                    const isRenamingSub = renamingKey === subKey;
-                    if (isRenamingSub) {
-                      return (
-                        <InlineNameInput
-                          key={sub}
-                          value={renameDraft}
-                          onChange={setRenameDraft}
-                          placeholder={fr ? 'Nouveau nom' : 'New name'}
-                          onSubmit={() => submitRename(cat, sub)}
-                          onCancel={cancelRename}
-                        />
-                      );
-                    }
-                    return (
-                      <FolderNode
-                        key={sub}
-                        label={sub}
-                        icon="subfolder"
-                        active={selCat === cat && selSub === sub}
-                        onClick={() => onSelect(cat, sub)}
-                        droppable
-                        onDrop={(e) => onDrop(e, cat, sub)}
-                        onRename={() => startRename(cat, sub)}
-                        onDelete={() => actions.onDelete(cat, sub)}
-                        fr={fr}
-                      />
-                    );
-                  })}
-                  {creatingSubFor === cat ? (
-                    <InlineNameInput
-                      value={subDraft}
-                      onChange={setSubDraft}
-                      placeholder={fr ? 'Nom du sous-dossier' : 'Subfolder name'}
-                      onSubmit={() => {
-                        const name = subDraft.trim();
-                        if (name) onCreateSubcategory(cat, name);
-                        setSubDraft('');
-                        setCreatingSubFor(null);
-                      }}
-                      onCancel={() => {
-                        setSubDraft('');
-                        setCreatingSubFor(null);
-                      }}
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSubDraft('');
-                        setCreatingSubFor(cat);
-                      }}
-                      className="text-xs text-gray-400 hover:text-brand-600 dark:hover:text-brand-300 px-2 py-1 text-left"
-                    >
-                      + {fr ? 'Nouveau sous-dossier' : 'New subfolder'}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {creatingCat ? (
+        {/* "+ New folder" at root */}
+        {creatingChildOf === null ? (
           <div className="mt-2 border-t border-gray-100 dark:border-gray-700 pt-2">
             <InlineNameInput
-              value={catDraft}
-              onChange={setCatDraft}
+              value={childDraft}
+              onChange={setChildDraft}
               placeholder={fr ? 'Nom du dossier' : 'Folder name'}
-              onSubmit={() => {
-                const name = catDraft.trim();
-                if (name) onCreateCategory(name);
-                setCatDraft('');
-                setCreatingCat(false);
-              }}
-              onCancel={() => {
-                setCatDraft('');
-                setCreatingCat(false);
-              }}
+              onSubmit={() => submitCreateChild(null)}
+              onCancel={cancelCreateChild}
             />
           </div>
         ) : (
           <button
             type="button"
-            onClick={() => {
-              setCatDraft('');
-              setCreatingCat(true);
-            }}
+            onClick={() => startCreateChild(null)}
             className="text-xs text-gray-400 hover:text-brand-600 dark:hover:text-brand-300 px-3 py-2 text-left mt-2 border-t border-gray-100 dark:border-gray-700 pt-2"
           >
             + {fr ? 'Nouveau dossier' : 'New folder'}
@@ -261,7 +170,265 @@ export function FolderSidebar({
   );
 }
 
-// ── Private sub-components ──────────────────────────────
+// ============================================================
+// FolderSubtree — one node + its (possibly expanded) descendants.
+// Recursive. All state lives in the parent sidebar — this is a
+// pure presentational component.
+// ============================================================
+function FolderSubtree({
+  node,
+  selectedFolderId,
+  onSelect,
+  expanded,
+  onToggle,
+  onDrop,
+  renamingId,
+  renameDraft,
+  onChangeRenameDraft,
+  onStartRename,
+  onSubmitRename,
+  onCancelRename,
+  onDeleteFolder,
+  creatingChildOf,
+  childDraft,
+  onChangeChildDraft,
+  onStartCreateChild,
+  onSubmitCreateChild,
+  onCancelCreateChild,
+  fr,
+}: {
+  node: FolderNode;
+  selectedFolderId: string;
+  onSelect: (folderId: string) => void;
+  expanded: Set<string>;
+  onToggle: (folderId: string) => void;
+  onDrop: (e: React.DragEvent, targetFolderId: string | null) => void;
+  renamingId: string | null;
+  renameDraft: string;
+  onChangeRenameDraft: (v: string) => void;
+  onStartRename: (id: string, name: string) => void;
+  onSubmitRename: (id: string, oldName: string) => void;
+  onCancelRename: () => void;
+  onDeleteFolder: (id: string) => void;
+  creatingChildOf: string | null | undefined;
+  childDraft: string;
+  onChangeChildDraft: (v: string) => void;
+  onStartCreateChild: (parentId: string | null) => void;
+  onSubmitCreateChild: (parentId: string | null) => void;
+  onCancelCreateChild: () => void;
+  fr: boolean;
+}) {
+  const isExpanded = expanded.has(node.id);
+  const hasChildren = node.children.length > 0;
+  const isSelected = selectedFolderId === node.id;
+  const isRenaming = renamingId === node.id;
+  // Total count shown beside each folder = direct + descendants.
+  const totalCount = node.totalDocCount + node.totalVideoCount;
+
+  return (
+    <div>
+      <div className="flex items-stretch" style={{ paddingLeft: node.depth * 12 }}>
+        <button
+          type="button"
+          onClick={() => onToggle(node.id)}
+          className={`px-1.5 flex items-center ${
+            hasChildren
+              ? 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+              : 'text-transparent pointer-events-none'
+          }`}
+          aria-label={isExpanded ? 'Collapse' : 'Expand'}
+        >
+          <svg
+            className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        {isRenaming ? (
+          <InlineNameInput
+            value={renameDraft}
+            onChange={onChangeRenameDraft}
+            placeholder={fr ? 'Nouveau nom' : 'New name'}
+            onSubmit={() => onSubmitRename(node.id, node.name)}
+            onCancel={onCancelRename}
+          />
+        ) : (
+          <FolderRow
+            label={node.name}
+            icon={node.depth === 0 ? 'folder' : 'subfolder'}
+            active={isSelected}
+            count={totalCount || undefined}
+            onClick={() => onSelect(node.id)}
+            onDrop={(e) => onDrop(e, node.id)}
+            onRename={() => onStartRename(node.id, node.name)}
+            onDelete={() => onDeleteFolder(node.id)}
+            onAddChild={() => {
+              // Expand when creating a child, so the input is visible.
+              if (!isExpanded) onToggle(node.id);
+              onStartCreateChild(node.id);
+            }}
+            depth={node.depth}
+            flexOne
+            fr={fr}
+          />
+        )}
+      </div>
+
+      {isExpanded && (
+        <div className="flex flex-col gap-0.5 mt-0.5">
+          {node.children.map((child) => (
+            <FolderSubtree
+              key={child.id}
+              node={child}
+              selectedFolderId={selectedFolderId}
+              onSelect={onSelect}
+              expanded={expanded}
+              onToggle={onToggle}
+              onDrop={onDrop}
+              renamingId={renamingId}
+              renameDraft={renameDraft}
+              onChangeRenameDraft={onChangeRenameDraft}
+              onStartRename={onStartRename}
+              onSubmitRename={onSubmitRename}
+              onCancelRename={onCancelRename}
+              onDeleteFolder={onDeleteFolder}
+              creatingChildOf={creatingChildOf}
+              childDraft={childDraft}
+              onChangeChildDraft={onChangeChildDraft}
+              onStartCreateChild={onStartCreateChild}
+              onSubmitCreateChild={onSubmitCreateChild}
+              onCancelCreateChild={onCancelCreateChild}
+              fr={fr}
+            />
+          ))}
+
+          {/* Inline "+ new subfolder" input row — only on the folder being acted on. */}
+          {creatingChildOf === node.id && (
+            <div style={{ paddingLeft: (node.depth + 1) * 12 + 22 }}>
+              <InlineNameInput
+                value={childDraft}
+                onChange={onChangeChildDraft}
+                placeholder={fr ? 'Nom du sous-dossier' : 'Subfolder name'}
+                onSubmit={() => onSubmitCreateChild(node.id)}
+                onCancel={onCancelCreateChild}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// FolderRow — single clickable/droppable row. Shares shape for
+// virtual nodes (All / Uncategorized) and real folder nodes.
+// ============================================================
+function FolderRow({
+  label,
+  icon,
+  active,
+  count,
+  onClick,
+  onDrop,
+  onRename,
+  onDelete,
+  onAddChild,
+  depth,
+  flexOne,
+  fr,
+}: {
+  label: string;
+  icon: 'all' | 'uncat' | 'folder' | 'subfolder';
+  active: boolean;
+  count?: number;
+  onClick: () => void;
+  onDrop: (e: React.DragEvent) => void;
+  onRename?: () => void;
+  onDelete?: () => void;
+  onAddChild?: () => void;
+  depth: number;
+  flexOne?: boolean;
+  fr?: boolean;
+}) {
+  const [hover, setHover] = useState(false);
+  const [dragHover, setDragHover] = useState(false);
+  const editable = Boolean(onRename || onDelete || onAddChild);
+
+  const baseClasses =
+    `group text-left px-2 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${
+      active
+        ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-medium'
+        : dragHover
+          ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 ring-1 ring-brand-300 dark:ring-brand-700'
+          : 'hover:bg-gray-100 dark:hover:bg-gray-700/40 text-gray-700 dark:text-gray-300'
+    } ${flexOne ? 'flex-1' : 'w-full'}`;
+
+  return (
+    <div
+      className={baseClasses}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragHover(true); }}
+      onDragLeave={() => setDragHover(false)}
+      onDrop={(e) => { setDragHover(false); onDrop(e); }}
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
+      >
+        <FolderIcon variant={icon} />
+        <span className="truncate flex-1">{label}</span>
+      </button>
+      {editable && hover ? (
+        <div className="flex items-center gap-0.5 shrink-0">
+          {onAddChild && (
+            <IconButton
+              label={fr ? 'Ajouter un sous-dossier' : 'Add subfolder'}
+              onClick={(e) => { e.stopPropagation(); onAddChild(); }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </IconButton>
+          )}
+          {onRename && (
+            <IconButton
+              label={fr ? 'Renommer' : 'Rename'}
+              onClick={(e) => { e.stopPropagation(); onRename(); }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </IconButton>
+          )}
+          {onDelete && (
+            <IconButton
+              label={fr ? 'Supprimer' : 'Delete'}
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              danger
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+              </svg>
+            </IconButton>
+          )}
+        </div>
+      ) : (
+        count != null && (
+          <span className="text-xs font-mono text-gray-400 dark:text-gray-500 shrink-0">{count}</span>
+        )
+      )}
+    </div>
+  );
+}
+
+// ── Sub-components ─────────────────────────────────────────
 
 function InlineNameInput({
   value,
@@ -299,98 +466,10 @@ function InlineNameInput({
       }}
       onBlur={() => {
         // Submit-on-blur if the user typed something, otherwise cancel.
-        // Avoids losing typed names when the user clicks away.
         if (value.trim()) onSubmit(); else onCancel();
       }}
       className="text-xs px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-brand-400 flex-1 w-full"
     />
-  );
-}
-
-function FolderNode({
-  label,
-  icon,
-  active,
-  count,
-  onClick,
-  droppable,
-  onDrop,
-  flexOne,
-  onRename,
-  onDelete,
-  fr,
-}: {
-  label: string;
-  icon: 'all' | 'uncat' | 'folder' | 'subfolder';
-  active: boolean;
-  count?: number;
-  onClick: () => void;
-  droppable: boolean;
-  onDrop?: (e: React.DragEvent) => void;
-  flexOne?: boolean;
-  onRename?: () => void;
-  onDelete?: () => void;
-  fr?: boolean;
-}) {
-  const [hover, setHover] = useState(false);
-  const [dragHover, setDragHover] = useState(false);
-  const editable = Boolean(onRename || onDelete);
-  const baseClasses =
-    `group text-left px-2 py-1.5 rounded-md text-sm flex items-center gap-1.5 transition-colors ${
-      active
-        ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-medium'
-        : dragHover
-          ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 ring-1 ring-brand-300 dark:ring-brand-700'
-          : 'hover:bg-gray-100 dark:hover:bg-gray-700/40 text-gray-700 dark:text-gray-300'
-    } ${flexOne ? 'flex-1' : 'w-full'}`;
-
-  return (
-    <div
-      className={baseClasses}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      onDragOver={droppable ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragHover(true); } : undefined}
-      onDragLeave={droppable ? () => setDragHover(false) : undefined}
-      onDrop={droppable && onDrop ? (e) => { setDragHover(false); onDrop(e); } : undefined}
-    >
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
-      >
-        <FolderIcon variant={icon} />
-        <span className="truncate flex-1">{label}</span>
-      </button>
-      {editable && hover ? (
-        <div className="flex items-center gap-0.5 shrink-0">
-          {onRename && (
-            <IconButton
-              label={fr ? 'Renommer' : 'Rename'}
-              onClick={(e) => { e.stopPropagation(); onRename(); }}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            </IconButton>
-          )}
-          {onDelete && (
-            <IconButton
-              label={fr ? 'Supprimer' : 'Delete'}
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              danger
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
-              </svg>
-            </IconButton>
-          )}
-        </div>
-      ) : (
-        count != null && (
-          <span className="text-xs font-mono text-gray-400 dark:text-gray-500 shrink-0">{count}</span>
-        )
-      )}
-    </div>
   );
 }
 

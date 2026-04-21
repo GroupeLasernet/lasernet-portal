@@ -26,12 +26,14 @@ export async function GET(request: NextRequest) {
   const managedClientId = searchParams.get('managedClientId');
   const localBusinessId = searchParams.get('localBusinessId');
   const category = searchParams.get('category');
+  const folderId = searchParams.get('folderId');
 
   const where: any = {};
   if (scope) where.scope = scope;
   if (managedClientId) where.managedClientId = managedClientId;
   if (localBusinessId) where.localBusinessId = localBusinessId;
   if (category) where.category = category;
+  if (folderId) where.folderId = folderId;
 
   const rows = await prisma.fileAsset.findMany({
     where,
@@ -67,8 +69,12 @@ export async function POST(request: NextRequest) {
   const buffer = Buffer.from(arrayBuf);
 
   const scope = (form.get('scope') as string | null) || 'internal';
-  const category = (form.get('category') as string | null) || null;
-  const subCategory = (form.get('subCategory') as string | null) || null;
+  const folderId = (form.get('folderId') as string | null) || null;
+  // LEGACY inputs — still accepted during the migration window so
+  // old clients don't 400. When folderId is set, category/subCategory
+  // are ignored on write.
+  const legacyCategory = (form.get('category') as string | null) || null;
+  const legacySubCategory = (form.get('subCategory') as string | null) || null;
   const managedClientId = (form.get('managedClientId') as string | null) || null;
   const localBusinessId = (form.get('localBusinessId') as string | null) || null;
 
@@ -88,8 +94,12 @@ export async function POST(request: NextRequest) {
       mimeType: uploaded.mimeType,
       sizeBytes: BigInt(uploaded.sizeBytes),
       scope,
-      category,
-      subCategory,
+      folderId,
+      // Mirror the FK name into the legacy string columns so the
+      // Vercel Preview running the old build keeps rendering sane
+      // chips while prod rolls forward.
+      category: folderId ? null : legacyCategory,
+      subCategory: folderId ? null : legacySubCategory,
       managedClientId,
       localBusinessId,
       uploadedById,
