@@ -195,9 +195,11 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
   }, [moveAsset, uploadFile]);
 
   // ── New folder / subfolder (ephemeral until populated) ──
-  const createCategory = useCallback(() => {
-    const name = window.prompt(fr ? 'Nom du nouveau dossier' : 'New folder name');
-    if (!name) return;
+  // Both take the name as an argument — the UI owns the input field.
+  // (Previous version used window.prompt(), but Chrome lets users
+  // suppress further prompts after the first one, which caused the
+  // "only the first folder is kept" bug.)
+  const createCategory = useCallback((name: string) => {
     const clean = name.trim();
     if (!clean) return;
     setEphemeralCats((prev) => (prev.includes(clean) ? prev : [...prev, clean]));
@@ -208,13 +210,9 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
     });
     setSelCat(clean);
     setSelSub(null);
-  }, [fr]);
+  }, []);
 
-  const createSubcategory = useCallback((cat: string) => {
-    const name = window.prompt(
-      fr ? `Nouveau sous-dossier dans « ${cat} »` : `New subfolder inside "${cat}"`,
-    );
-    if (!name) return;
+  const createSubcategory = useCallback((cat: string, name: string) => {
     const clean = name.trim();
     if (!clean) return;
     setEphemeralSubs((prev) => ({
@@ -228,7 +226,7 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
     });
     setSelCat(cat);
     setSelSub(clean);
-  }, [fr]);
+  }, []);
 
   const toggleExpanded = useCallback((cat: string) => {
     setExpanded((prev) => {

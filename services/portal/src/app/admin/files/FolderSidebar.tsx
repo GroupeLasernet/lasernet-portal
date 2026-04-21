@@ -5,9 +5,14 @@
 // Shows: All files / Uncategorized (if any) / categories +
 // their subfolders / "+ New folder" affordances. Folder nodes
 // are drop targets; the caller owns the drop handler.
+//
+// Folder creation uses an inline <input> (not window.prompt)
+// because Chrome lets users suppress repeat prompts after the
+// first one — which caused the "only the first folder is kept"
+// bug. Keep it inline.
 // ============================================================
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SEL_ALL, SEL_UNCAT } from './types';
 
 export function FolderSidebar({
@@ -30,14 +35,21 @@ export function FolderSidebar({
   onSelect: (cat: string, sub: string | null) => void;
   expanded: Set<string>;
   onToggle: (cat: string) => void;
-  onCreateCategory: () => void;
-  onCreateSubcategory: (cat: string) => void;
+  onCreateCategory: (name: string) => void;
+  onCreateSubcategory: (cat: string, name: string) => void;
   onDrop: (e: React.DragEvent, cat: string | null, sub: string | null) => void;
   uncatCount: number;
   totalCount: number;
   fr: boolean;
 }) {
   const categories = Object.keys(tree).sort((a, b) => a.localeCompare(b));
+
+  // Inline-input state lives here so each open input is independent.
+  const [creatingCat, setCreatingCat] = useState(false);
+  const [catDraft, setCatDraft] = useState('');
+  // Which category currently has its "new subfolder" input open, + its draft.
+  const [creatingSubFor, setCreatingSubFor] = useState<string | null>(null);
+  const [subDraft, setSubDraft] = useState('');
 
   return (
     <aside className="w-56 shrink-0 card p-3 sticky top-4 self-start max-h-[calc(100vh-120px)] overflow-y-auto">
@@ -117,32 +129,117 @@ export function FolderSidebar({
                       onDrop={(e) => onDrop(e, cat, sub)}
                     />
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => onCreateSubcategory(cat)}
-                    className="text-xs text-gray-400 hover:text-brand-600 dark:hover:text-brand-300 px-2 py-1 text-left"
-                  >
-                    + {fr ? 'Nouveau sous-dossier' : 'New subfolder'}
-                  </button>
+                  {creatingSubFor === cat ? (
+                    <InlineNameInput
+                      value={subDraft}
+                      onChange={setSubDraft}
+                      placeholder={fr ? 'Nom du sous-dossier' : 'Subfolder name'}
+                      onSubmit={() => {
+                        const name = subDraft.trim();
+                        if (name) onCreateSubcategory(cat, name);
+                        setSubDraft('');
+                        setCreatingSubFor(null);
+                      }}
+                      onCancel={() => {
+                        setSubDraft('');
+                        setCreatingSubFor(null);
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSubDraft('');
+                        setCreatingSubFor(cat);
+                      }}
+                      className="text-xs text-gray-400 hover:text-brand-600 dark:hover:text-brand-300 px-2 py-1 text-left"
+                    >
+                      + {fr ? 'Nouveau sous-dossier' : 'New subfolder'}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
           );
         })}
 
-        <button
-          type="button"
-          onClick={onCreateCategory}
-          className="text-xs text-gray-400 hover:text-brand-600 dark:hover:text-brand-300 px-3 py-2 text-left mt-2 border-t border-gray-100 dark:border-gray-700 pt-2"
-        >
-          + {fr ? 'Nouveau dossier' : 'New folder'}
-        </button>
+        {creatingCat ? (
+          <div className="mt-2 border-t border-gray-100 dark:border-gray-700 pt-2">
+            <InlineNameInput
+              value={catDraft}
+              onChange={setCatDraft}
+              placeholder={fr ? 'Nom du dossier' : 'Folder name'}
+              onSubmit={() => {
+                const name = catDraft.trim();
+                if (name) onCreateCategory(name);
+                setCatDraft('');
+                setCreatingCat(false);
+              }}
+              onCancel={() => {
+                setCatDraft('');
+                setCreatingCat(false);
+              }}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setCatDraft('');
+              setCreatingCat(true);
+            }}
+            className="text-xs text-gray-400 hover:text-brand-600 dark:hover:text-brand-300 px-3 py-2 text-left mt-2 border-t border-gray-100 dark:border-gray-700 pt-2"
+          >
+            + {fr ? 'Nouveau dossier' : 'New folder'}
+          </button>
+        )}
       </div>
     </aside>
   );
 }
 
 // ── Private sub-components ──────────────────────────────
+
+// Tiny controlled input with Enter-to-submit / Esc-or-blur-to-cancel.
+// Used for both new-folder and new-subfolder inputs.
+function InlineNameInput({
+  value,
+  onChange,
+  placeholder,
+  onSubmit,
+  onCancel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  onSubmit: () => void;
+  onCancel: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
+  return (
+    <input
+      ref={ref}
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          onSubmit();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          onCancel();
+        }
+      }}
+      onBlur={onCancel}
+      className="text-xs px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-brand-400"
+    />
+  );
+}
 
 function FolderNode({
   label,
