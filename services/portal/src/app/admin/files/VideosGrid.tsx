@@ -3,12 +3,39 @@
 // ============================================================
 // VideosGrid — draggable cards for Vimeo-linked VideoAsset rows.
 // Same contract as DocumentsTable: pure presentation + callbacks.
+//
+// Local UI state (stays here, not in useFilesData):
+//   • sort  — active sort order for the cards (applied to
+//     `filtered` before rendering). Default 'newest'.
+//
+// Container kebab (top-right of the h2): Add-video + divider +
+// sort options. "Add a Vimeo video" re-uses the parent's add-
+// video drawer via the `onAddVideo` callback.
 // ============================================================
 
+import { useMemo, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { ContainerMenu, type ContainerMenuItem } from './ContainerMenu';
 import type { DragPayload, VideoAssetRow } from './types';
 import { SEL_ALL } from './types';
 import { formatDate } from './utils';
+
+type VideoSort = 'newest' | 'oldest' | 'name-asc' | 'name-desc';
+
+function applyVideoSort(rows: VideoAssetRow[], sort: VideoSort): VideoAssetRow[] {
+  const next = rows.slice();
+  const titleCmp = (a: VideoAssetRow, b: VideoAssetRow) =>
+    a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true });
+  const dateCmp = (a: VideoAssetRow, b: VideoAssetRow) =>
+    new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime();
+  switch (sort) {
+    case 'name-asc':  next.sort(titleCmp); break;
+    case 'name-desc': next.sort((a, b) => -titleCmp(a, b)); break;
+    case 'oldest':    next.sort(dateCmp); break;
+    case 'newest':    default: next.sort((a, b) => -dateCmp(a, b)); break;
+  }
+  return next;
+}
 
 export function VideosGrid({
   all,
@@ -19,6 +46,7 @@ export function VideosGrid({
   fr,
   onEdit,
   onDelete,
+  onAddVideo,
 }: {
   all: VideoAssetRow[];
   filtered: VideoAssetRow[];
@@ -28,8 +56,12 @@ export function VideosGrid({
   fr: boolean;
   onEdit: (row: VideoAssetRow) => void;
   onDelete: (row: VideoAssetRow) => void;
+  /** Opens the page-level "Add a Vimeo video" drawer. */
+  onAddVideo?: () => void;
 }) {
   const { t } = useLanguage();
+  const [sort, setSort] = useState<VideoSort>('newest');
+  const sorted = useMemo(() => applyVideoSort(filtered, sort), [filtered, sort]);
 
   const pathFor = (row: VideoAssetRow): string[] => {
     if (row.folderId && folderPathById?.get(row.folderId)) {
@@ -41,6 +73,17 @@ export function VideosGrid({
     return out;
   };
 
+  const menuItems: ContainerMenuItem[] = [
+    ...(onAddVideo
+      ? [{ kind: 'item' as const, label: t('files', 'menuAddVideo'), onClick: onAddVideo }]
+      : []),
+    ...(onAddVideo ? [{ kind: 'divider' as const }] : []),
+    { kind: 'item', label: t('files', 'sortByNewest'),   onClick: () => setSort('newest'),    checked: sort === 'newest' },
+    { kind: 'item', label: t('files', 'sortByOldest'),   onClick: () => setSort('oldest'),    checked: sort === 'oldest' },
+    { kind: 'item', label: t('files', 'sortByNameAsc'),  onClick: () => setSort('name-asc'),  checked: sort === 'name-asc' },
+    { kind: 'item', label: t('files', 'sortByNameDesc'), onClick: () => setSort('name-desc'), checked: sort === 'name-desc' },
+  ];
+
   return (
     <div className="card">
       <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -50,6 +93,9 @@ export function VideosGrid({
             {selectedFolderId === SEL_ALL ? all.length : `${filtered.length}/${all.length}`}
           </span>
         </h2>
+        <div className="ml-auto">
+          <ContainerMenu items={menuItems} ariaLabel={t('files', 'menuLabel')} />
+        </div>
       </div>
 
       {loading ? (
@@ -58,13 +104,13 @@ export function VideosGrid({
         <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500 italic">
           {t('files', 'noVideos')}
         </p>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500 italic">
           {fr ? 'Aucune vidéo dans ce dossier.' : 'No videos in this folder.'}
         </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map((video) => {
+          {sorted.map((video) => {
             const path = pathFor(video);
             return (
               <div

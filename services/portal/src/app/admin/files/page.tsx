@@ -166,6 +166,7 @@ export default function AdminFilesPage() {
             fr={fr}
             onEdit={setEditingDoc}
             onDelete={(row) => data.deleteAsset('doc', row.id)}
+            onUpload={() => fileInputRef.current?.click()}
           />
 
           <VideosGrid
@@ -177,6 +178,7 @@ export default function AdminFilesPage() {
             fr={fr}
             onEdit={setEditingVideo}
             onDelete={(row) => data.deleteAsset('video', row.id)}
+            onAddVideo={() => setAddingVideo(true)}
           />
         </div>
       </div>

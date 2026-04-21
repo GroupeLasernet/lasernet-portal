@@ -40,4 +40,13 @@ export const files = {
   chooseFile: { fr: 'Choisir un fichier', en: 'Choose a file' },
   linkedSkus: { fr: 'Articles liés (SKU)', en: 'Linked SKUs' },
   relatedFiles: { fr: 'Fichiers liés', en: 'Related files' },
+  // Added 2026-04-21 — per-container kebab menu + sort options
+  menuLabel: { fr: 'Options du conteneur', en: 'Container options' },
+  sortByNameAsc: { fr: 'Trier par nom (A→Z)', en: 'Sort by name (A→Z)' },
+  sortByNameDesc: { fr: 'Trier par nom (Z→A)', en: 'Sort by name (Z→A)' },
+  sortByNewest: { fr: 'Plus récents d’abord', en: 'Newest first' },
+  sortByOldest: { fr: 'Plus anciens d’abord', en: 'Oldest first' },
+  sortByLargest: { fr: 'Plus volumineux d’abord', en: 'Largest first' },
+  menuUpload: { fr: 'Téléverser dans ce conteneur', en: 'Upload into this container' },
+  menuAddVideo: { fr: 'Ajouter une vidéo Vimeo', en: 'Add a Vimeo video' },
 } as const;

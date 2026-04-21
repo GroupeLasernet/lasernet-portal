@@ -3,12 +3,40 @@
 // ============================================================
 // DocumentsTable — draggable rows of FileAsset records.
 // Emits callbacks to the parent; knows nothing about fetch/state.
+//
+// Local UI state (stays here, not in useFilesData):
+//   • sort  — active sort order for the rows (applied to
+//     `filtered` before rendering). Default 'newest'.
+//
+// Container kebab (top-right of the h2): Upload + divider + sort
+// options. "Upload" re-uses the parent's hidden file picker via
+// the `onUpload` callback so the upload path stays single-source.
 // ============================================================
 
+import { useMemo, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { ContainerMenu, type ContainerMenuItem } from './ContainerMenu';
 import type { DragPayload, FileAssetRow } from './types';
 import { SEL_ALL } from './types';
 import { formatDate, formatSize } from './utils';
+
+type DocSort = 'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'size-desc';
+
+function applyDocSort(rows: FileAssetRow[], sort: DocSort): FileAssetRow[] {
+  const next = rows.slice();
+  const nameCmp = (a: FileAssetRow, b: FileAssetRow) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
+  const dateCmp = (a: FileAssetRow, b: FileAssetRow) =>
+    new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime();
+  switch (sort) {
+    case 'name-asc':  next.sort(nameCmp); break;
+    case 'name-desc': next.sort((a, b) => -nameCmp(a, b)); break;
+    case 'oldest':    next.sort(dateCmp); break;
+    case 'size-desc': next.sort((a, b) => (b.sizeBytes || 0) - (a.sizeBytes || 0)); break;
+    case 'newest':    default: next.sort((a, b) => -dateCmp(a, b)); break;
+  }
+  return next;
+}
 
 export function DocumentsTable({
   all,
@@ -19,6 +47,7 @@ export function DocumentsTable({
   fr,
   onEdit,
   onDelete,
+  onUpload,
 }: {
   all: FileAssetRow[];
   filtered: FileAssetRow[];
@@ -29,8 +58,12 @@ export function DocumentsTable({
   fr: boolean;
   onEdit: (row: FileAssetRow) => void;
   onDelete: (row: FileAssetRow) => void;
+  /** Triggers the page-level file picker (hidden <input type="file"> in page.tsx). */
+  onUpload?: () => void;
 }) {
   const { t } = useLanguage();
+  const [sort, setSort] = useState<DocSort>('newest');
+  const sorted = useMemo(() => applyDocSort(filtered, sort), [filtered, sort]);
 
   const pathFor = (row: FileAssetRow): string[] => {
     if (row.folderId && folderPathById?.get(row.folderId)) {
@@ -44,6 +77,18 @@ export function DocumentsTable({
     return out;
   };
 
+  const menuItems: ContainerMenuItem[] = [
+    ...(onUpload
+      ? [{ kind: 'item' as const, label: t('files', 'menuUpload'), onClick: onUpload }]
+      : []),
+    ...(onUpload ? [{ kind: 'divider' as const }] : []),
+    { kind: 'item', label: t('files', 'sortByNewest'),   onClick: () => setSort('newest'),    checked: sort === 'newest' },
+    { kind: 'item', label: t('files', 'sortByOldest'),   onClick: () => setSort('oldest'),    checked: sort === 'oldest' },
+    { kind: 'item', label: t('files', 'sortByNameAsc'),  onClick: () => setSort('name-asc'),  checked: sort === 'name-asc' },
+    { kind: 'item', label: t('files', 'sortByNameDesc'), onClick: () => setSort('name-desc'), checked: sort === 'name-desc' },
+    { kind: 'item', label: t('files', 'sortByLargest'),  onClick: () => setSort('size-desc'), checked: sort === 'size-desc' },
+  ];
+
   return (
     <div className="card mb-6">
       <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -53,6 +98,9 @@ export function DocumentsTable({
             {selectedFolderId === SEL_ALL ? all.length : `${filtered.length}/${all.length}`}
           </span>
         </h2>
+        <div className="ml-auto">
+          <ContainerMenu items={menuItems} ariaLabel={t('files', 'menuLabel')} />
+        </div>
       </div>
 
       {loading ? (
@@ -75,14 +123,14 @@ export function DocumentsTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
-              {filtered.length === 0 ? (
+              {sorted.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-6 text-center text-sm text-gray-400 dark:text-gray-500 italic">
                     {fr ? 'Aucun document dans ce dossier.' : 'No documents in this folder.'}
                   </td>
                 </tr>
               ) : (
-                filtered.map((file) => {
+                sorted.map((file) => {
                   const path = pathFor(file);
                   return (
                     <tr
