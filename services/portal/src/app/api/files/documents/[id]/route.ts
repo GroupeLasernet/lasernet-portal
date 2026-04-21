@@ -78,7 +78,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       const currentSet = new Set(current.map((c) => c.skuId));
       const incomingSet = new Set(skuIdsIncoming);
       const toAdd = skuIdsIncoming.filter((s) => !currentSet.has(s));
-      const toRemove = [...currentSet].filter((s) => !incomingSet.has(s));
+      const toRemove = Array.from(currentSet).filter((s) => !incomingSet.has(s));
 
       if (toRemove.length > 0) {
         await tx.fileAssetSku.deleteMany({
