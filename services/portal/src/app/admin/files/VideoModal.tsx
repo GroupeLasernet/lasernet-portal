@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useToast } from '@/lib/ToastContext';
 import { FolderPicker } from './FolderPicker';
+import { SkuPicker, type SkuPickerValue } from './SkuPicker';
 import { Field, ModalShell } from './ModalShell';
 import type { FolderNode, VideoAssetRow } from './types';
 
@@ -31,6 +32,10 @@ export function VideoModal({
   const [description, setDescription] = useState(row?.description || '');
   const [folderId, setFolderId] = useState<string | null>(row?.folderId ?? null);
   const [scope, setScope] = useState<'internal' | 'client'>(row?.scope || 'internal');
+  const [skus, setSkus] = useState<SkuPickerValue>({
+    skuIds: row?.skuIds ?? [],
+    skuNames: (row?.skus ?? []).map((s) => s.name),
+  });
   const [saving, setSaving] = useState(false);
 
   const save = useCallback(async () => {
@@ -46,6 +51,8 @@ export function VideoModal({
         description: description || null,
         folderId,
         scope,
+        skuIds: skus.skuIds,
+        skuNames: skus.skuNames,
       };
       const res = await fetch(
         editing ? `/api/files/videos/${row!.id}` : '/api/files/videos',
@@ -66,7 +73,7 @@ export function VideoModal({
     } finally {
       setSaving(false);
     }
-  }, [editing, row, title, vimeoUrl, description, folderId, scope, onSaved, toast, t]);
+  }, [editing, row, title, vimeoUrl, description, folderId, scope, skus.skuIds, skus.skuNames, onSaved, toast, t]);
 
   return (
     <ModalShell title={editing ? t('files', 'editVideo') : t('files', 'addVideo')} onClose={onClose}>
@@ -92,6 +99,9 @@ export function VideoModal({
           <option value="internal">{t('files', 'scopeInternal')}</option>
           <option value="client">{t('files', 'scopeClient')}</option>
         </select>
+      </Field>
+      <Field label={t('files', 'linkedSkus') || 'Linked SKUs'}>
+        <SkuPicker value={skus} onChange={setSkus} />
       </Field>
       <div className="flex items-center justify-end gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-secondary">{t('files', 'cancel')}</button>

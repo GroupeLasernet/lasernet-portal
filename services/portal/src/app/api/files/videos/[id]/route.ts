@@ -46,16 +46,64 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   if ('managedClientId' in body) updates.managedClientId = body.managedClientId || null;
   if ('localBusinessId' in body) updates.localBusinessId = body.localBusinessId || null;
 
-  const row = await prisma.videoAsset.update({
-    where: { id: params.id },
-    data: updates,
-    include: {
-      managedClient: { select: { id: true, displayName: true } },
-      localBusiness: { select: { id: true, name: true } },
-    },
+  const skuIdsIncoming: string[] | null = Array.isArray(body.skuIds)
+    ? body.skuIds.filter((s: unknown): s is string => typeof s === 'string')
+    : null;
+  const skuNamesIncoming: (string | null)[] = Array.isArray(body.skuNames)
+    ? body.skuNames.map((n: unknown) => (typeof n === 'string' ? n : null))
+    : [];
+
+  const row = await prisma.$transaction(async (tx) => {
+    await tx.videoAsset.update({
+      where: { id: params.id },
+      data: updates,
+    });
+
+    if (skuIdsIncoming !== null) {
+      const current = await tx.videoAssetSku.findMany({
+        where: { videoAssetId: params.id },
+        select: { skuId: true },
+      });
+      const currentSet = new Set(current.map((c) => c.skuId));
+      const incomingSet = new Set(skuIdsIncoming);
+      const toAdd = skuIdsIncoming.filter((s) => !currentSet.has(s));
+      const toRemove = [...currentSet].filter((s) => !incomingSet.has(s));
+
+      if (toRemove.length > 0) {
+        await tx.videoAssetSku.deleteMany({
+          where: { videoAssetId: params.id, skuId: { in: toRemove } },
+        });
+      }
+      if (toAdd.length > 0) {
+        await tx.videoAssetSku.createMany({
+          data: toAdd.map((skuId) => {
+            const idx = skuIdsIncoming.indexOf(skuId);
+            return {
+              videoAssetId: params.id,
+              skuId,
+              skuName: skuNamesIncoming[idx] ?? null,
+            };
+          }),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    return tx.videoAsset.findUniqueOrThrow({
+      where: { id: params.id },
+      include: {
+        managedClient: { select: { id: true, displayName: true } },
+        localBusiness: { select: { id: true, name: true } },
+        skuLinks: { select: { skuId: true, skuName: true } },
+      },
+    });
   });
 
-  return NextResponse.json(row);
+  return NextResponse.json({
+    ...row,
+    skuIds: row.skuLinks.map((l) => l.skuId),
+    skus: row.skuLinks.map((l) => ({ id: l.skuId, name: l.skuName })),
+  });
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {

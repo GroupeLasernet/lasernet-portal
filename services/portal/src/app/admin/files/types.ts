@@ -14,6 +14,13 @@ export interface BusinessRef {
   name?: string;
 }
 
+// Link from a file/video to a QuickBooks inventory SKU. skuId = QB Item.Id.
+// skuName is a denormalized snapshot shown when the live QB cache is cold.
+export interface SkuLinkRef {
+  id: string;
+  name: string | null;
+}
+
 export interface FileAssetRow {
   id: string;
   driveFileId: string;
@@ -31,6 +38,8 @@ export interface FileAssetRow {
   managedClient: BusinessRef | null;
   localBusiness: BusinessRef | null;
   uploadedAt: string;
+  skuIds?: string[];
+  skus?: SkuLinkRef[];
 }
 
 export interface VideoAssetRow {
@@ -49,6 +58,8 @@ export interface VideoAssetRow {
   managedClient: BusinessRef | null;
   localBusiness: BusinessRef | null;
   uploadedAt: string;
+  skuIds?: string[];
+  skus?: SkuLinkRef[];
 }
 
 // Persisted folder row from /api/files/folders.

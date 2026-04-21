@@ -514,6 +514,8 @@ const translations = {
     linkedTo: { fr: 'Lié à', en: 'Linked to' },
     business: { fr: 'Entreprise', en: 'Business' },
     chooseFile: { fr: 'Choisir un fichier', en: 'Choose a file' },
+    linkedSkus: { fr: 'Articles liés (SKU)', en: 'Linked SKUs' },
+    relatedFiles: { fr: 'Fichiers liés', en: 'Related files' },
   },
 
   // ============================================================

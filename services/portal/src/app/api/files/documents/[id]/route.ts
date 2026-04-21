@@ -50,16 +50,72 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   if ('managedClientId' in body) updates.managedClientId = body.managedClientId || null;
   if ('localBusinessId' in body) updates.localBusinessId = body.localBusinessId || null;
 
-  const row = await prisma.fileAsset.update({
-    where: { id: params.id },
-    data: updates,
-    include: {
-      managedClient: { select: { id: true, displayName: true } },
-      localBusiness: { select: { id: true, name: true } },
-    },
+  // SKU link diffing — if skuIds is explicitly present in the body,
+  // replace the entire link set with the one provided. We delete
+  // removed ones and create added ones (uses the @@unique compound
+  // to avoid dupes). skuNames (optional) is a parallel array used
+  // as a denormalized display fallback.
+  const skuIdsIncoming: string[] | null = Array.isArray(body.skuIds)
+    ? body.skuIds.filter((s: unknown): s is string => typeof s === 'string')
+    : null;
+  const skuNamesIncoming: (string | null)[] = Array.isArray(body.skuNames)
+    ? body.skuNames.map((n: unknown) => (typeof n === 'string' ? n : null))
+    : [];
+
+  // Run update + sku sync inside a single transaction so the UI
+  // never sees a half-updated row on save.
+  const row = await prisma.$transaction(async (tx) => {
+    const updated = await tx.fileAsset.update({
+      where: { id: params.id },
+      data: updates,
+    });
+
+    if (skuIdsIncoming !== null) {
+      const current = await tx.fileAssetSku.findMany({
+        where: { fileAssetId: params.id },
+        select: { skuId: true },
+      });
+      const currentSet = new Set(current.map((c) => c.skuId));
+      const incomingSet = new Set(skuIdsIncoming);
+      const toAdd = skuIdsIncoming.filter((s) => !currentSet.has(s));
+      const toRemove = [...currentSet].filter((s) => !incomingSet.has(s));
+
+      if (toRemove.length > 0) {
+        await tx.fileAssetSku.deleteMany({
+          where: { fileAssetId: params.id, skuId: { in: toRemove } },
+        });
+      }
+      if (toAdd.length > 0) {
+        await tx.fileAssetSku.createMany({
+          data: toAdd.map((skuId) => {
+            const idx = skuIdsIncoming.indexOf(skuId);
+            return {
+              fileAssetId: params.id,
+              skuId,
+              skuName: skuNamesIncoming[idx] ?? null,
+            };
+          }),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    return tx.fileAsset.findUniqueOrThrow({
+      where: { id: params.id },
+      include: {
+        managedClient: { select: { id: true, displayName: true } },
+        localBusiness: { select: { id: true, name: true } },
+        skuLinks: { select: { skuId: true, skuName: true } },
+      },
+    });
   });
 
-  return NextResponse.json({ ...row, sizeBytes: Number(row.sizeBytes) });
+  return NextResponse.json({
+    ...row,
+    sizeBytes: Number(row.sizeBytes),
+    skuIds: row.skuLinks.map((l) => l.skuId),
+    skus: row.skuLinks.map((l) => ({ id: l.skuId, name: l.skuName })),
+  });
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {

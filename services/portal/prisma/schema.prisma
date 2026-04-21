@@ -1100,6 +1100,10 @@ model FileAsset {
   uploadedAt   DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // SKU links — many-to-many with QuickBooks inventory items (skuId = QB Item.Id).
+  // See FileAssetSku below.
+  skuLinks FileAssetSku[]
+
   @@index([scope])
   @@index([managedClientId])
   @@index([localBusinessId])
@@ -1137,6 +1141,10 @@ model VideoAsset {
   uploadedAt   DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // SKU links — many-to-many with QuickBooks inventory items (skuId = QB Item.Id).
+  // See VideoAssetSku below.
+  skuLinks VideoAssetSku[]
+
   @@index([scope])
   @@index([managedClientId])
   @@index([localBusinessId])
@@ -1166,6 +1174,42 @@ model FileFolder {
   updatedAt DateTime @updatedAt
 
   @@index([parentId])
+}
+
+// ============================================================
+// FILE ↔ SKU join — multi-SKU attribution on FileAsset.
+// skuId is the QuickBooks inventory item Id (we don't mirror QB
+// items into Postgres, so there's no FK on skuId). skuName is a
+// denormalized snapshot for display when QB cache is cold — the
+// live QuickBooksContext is the source of truth for current name.
+// ============================================================
+model FileAssetSku {
+  id          String    @id @default(cuid())
+  fileAssetId String
+  fileAsset   FileAsset @relation(fields: [fileAssetId], references: [id], onDelete: Cascade)
+  skuId       String
+  skuName     String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([fileAssetId, skuId])
+  @@index([skuId])
+  @@index([fileAssetId])
+}
+
+// ============================================================
+// VIDEO ↔ SKU join — same model as FileAssetSku for VideoAsset.
+// ============================================================
+model VideoAssetSku {
+  id           String     @id @default(cuid())
+  videoAssetId String
+  videoAsset   VideoAsset @relation(fields: [videoAssetId], references: [id], onDelete: Cascade)
+  skuId        String
+  skuName      String?
+  createdAt    DateTime   @default(now())
+
+  @@unique([videoAssetId, skuId])
+  @@index([skuId])
+  @@index([videoAssetId])
 }
 
 // ============================================================

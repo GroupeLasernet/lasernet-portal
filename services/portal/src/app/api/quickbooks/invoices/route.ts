@@ -18,6 +18,9 @@ function transformInvoices(qbInvoices: any[]) {
     items: inv.Line
       ?.filter((l: any) => l.DetailType === 'SalesItemLineDetail')
       .map((l: any) => ({
+        // itemId = QB Item.Id, matches FileAssetSku.skuId for the
+        // "related files" chip on the line item row.
+        itemId: l.SalesItemLineDetail?.ItemRef?.value || null,
         description: l.Description || '',
         model: l.SalesItemLineDetail?.ItemRef?.name || '',
         quantity: l.SalesItemLineDetail?.Qty || 1,

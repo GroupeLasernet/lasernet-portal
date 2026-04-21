@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useToast } from '@/lib/ToastContext';
 import { FolderPicker } from './FolderPicker';
+import { SkuPicker, type SkuPickerValue } from './SkuPicker';
 import { Field, ModalShell } from './ModalShell';
 import type { FileAssetRow, FolderNode } from './types';
 
@@ -27,6 +28,10 @@ export function EditDocumentModal({
   const { toast } = useToast();
   const [name, setName] = useState(row.name);
   const [folderId, setFolderId] = useState<string | null>(row.folderId);
+  const [skus, setSkus] = useState<SkuPickerValue>({
+    skuIds: row.skuIds ?? [],
+    skuNames: (row.skus ?? []).map((s) => s.name),
+  });
   const [saving, setSaving] = useState(false);
 
   // NOTE: scope (internal/client) is intentionally NOT edited here.
@@ -38,7 +43,12 @@ export function EditDocumentModal({
       const res = await fetch(`/api/files/documents/${row.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, folderId }),
+        body: JSON.stringify({
+          name,
+          folderId,
+          skuIds: skus.skuIds,
+          skuNames: skus.skuNames,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -51,7 +61,7 @@ export function EditDocumentModal({
     } finally {
       setSaving(false);
     }
-  }, [row.id, name, folderId, onSaved, toast]);
+  }, [row.id, name, folderId, skus.skuIds, skus.skuNames, onSaved, toast]);
 
   return (
     <ModalShell title={t('files', 'editDocument')} onClose={onClose}>
@@ -60,6 +70,9 @@ export function EditDocumentModal({
       </Field>
       <Field label={t('files', 'category') || 'Folder'}>
         <FolderPicker folders={folders} value={folderId} onChange={setFolderId} />
+      </Field>
+      <Field label={t('files', 'linkedSkus') || 'Linked SKUs'}>
+        <SkuPicker value={skus} onChange={setSkus} />
       </Field>
       <div className="flex items-center justify-end gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-secondary">{t('files', 'cancel')}</button>

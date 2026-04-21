@@ -40,15 +40,19 @@ export async function GET(request: NextRequest) {
     include: {
       managedClient: { select: { id: true, displayName: true } },
       localBusiness: { select: { id: true, name: true } },
+      skuLinks: { select: { skuId: true, skuName: true } },
     },
     orderBy: { uploadedAt: 'desc' },
   });
 
-  // BigInt → Number for JSON transport
+  // BigInt → Number for JSON transport. Also flatten skuLinks to
+  // skuIds / skus so the client doesn't have to reshape.
   return NextResponse.json(
     rows.map((r) => ({
       ...r,
       sizeBytes: Number(r.sizeBytes),
+      skuIds: r.skuLinks.map((l) => l.skuId),
+      skus: r.skuLinks.map((l) => ({ id: l.skuId, name: l.skuName })),
     })),
   );
 }
@@ -78,6 +82,30 @@ export async function POST(request: NextRequest) {
   const managedClientId = (form.get('managedClientId') as string | null) || null;
   const localBusinessId = (form.get('localBusinessId') as string | null) || null;
 
+  // skuIds: JSON-encoded string[] (QuickBooks item Ids). Optional.
+  const skuIdsRaw = (form.get('skuIds') as string | null) || null;
+  let skuIds: string[] = [];
+  if (skuIdsRaw) {
+    try {
+      const parsed = JSON.parse(skuIdsRaw);
+      if (Array.isArray(parsed)) skuIds = parsed.filter((s): s is string => typeof s === 'string');
+    } catch {
+      // tolerate bad json — just no skus
+    }
+  }
+  // Optional snapshot names, same shape. Lookup by position via skuIds order.
+  const skuNamesRaw = (form.get('skuNames') as string | null) || null;
+  let skuNames: (string | null)[] = [];
+  if (skuNamesRaw) {
+    try {
+      const parsed = JSON.parse(skuNamesRaw);
+      if (Array.isArray(parsed))
+        skuNames = parsed.map((n) => (typeof n === 'string' ? n : null));
+    } catch {
+      // ignore
+    }
+  }
+
   let uploaded;
   try {
     uploaded = await uploadToDrive({ filename, mimeType, buffer });
@@ -103,12 +131,27 @@ export async function POST(request: NextRequest) {
       managedClientId,
       localBusinessId,
       uploadedById,
+      skuLinks:
+        skuIds.length > 0
+          ? {
+              create: skuIds.map((skuId, i) => ({
+                skuId,
+                skuName: skuNames[i] ?? null,
+              })),
+            }
+          : undefined,
     },
     include: {
       managedClient: { select: { id: true, displayName: true } },
       localBusiness: { select: { id: true, name: true } },
+      skuLinks: { select: { skuId: true, skuName: true } },
     },
   });
 
-  return NextResponse.json({ ...row, sizeBytes: Number(row.sizeBytes) });
+  return NextResponse.json({
+    ...row,
+    sizeBytes: Number(row.sizeBytes),
+    skuIds: row.skuLinks.map((l) => l.skuId),
+    skus: row.skuLinks.map((l) => ({ id: l.skuId, name: l.skuName })),
+  });
 }

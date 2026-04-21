@@ -52,11 +52,18 @@ export async function GET(request: NextRequest) {
     include: {
       managedClient: { select: { id: true, displayName: true } },
       localBusiness: { select: { id: true, name: true } },
+      skuLinks: { select: { skuId: true, skuName: true } },
     },
     orderBy: { uploadedAt: 'desc' },
   });
 
-  return NextResponse.json(rows);
+  return NextResponse.json(
+    rows.map((r) => ({
+      ...r,
+      skuIds: r.skuLinks.map((l) => l.skuId),
+      skus: r.skuLinks.map((l) => ({ id: l.skuId, name: l.skuName })),
+    })),
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -75,6 +82,13 @@ export async function POST(request: NextRequest) {
 
   const folderId = typeof body.folderId === 'string' && body.folderId ? body.folderId : null;
 
+  const skuIds: string[] = Array.isArray(body.skuIds)
+    ? body.skuIds.filter((s: unknown): s is string => typeof s === 'string')
+    : [];
+  const skuNames: (string | null)[] = Array.isArray(body.skuNames)
+    ? body.skuNames.map((n: unknown) => (typeof n === 'string' ? n : null))
+    : [];
+
   const row = await prisma.videoAsset.create({
     data: {
       title,
@@ -89,12 +103,26 @@ export async function POST(request: NextRequest) {
       managedClientId: body.managedClientId ?? null,
       localBusinessId: body.localBusinessId ?? null,
       uploadedById,
+      skuLinks:
+        skuIds.length > 0
+          ? {
+              create: skuIds.map((skuId, i) => ({
+                skuId,
+                skuName: skuNames[i] ?? null,
+              })),
+            }
+          : undefined,
     },
     include: {
       managedClient: { select: { id: true, displayName: true } },
       localBusiness: { select: { id: true, name: true } },
+      skuLinks: { select: { skuId: true, skuName: true } },
     },
   });
 
-  return NextResponse.json(row);
+  return NextResponse.json({
+    ...row,
+    skuIds: row.skuLinks.map((l) => l.skuId),
+    skus: row.skuLinks.map((l) => ({ id: l.skuId, name: l.skuName })),
+  });
 }

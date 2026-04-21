@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useQuickBooks } from '@/lib/QuickBooksContext';
 import AnimatedNumber from '@/components/AnimatedNumber';
+import { RelatedFilesChip } from '@/components/RelatedFilesChip';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface InvoiceItem {
+  /** QB Item.Id — powers the RelatedFilesChip on the line item. */
+  itemId?: string | null;
   description: string;
   model: string;
   quantity: number;
@@ -214,23 +217,49 @@ export default function InvoicesPage() {
               {filtered.map(inv => {
                 const isExpanded = expandedId === inv.id;
                 return (
-                  <tr
-                    key={inv.id}
-                    className={`border-b border-gray-50 dark:border-gray-700/50 cursor-pointer transition-colors ${
-                      isExpanded ? 'bg-brand-50/50 dark:bg-brand-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                    }`}
-                    onClick={() => setExpandedId(isExpanded ? null : inv.id)}
-                  >
-                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{inv.invoiceNumber}</td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{inv.clientName}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmtDate(inv.date)}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmtDate(inv.dueDate)}</td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">{fmtCurrency(inv.amount)}</td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
-                      {inv.balance > 0 ? fmtCurrency(inv.balance) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-center">{statusBadge(inv.status)}</td>
-                  </tr>
+                  <Fragment key={inv.id}>
+                    <tr
+                      className={`border-b border-gray-50 dark:border-gray-700/50 cursor-pointer transition-colors ${
+                        isExpanded ? 'bg-brand-50/50 dark:bg-brand-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                      }`}
+                      onClick={() => setExpandedId(isExpanded ? null : inv.id)}
+                    >
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{inv.invoiceNumber}</td>
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{inv.clientName}</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmtDate(inv.date)}</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmtDate(inv.dueDate)}</td>
+                      <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">{fmtCurrency(inv.amount)}</td>
+                      <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
+                        {inv.balance > 0 ? fmtCurrency(inv.balance) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-center">{statusBadge(inv.status)}</td>
+                    </tr>
+                    {isExpanded && inv.items && inv.items.length > 0 && (
+                      <tr className="bg-gray-50/50 dark:bg-gray-900/30 border-b border-gray-100 dark:border-gray-700">
+                        <td colSpan={7} className="px-4 py-3">
+                          <div className="space-y-1.5">
+                            {inv.items.map((it, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm"
+                              >
+                                <span className="flex-1 truncate text-gray-900 dark:text-gray-100">
+                                  {it.model || it.description || '—'}
+                                </span>
+                                <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                                  {it.quantity} × {fmtCurrency(it.rate)}
+                                </span>
+                                <span className="w-20 shrink-0 text-right font-medium text-gray-900 dark:text-gray-100">
+                                  {fmtCurrency(it.amount)}
+                                </span>
+                                {it.itemId && <RelatedFilesChip skuId={it.itemId} compact />}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
             </tbody>
