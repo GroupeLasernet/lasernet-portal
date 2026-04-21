@@ -53,6 +53,8 @@ export interface QBInvoice {
   date: string;
   dueDate: string;
   items: Array<{
+    /** QB Item.Id — matches FileAssetSku.skuId for the related-files chip. */
+    itemId?: string | null;
     description: string;
     model: string;
     quantity: number;

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useQuickBooks } from '@/lib/QuickBooksContext';
+import { RelatedFilesChip } from '@/components/RelatedFilesChip';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -631,27 +632,31 @@ export default function QuotesPage() {
                   {fr ? 'Lignes' : 'Lines'}
                 </h3>
                 <div className="space-y-2">
-                  {est.Line?.filter((l: any) => l.DetailType !== 'SubTotalLineDetail').map((line: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between py-2 px-3 bg-white dark:bg-gray-700 rounded-lg text-sm"
-                    >
-                      <span className="text-gray-800 dark:text-gray-200 flex-1">
-                        {line.Description || line.SalesItemLineDetail?.ItemRef?.name || '—'}
-                      </span>
-                      <span className="text-gray-500 dark:text-gray-400 w-16 text-right">
-                        {line.SalesItemLineDetail?.Qty ?? '—'}
-                      </span>
-                      <span className="text-gray-500 dark:text-gray-400 w-24 text-right">
-                        {line.SalesItemLineDetail?.UnitPrice != null
-                          ? fmtMoney(line.SalesItemLineDetail.UnitPrice)
-                          : '—'}
-                      </span>
-                      <span className="font-medium text-gray-800 dark:text-gray-200 w-28 text-right">
-                        {fmtMoney(line.Amount ?? 0)}
-                      </span>
-                    </div>
-                  ))}
+                  {est.Line?.filter((l: any) => l.DetailType !== 'SubTotalLineDetail').map((line: any, idx: number) => {
+                    const itemId: string | undefined = line.SalesItemLineDetail?.ItemRef?.value;
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between py-2 px-3 bg-white dark:bg-gray-700 rounded-lg text-sm gap-2"
+                      >
+                        <span className="text-gray-800 dark:text-gray-200 flex-1">
+                          {line.Description || line.SalesItemLineDetail?.ItemRef?.name || '—'}
+                        </span>
+                        <span className="text-gray-500 dark:text-gray-400 w-16 text-right">
+                          {line.SalesItemLineDetail?.Qty ?? '—'}
+                        </span>
+                        <span className="text-gray-500 dark:text-gray-400 w-24 text-right">
+                          {line.SalesItemLineDetail?.UnitPrice != null
+                            ? fmtMoney(line.SalesItemLineDetail.UnitPrice)
+                            : '—'}
+                        </span>
+                        <span className="font-medium text-gray-800 dark:text-gray-200 w-28 text-right">
+                          {fmtMoney(line.Amount ?? 0)}
+                        </span>
+                        {itemId && <RelatedFilesChip skuId={itemId} compact />}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <p className="text-xs text-gray-400 dark:text-gray-500 italic">
