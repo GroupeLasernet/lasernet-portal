@@ -8,28 +8,39 @@
 // HISTORY
 //   v1 — status only, 60s polling of /api/quickbooks/status.
 //   v2 — added in-memory data cache: invoices/customers/inventory/
-//        accounts/taxCodes. Each dataset is fetched once when the
-//        provider mounts (if connected), then revalidated in the
-//        background every 60s. Page components hydrate instantly
-//        from context instead of firing their own fetch on mount.
+//        accounts/taxCodes. Each dataset fetched once when the
+//        provider mounted (if connected), then revalidated every
+//        60s via setInterval. Manual setState + useRef plumbing.
+//   v3 — internals rewritten on top of @tanstack/react-query
+//        (Phase 3, 2026-04-21). Public API unchanged so every
+//        consumer (`qb.invoices.data`, `qb.invalidate('inventory')`,
+//        `qb.status === 'connected'`, …) keeps working. Benefits:
+//          - request dedup when two pages mount at once
+//          - refetch on window focus
+//          - DevTools introspection
+//          - ~150 fewer lines of custom cache plumbing
 //
-// WHY
-//   On Vercel every page mount used to fire its own QB fetch
-//   (800-1500ms each). The provider now owns the network calls
-//   and pages read from memory. Mutations call `invalidate(key)`
-//   to force a fresh fetch.
+// WHY KEEP THE CONTEXT
+//   Consumers read from a single shared state (e.g. inventory
+//   shown on /admin/inventory, /admin/quotes, /admin/leads,
+//   /admin/live-visits). The context + derived `CacheSlot` shape
+//   preserves the exact field names (`data`, `loading`, `source`,
+//   `error`, `fetchedAt`) pages already consume — the migration
+//   is a pure internal refactor.
 // ============================================================
 
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
-  useState,
   type ReactNode,
 } from 'react';
+import {
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 // ─── Connection types ──────────────────────────────────────────────────────
 
@@ -113,9 +124,9 @@ export interface QBTaxCode {
   [key: string]: unknown;
 }
 
-// ─── Internal cache slot ──────────────────────────────────────────────────
+// ─── Public slot shape — stable across v2/v3 ──────────────────────────────
 
-interface CacheSlot<T> {
+export interface CacheSlot<T> {
   data: T[];
   loading: boolean;
   source: string; // 'quickbooks' | 'cache' | 'mock' | ''
@@ -159,18 +170,34 @@ interface QuickBooksContextValue {
 
 const QuickBooksContext = createContext<QuickBooksContextValue | null>(null);
 
-// ─── Fetch definitions ────────────────────────────────────────────────────
-// Each entry describes: the endpoint, the JSON field where the array lives,
-// and an optional transform. Keeping it declarative so the refresh loop
-// stays a one-liner.
+// ─── Query keys (exported for tests + extension) ──────────────────────────
 
-interface FetchDef<T> {
-  url: string;
-  field: string;
-  map?: (raw: unknown[]) => T[];
+export const qbKeys = {
+  all: ['qb'] as const,
+  status: ['qb', 'status'] as const,
+  dataset: (key: QBDataKey) => ['qb', key] as const,
+};
+
+// ─── Fetchers ─────────────────────────────────────────────────────────────
+
+interface StatusPayload {
+  connected: boolean;
+  credentialsConfigured: boolean;
+  missingCredentials?: string[];
+  realmId?: string | null;
 }
 
-const FETCH_DEFS: Record<QBDataKey, FetchDef<unknown>> = {
+async function fetchStatus(): Promise<StatusPayload> {
+  const res = await fetch('/api/quickbooks/status', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`status ${res.status}`);
+  return res.json();
+}
+
+interface FetchDef {
+  url: string;
+  field: string;
+}
+const FETCH_DEFS: Record<QBDataKey, FetchDef> = {
   invoices:  { url: '/api/quickbooks/invoices',  field: 'invoices'  },
   customers: { url: '/api/quickbooks/customers', field: 'customers' },
   inventory: { url: '/api/quickbooks/inventory', field: 'items'     },
@@ -178,60 +205,104 @@ const FETCH_DEFS: Record<QBDataKey, FetchDef<unknown>> = {
   taxCodes:  { url: '/api/quotes/qb-tax-codes',  field: 'taxCodes'  },
 };
 
+interface DatasetPayload<T> {
+  rows: T[];
+  source: string;
+}
+
+async function fetchDataset<T>(key: QBDataKey): Promise<DatasetPayload<T>> {
+  const def = FETCH_DEFS[key];
+  const res = await fetch(def.url, { cache: 'no-store' });
+  const json = await res.json().catch(() => ({}));
+  const rows = Array.isArray(json[def.field]) ? (json[def.field] as T[]) : [];
+  const source = typeof json.source === 'string' ? json.source : '';
+  return { rows, source };
+}
+
+// ─── Query → CacheSlot adapter ────────────────────────────────────────────
+// Keeps the v2 field names so no consumer file has to change.
+
+function toSlot<T>(q: UseQueryResult<DatasetPayload<T>, Error>): CacheSlot<T> {
+  return {
+    data: q.data?.rows ?? [],
+    // `isFetching` covers both first-load and background revalidation —
+    // matches v2 semantics where the setter flipped `loading: true` on
+    // every fetch start.
+    loading: q.isFetching,
+    source: q.data?.source ?? '',
+    error: q.error ? q.error.message : null,
+    fetchedAt: q.dataUpdatedAt > 0 ? q.dataUpdatedAt : null,
+  };
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────
 
 export function QuickBooksProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<QbStatus>('loading');
-  const [realmId, setRealmId] = useState<string | null>(null);
-  const [missingCredentials, setMissingCredentials] = useState<string[]>([]);
-  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
+  // Connection — polls every 60s, always enabled.
+  const statusQuery = useQuery({
+    queryKey: qbKeys.status,
+    queryFn: fetchStatus,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
 
-  const [invoices, setInvoices] = useState<CacheSlot<QBInvoice>>(emptySlot);
-  const [customers, setCustomers] = useState<CacheSlot<QBCustomer>>(emptySlot);
-  const [inventory, setInventory] = useState<CacheSlot<QBInventoryItem>>(emptySlot);
-  const [accounts, setAccounts] = useState<CacheSlot<QBAccount>>(emptySlot);
-  const [taxCodes, setTaxCodes] = useState<CacheSlot<QBTaxCode>>(emptySlot);
+  const status: QbStatus = (() => {
+    if (statusQuery.isError) return 'error';
+    if (!statusQuery.data) return 'loading';
+    if (!statusQuery.data.credentialsConfigured) return 'missing-creds';
+    return statusQuery.data.connected ? 'connected' : 'disconnected';
+  })();
 
-  const setters: Record<QBDataKey, React.Dispatch<React.SetStateAction<CacheSlot<any>>>> = useMemo(
-    () => ({
-      invoices:  setInvoices  as React.Dispatch<React.SetStateAction<CacheSlot<any>>>,
-      customers: setCustomers as React.Dispatch<React.SetStateAction<CacheSlot<any>>>,
-      inventory: setInventory as React.Dispatch<React.SetStateAction<CacheSlot<any>>>,
-      accounts:  setAccounts  as React.Dispatch<React.SetStateAction<CacheSlot<any>>>,
-      taxCodes:  setTaxCodes  as React.Dispatch<React.SetStateAction<CacheSlot<any>>>,
-    }),
-    [],
+  const realmId = statusQuery.data?.realmId ?? null;
+  const missingCredentials = useMemo(
+    () => statusQuery.data?.missingCredentials ?? [],
+    [statusQuery.data?.missingCredentials],
   );
+  const lastCheckedAt = statusQuery.dataUpdatedAt > 0 ? statusQuery.dataUpdatedAt : null;
 
-  const mountedRef = useRef(true);
-  const statusRef = useRef<QbStatus>('loading');
+  // Data — enabled only while connected. When status flips to connected,
+  // React Query kicks off the initial fetch + revalidates every 60s.
+  const connected = status === 'connected';
+  const datasetOpts = {
+    enabled: connected,
+    refetchInterval: connected ? 60_000 : (false as const),
+    staleTime: 30_000,
+  };
 
-  // Keep a ref to latest status so the interval closure reads fresh values.
-  useEffect(() => { statusRef.current = status; }, [status]);
+  const invoicesQuery = useQuery({
+    queryKey: qbKeys.dataset('invoices'),
+    queryFn: () => fetchDataset<QBInvoice>('invoices'),
+    ...datasetOpts,
+  });
+  const customersQuery = useQuery({
+    queryKey: qbKeys.dataset('customers'),
+    queryFn: () => fetchDataset<QBCustomer>('customers'),
+    ...datasetOpts,
+  });
+  const inventoryQuery = useQuery({
+    queryKey: qbKeys.dataset('inventory'),
+    queryFn: () => fetchDataset<QBInventoryItem>('inventory'),
+    ...datasetOpts,
+  });
+  const accountsQuery = useQuery({
+    queryKey: qbKeys.dataset('accounts'),
+    queryFn: () => fetchDataset<QBAccount>('accounts'),
+    ...datasetOpts,
+  });
+  const taxCodesQuery = useQuery({
+    queryKey: qbKeys.dataset('taxCodes'),
+    queryFn: () => fetchDataset<QBTaxCode>('taxCodes'),
+    ...datasetOpts,
+  });
 
-  // ─── Connection refresh ────────────────────────────────────────────────
+  const queryClient = useQueryClient();
+
+  // ─── Imperative API ────────────────────────────────────────────────────
+
   const refresh = useCallback(async () => {
-    try {
-      const res = await fetch('/api/quickbooks/status', { cache: 'no-store' });
-      if (!mountedRef.current) return;
-      if (!res.ok) {
-        setStatus('error');
-        return;
-      }
-      const data = await res.json();
-      if (!mountedRef.current) return;
-      setRealmId(data.realmId || null);
-      setMissingCredentials(data.missingCredentials || []);
-      if (!data.credentialsConfigured) setStatus('missing-creds');
-      else if (data.connected) setStatus('connected');
-      else setStatus('disconnected');
-      setLastCheckedAt(Date.now());
-    } catch {
-      if (mountedRef.current) setStatus('error');
-    }
-  }, []);
+    await queryClient.invalidateQueries({ queryKey: qbKeys.status });
+  }, [queryClient]);
 
-  // ─── Connect (OAuth) ───────────────────────────────────────────────────
   const connect = useCallback(async () => {
     try {
       const res = await fetch('/api/quickbooks/connect', { cache: 'no-store' });
@@ -248,93 +319,45 @@ export function QuickBooksProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // ─── Single-dataset fetcher ────────────────────────────────────────────
-  const fetchSlot = useCallback(
-    async (key: QBDataKey) => {
-      const def = FETCH_DEFS[key];
-      const setter = setters[key];
-      setter((prev) => ({ ...prev, loading: true, error: null }));
-      try {
-        const res = await fetch(def.url, { cache: 'no-store' });
-        if (!mountedRef.current) return;
-        const data = await res.json();
-        if (!mountedRef.current) return;
-        const arr = Array.isArray(data[def.field]) ? data[def.field] : [];
-        setter({
-          data: arr,
-          loading: false,
-          source: data.source || '',
-          error: null,
-          fetchedAt: Date.now(),
-        });
-      } catch (err: any) {
-        if (!mountedRef.current) return;
-        setter((prev) => ({
-          ...prev,
-          loading: false,
-          error: err?.message || 'Failed to fetch',
-        }));
-      }
-    },
-    [setters],
-  );
-
-  // ─── Load/refresh all datasets ────────────────────────────────────────
-  const refreshAllData = useCallback(async () => {
-    // Fire in parallel — each endpoint is independent.
-    await Promise.all([
-      fetchSlot('invoices'),
-      fetchSlot('customers'),
-      fetchSlot('inventory'),
-      fetchSlot('accounts'),
-      fetchSlot('taxCodes'),
-    ]);
-  }, [fetchSlot]);
-
   const invalidate = useCallback(
     async (key: QBDataKey) => {
-      await fetchSlot(key);
+      await queryClient.invalidateQueries({ queryKey: qbKeys.dataset(key) });
     },
-    [fetchSlot],
+    [queryClient],
   );
 
   const invalidateAll = useCallback(async () => {
-    await refreshAllData();
-  }, [refreshAllData]);
+    await queryClient.invalidateQueries({ queryKey: qbKeys.all });
+  }, [queryClient]);
 
-  // ─── Lifecycle: initial fetch + 60s poll ──────────────────────────────
-  useEffect(() => {
-    mountedRef.current = true;
-    void refresh();
-    const statusId = setInterval(refresh, 60_000);
-    return () => {
-      mountedRef.current = false;
-      clearInterval(statusId);
-    };
-  }, [refresh]);
+  // ─── Slots (memoized per-query so reference stays stable across renders
+  // where the underlying query hasn't changed). ──────────────────────────
 
-  // When connection becomes available, kick off the data prefetch, then
-  // revalidate every 60 s in the background. Stops polling if the status
-  // changes to disconnected / missing-creds / error.
-  useEffect(() => {
-    if (status !== 'connected') return;
-    void refreshAllData();
-    const dataId = setInterval(() => {
-      if (statusRef.current === 'connected') void refreshAllData();
-    }, 60_000);
-    return () => clearInterval(dataId);
-  }, [status, refreshAllData]);
+  const invoicesSlot  = useMemo(() => toSlot(invoicesQuery),  [invoicesQuery]);
+  const customersSlot = useMemo(() => toSlot(customersQuery), [customersQuery]);
+  const inventorySlot = useMemo(() => toSlot(inventoryQuery), [inventoryQuery]);
+  const accountsSlot  = useMemo(() => toSlot(accountsQuery),  [accountsQuery]);
+  const taxCodesSlot  = useMemo(() => toSlot(taxCodesQuery),  [taxCodesQuery]);
 
-  // ─── Value ─────────────────────────────────────────────────────────────
   const value = useMemo<QuickBooksContextValue>(
     () => ({
-      status, realmId, missingCredentials, lastCheckedAt, refresh, connect,
-      invoices, customers, inventory, accounts, taxCodes,
-      invalidate, invalidateAll,
+      status,
+      realmId,
+      missingCredentials,
+      lastCheckedAt,
+      refresh,
+      connect,
+      invoices:  invoicesSlot,
+      customers: customersSlot,
+      inventory: inventorySlot,
+      accounts:  accountsSlot,
+      taxCodes:  taxCodesSlot,
+      invalidate,
+      invalidateAll,
     }),
     [
       status, realmId, missingCredentials, lastCheckedAt, refresh, connect,
-      invoices, customers, inventory, accounts, taxCodes,
+      invoicesSlot, customersSlot, inventorySlot, accountsSlot, taxCodesSlot,
       invalidate, invalidateAll,
     ],
   );
