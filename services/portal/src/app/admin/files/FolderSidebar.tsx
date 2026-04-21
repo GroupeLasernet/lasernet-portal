@@ -373,7 +373,14 @@ function FolderRow({
       className={baseClasses}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragHover(true); }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        // OS file drop → 'copy' (some browsers silently reject 'move' for
+        // external files). In-page row drag → 'move'.
+        const isFile = e.dataTransfer.types.includes('Files');
+        e.dataTransfer.dropEffect = isFile ? 'copy' : 'move';
+        setDragHover(true);
+      }}
       onDragLeave={() => setDragHover(false)}
       onDrop={(e) => { setDragHover(false); onDrop(e); }}
     >

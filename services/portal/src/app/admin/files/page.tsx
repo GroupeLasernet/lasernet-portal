@@ -11,6 +11,7 @@
 //
 // UI layout (all sub-components live in this folder):
 //   • FolderSidebar     — left tree, recursive / arbitrary depth
+//   • DropZone          — dashed-border drop target above the list
 //   • DocumentsTable    — draggable rows, right pane top
 //   • VideosGrid        — draggable cards, right pane bottom
 //   • EditDocumentModal — rename + reassign folder
@@ -52,8 +53,23 @@ export default function AdminFilesPage() {
   const isRealFolderSelected =
     data.selectedFolderId !== SEL_ALL && data.selectedFolderId !== SEL_UNCAT;
 
+  // Upload a whole FileList into the currently-selected folder
+  // (respects SEL_ALL / SEL_UNCAT = uncategorized).
+  const uploadMany = (files: FileList | File[]) => {
+    for (const f of Array.from(files)) data.uploadFile(f);
+  };
+
+  // Page-level guard: if the user drops files ANYWHERE on this page
+  // (even off-target), we preventDefault so the browser doesn't
+  // navigate to the file. The drop-zone + folder rows handle the
+  // actual upload; this just suppresses the default browser action.
+  const isFileDrag = (e: React.DragEvent) => e.dataTransfer.types.includes('Files');
+
   return (
-    <div>
+    <div
+      onDragOver={(e) => { if (isFileDrag(e)) e.preventDefault(); }}
+      onDrop={(e) => { if (isFileDrag(e)) e.preventDefault(); }}
+    >
       <PageHeader
         title={t('files', 'title')}
         subtitle={t('files', 'subtitle')}
@@ -62,11 +78,12 @@ export default function AdminFilesPage() {
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) {
-                  data.uploadFile(f);
+                const fs = e.target.files;
+                if (fs && fs.length) {
+                  uploadMany(fs);
                   e.target.value = '';
                 }
               }}
@@ -134,6 +151,12 @@ export default function AdminFilesPage() {
             <span className="font-medium text-gray-800 dark:text-gray-100">{data.breadcrumb}</span>
           </div>
 
+          <DropZone
+            folderLabel={data.breadcrumb}
+            onFilesDropped={uploadMany}
+            fr={fr}
+          />
+
           <DocumentsTable
             all={data.documents}
             filtered={data.filteredDocs}
@@ -174,6 +197,86 @@ export default function AdminFilesPage() {
           onSaved={() => { setEditingVideo(null); setAddingVideo(false); data.loadAll(); }}
         />
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// DropZone — click-or-drop target rendered above the documents
+// list. Uploads land in the currently-selected folder (parent
+// handles that via the onFilesDropped callback, which delegates
+// to useFilesData.uploadFile → currentUploadFolderId()).
+// ============================================================
+function DropZone({
+  folderLabel,
+  onFilesDropped,
+  fr,
+}: {
+  folderLabel: string;
+  onFilesDropped: (files: FileList | File[]) => void;
+  fr: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [active, setActive] = useState(false);
+
+  return (
+    <div
+      className={`border-2 border-dashed rounded-xl p-5 mb-4 text-center cursor-pointer transition-colors select-none ${
+        active
+          ? 'border-brand-400 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
+          : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-brand-300 dark:hover:border-brand-600 hover:text-brand-600 dark:hover:text-brand-300'
+      }`}
+      onClick={() => inputRef.current?.click()}
+      onDragEnter={(e) => {
+        if (e.dataTransfer.types.includes('Files')) {
+          e.preventDefault();
+          setActive(true);
+        }
+      }}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          setActive(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        // Only de-activate if leaving the element itself (not just a child).
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setActive(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setActive(false);
+        if (e.dataTransfer.files?.length) onFilesDropped(e.dataTransfer.files);
+      }}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const fs = e.target.files;
+          if (fs && fs.length) onFilesDropped(fs);
+          e.target.value = '';
+        }}
+      />
+      <div className="flex flex-col items-center gap-2">
+        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700/40 flex items-center justify-center">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </div>
+        <div className="text-sm font-medium">
+          {fr ? 'Glissez-déposez des fichiers ici' : 'Drag & drop files here'}
+        </div>
+        <div className="text-xs">
+          {fr
+            ? <>ou <span className="underline">cliquez pour parcourir</span> — dossier : <span className="font-semibold">{folderLabel}</span></>
+            : <>or <span className="underline">click to browse</span> — folder: <span className="font-semibold">{folderLabel}</span></>}
+        </div>
+      </div>
     </div>
   );
 }
