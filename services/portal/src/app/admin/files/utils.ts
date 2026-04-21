@@ -2,7 +2,7 @@
 // Pure helpers for /admin/files. No React, no fetch, no state.
 // ============================================================
 
-import type { FileAssetRow, VideoAssetRow } from './types';
+import type { FileAssetRow, FileFolderRow, VideoAssetRow } from './types';
 
 export function formatSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '—';
@@ -18,27 +18,32 @@ export function formatDate(iso: string): string {
 }
 
 /**
- * Build the { category: [subCategories...] } tree from the current
- * docs + videos + any empty folders the user created this session.
+ * Build the { category: [subCategories...] } tree from
+ *   • persisted FileFolder rows (source of truth; empty folders live here)
+ *   • plus any category/subCategory strings found on docs/videos
+ *     (for legacy rows that predate the folders table).
  */
 export function buildTree(
   docs: FileAssetRow[],
   vids: VideoAssetRow[],
-  ephemeralCats: string[],
-  ephemeralSubs: Record<string, string[]>,
+  folders: FileFolderRow[],
 ): Record<string, string[]> {
   const tree: Record<string, Set<string>> = {};
   const addCat = (cat: string) => { if (!tree[cat]) tree[cat] = new Set(); };
+
   for (const row of [...docs, ...vids]) {
     if (row.category) {
       addCat(row.category);
       if (row.subCategory) tree[row.category].add(row.subCategory);
     }
   }
-  for (const cat of ephemeralCats) addCat(cat);
-  for (const [cat, subs] of Object.entries(ephemeralSubs)) {
-    addCat(cat);
-    for (const s of subs) tree[cat].add(s);
+  for (const f of folders) {
+    if (f.parent == null) {
+      addCat(f.name);
+    } else {
+      addCat(f.parent);
+      tree[f.parent].add(f.name);
+    }
   }
   return Object.fromEntries(
     Object.entries(tree).map(([k, v]) => [k, Array.from(v).sort((a, b) => a.localeCompare(b))]),

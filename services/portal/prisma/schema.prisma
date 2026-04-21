@@ -1131,6 +1131,25 @@ model VideoAsset {
 }
 
 // ============================================================
+// FILE FOLDERS — Persisted folder tree for /admin/files.
+// Two-level tree; matches FileAsset.category/.subCategory
+// string columns. parent = null → top-level category,
+// parent = "<name>" → subfolder of that category. FileAsset
+// and VideoAsset keep their string columns (not FKs) — the
+// folders API cascades renames/deletes into those columns.
+// ============================================================
+model FileFolder {
+  id        String   @id @default(cuid())
+  name      String
+  parent    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parent])
+}
+
+// ============================================================
 // IMPROVEMENTS — Problem-solving & feature tracking
 // ============================================================
 model Improvement {

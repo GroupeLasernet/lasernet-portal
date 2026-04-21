@@ -44,6 +44,17 @@ export interface VideoAssetRow {
   uploadedAt: string;
 }
 
+// Persisted folder row from /api/files/folders.
+// parent === null → top-level category; otherwise the parent
+// category's name. 2-level tree only.
+export interface FileFolderRow {
+  id: string;
+  name: string;
+  parent: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Payload written to dataTransfer when a row is dragged toward the sidebar.
 export type DragPayload = { kind: 'doc' | 'video'; id: string };
 

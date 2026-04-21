@@ -215,8 +215,9 @@ Documents uploaded through `/admin/files` are stored in a Google Workspace **Sha
 Tables backing the UI:
 - `FileAsset` — `{ driveFileId, name, mimeType, sizeBytes, category, subCategory, scope, managedClientId?, localBusinessId? }`. Drive holds the bytes, DB holds metadata + ACL.
 - `VideoAsset` — Vimeo-linked, no storage on our side. `{ title, vimeoUrl, vimeoId, description, category, subCategory, scope, managedClientId?, localBusinessId? }`.
+- `FileFolder` — Persisted folder tree. `{ id, name, parent? }`. Top-level when `parent` is null; subfolder otherwise. Two-level only. Empty folders survive reload (this is the whole point of the table). NOT an FK target of `FileAsset`/`VideoAsset`: the string columns `category` / `subCategory` stay denormalized; the folder API cascades renames/deletes into them. Added 2026-04-20 migration `20260420_file_folders.sql`.
 
-APIs: `/api/files/documents` (GET list, POST upload multipart), `/api/files/documents/[id]` (PATCH rename/recategorize + Drive rename, DELETE Drive+DB), `/api/files/documents/[id]/download` (GET stream from Drive), `/api/files/videos` (GET, POST), `/api/files/videos/[id]` (PATCH, DELETE).
+APIs: `/api/files/documents` (GET list, POST upload multipart), `/api/files/documents/[id]` (PATCH rename/recategorize + Drive rename, DELETE Drive+DB), `/api/files/documents/[id]/download` (GET stream from Drive), `/api/files/videos` (GET, POST), `/api/files/videos/[id]` (PATCH, DELETE), `/api/files/folders` (GET list, POST create `{name, parent?}`), `/api/files/folders/[id]` (PATCH rename — cascades into FileAsset/VideoAsset string columns + child FileFolder.parent; DELETE — cascades to null on contained rows, files preserved).
 
 **Pre-merge setup (required on each environment):**
 1. **Google Cloud** — create project `Prisma Portal` → enable "Google Drive API" → create service account `prisma-drive-writer` → Keys tab → Add Key → JSON → download.

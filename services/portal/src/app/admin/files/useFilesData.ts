@@ -4,6 +4,10 @@
 // useFilesData — all data I/O + tree/selection state for
 // /admin/files. The page component only needs to wire the
 // returned values into JSX + own modal state.
+//
+// Folders are PERSISTED to the DB via /api/files/folders —
+// they survive page reload even when empty, and every folder
+// supports rename + delete.
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -12,6 +16,7 @@ import type {
   AssetKind,
   DragPayload,
   FileAssetRow,
+  FileFolderRow,
   VideoAssetRow,
 } from './types';
 import { SEL_ALL, SEL_UNCAT } from './types';
@@ -22,15 +27,12 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
 
   const [documents, setDocuments] = useState<FileAssetRow[]>([]);
   const [videos, setVideos] = useState<VideoAssetRow[]>([]);
+  const [folders, setFolders] = useState<FileFolderRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Tree selection
   const [selCat, setSelCat] = useState<string>(SEL_ALL);
   const [selSub, setSelSub] = useState<string | null>(null);
-
-  // User-created empty folders (vanish on reload unless populated)
-  const [ephemeralCats, setEphemeralCats] = useState<string[]>([]);
-  const [ephemeralSubs, setEphemeralSubs] = useState<Record<string, string[]>>({});
 
   // Expand/collapse
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -39,14 +41,17 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [dRes, vRes] = await Promise.all([
+      const [dRes, vRes, fRes] = await Promise.all([
         fetch('/api/files/documents', { cache: 'no-store' }),
         fetch('/api/files/videos', { cache: 'no-store' }),
+        fetch('/api/files/folders', { cache: 'no-store' }),
       ]);
       const dData = dRes.ok ? await dRes.json() : [];
       const vData = vRes.ok ? await vRes.json() : [];
+      const fData = fRes.ok ? await fRes.json() : [];
       setDocuments(dData);
       setVideos(vData);
+      setFolders(fData);
     } catch {
       toast.error('Failed to load files');
     } finally {
@@ -54,15 +59,12 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
     }
   }, [toast]);
 
-  useEffect(() => {
-    console.log('[files] useFilesData mounted / loadAll ref changed — running loadAll');
-    loadAll();
-  }, [loadAll]);
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   // ── Derived state ───────────────────────────────────────
   const tree = useMemo(
-    () => buildTree(documents, videos, ephemeralCats, ephemeralSubs),
-    [documents, videos, ephemeralCats, ephemeralSubs],
+    () => buildTree(documents, videos, folders),
+    [documents, videos, folders],
   );
 
   const uncatCount = useMemo(
@@ -197,49 +199,156 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
     }
   }, [moveAsset, uploadFile]);
 
-  // ── New folder / subfolder (ephemeral until populated) ──
-  // Both take the name as an argument — the UI owns the input field.
-  // (Previous version used window.prompt(), but Chrome lets users
-  // suppress further prompts after the first one, which caused the
-  // "only the first folder is kept" bug.)
-  const createCategory = useCallback((name: string) => {
+  // ── Folder CRUD (persisted) ─────────────────────────────
+  const createCategory = useCallback(async (name: string) => {
     const clean = name.trim();
-    console.log('[files] createCategory call →', JSON.stringify(clean));
     if (!clean) return;
-    setEphemeralCats((prev) => {
-      const next = prev.includes(clean) ? prev : [...prev, clean];
-      console.log('[files] ephemeralCats:', prev, '→', next);
-      return next;
-    });
-    setExpanded((prev) => {
-      const n = new Set(prev);
-      n.add(clean);
-      return n;
-    });
-    setSelCat(clean);
-    setSelSub(null);
-  }, []);
+    try {
+      const res = await fetch('/api/files/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: clean }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Create failed');
+      }
+      toast.saved();
+      setExpanded((prev) => {
+        const n = new Set(prev);
+        n.add(clean);
+        return n;
+      });
+      setSelCat(clean);
+      setSelSub(null);
+      loadAll();
+    } catch (e: any) {
+      toast.error(e.message || 'Create failed');
+    }
+  }, [loadAll, toast]);
 
-  const createSubcategory = useCallback((cat: string, name: string) => {
+  const createSubcategory = useCallback(async (cat: string, name: string) => {
     const clean = name.trim();
-    console.log('[files] createSubcategory call →', cat, JSON.stringify(clean));
     if (!clean) return;
-    setEphemeralSubs((prev) => {
-      const next = {
-        ...prev,
-        [cat]: prev[cat]?.includes(clean) ? prev[cat] : [...(prev[cat] || []), clean],
-      };
-      console.log('[files] ephemeralSubs:', prev, '→', next);
-      return next;
-    });
-    setExpanded((prev) => {
-      const n = new Set(prev);
-      n.add(cat);
-      return n;
-    });
-    setSelCat(cat);
-    setSelSub(clean);
-  }, []);
+    try {
+      const res = await fetch('/api/files/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: clean, parent: cat }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Create failed');
+      }
+      toast.saved();
+      setExpanded((prev) => {
+        const n = new Set(prev);
+        n.add(cat);
+        return n;
+      });
+      setSelCat(cat);
+      setSelSub(clean);
+      loadAll();
+    } catch (e: any) {
+      toast.error(e.message || 'Create failed');
+    }
+  }, [loadAll, toast]);
+
+  // Rename a folder (top-level or sub). `parent` is null for
+  // top-level, otherwise the parent category name. If the
+  // folder doesn't exist in the DB yet (it's only implied by
+  // a file/video's category/subCategory string), we first
+  // create it, then rename — so "rename the default bucket"
+  // still works.
+  const renameFolder = useCallback(async (
+    parent: string | null,
+    oldName: string,
+    newName: string,
+  ) => {
+    const clean = newName.trim();
+    if (!clean || clean === oldName) return;
+    try {
+      // Find or create the folder row.
+      let folder = folders.find(
+        (f) => f.name === oldName && (f.parent ?? null) === (parent ?? null),
+      );
+      if (!folder) {
+        const createRes = await fetch('/api/files/folders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: oldName, parent: parent ?? undefined }),
+        });
+        if (!createRes.ok) {
+          const data = await createRes.json().catch(() => ({}));
+          throw new Error(data.error || 'Rename failed');
+        }
+        folder = await createRes.json();
+      }
+      const res = await fetch(`/api/files/folders/${folder!.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: clean }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Rename failed');
+      }
+      toast.saved();
+      // Keep the selection pointing at the renamed folder.
+      if (parent == null) {
+        if (selCat === oldName) setSelCat(clean);
+      } else {
+        if (selCat === parent && selSub === oldName) setSelSub(clean);
+      }
+      loadAll();
+    } catch (e: any) {
+      toast.error(e.message || 'Rename failed');
+    }
+  }, [folders, loadAll, toast, selCat, selSub]);
+
+  const deleteFolder = useCallback(async (
+    parent: string | null,
+    name: string,
+  ) => {
+    const msg = fr
+      ? `Supprimer le dossier "${name}" ? Les fichiers seront déplacés vers Sans catégorie.`
+      : `Delete folder "${name}"? Any files inside will be moved to Uncategorized.`;
+    if (!confirm(msg)) return;
+    try {
+      let folder = folders.find(
+        (f) => f.name === name && (f.parent ?? null) === (parent ?? null),
+      );
+      if (!folder) {
+        // Folder only exists via file columns — create then delete.
+        const createRes = await fetch('/api/files/folders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, parent: parent ?? undefined }),
+        });
+        if (!createRes.ok) {
+          const data = await createRes.json().catch(() => ({}));
+          throw new Error(data.error || 'Delete failed');
+        }
+        folder = await createRes.json();
+      }
+      const res = await fetch(`/api/files/folders/${folder!.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Delete failed');
+      }
+      toast.saved();
+      // If we were viewing the folder we just nuked, go back to All.
+      if (parent == null && selCat === name) {
+        setSelCat(SEL_ALL);
+        setSelSub(null);
+      } else if (parent != null && selCat === parent && selSub === name) {
+        setSelSub(null);
+      }
+      loadAll();
+    } catch (e: any) {
+      toast.error(e.message || 'Delete failed');
+    }
+  }, [folders, loadAll, toast, selCat, selSub, fr]);
 
   const toggleExpanded = useCallback((cat: string) => {
     setExpanded((prev) => {
@@ -275,6 +384,8 @@ export function useFilesData(fr: boolean, tDelete: { doc: string; video: string 
     handleDrop,
     createCategory,
     createSubcategory,
+    renameFolder,
+    deleteFolder,
     toggleExpanded,
     select,
   };

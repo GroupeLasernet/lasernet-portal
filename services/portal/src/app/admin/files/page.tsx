@@ -110,6 +110,8 @@ export default function AdminFilesPage() {
           onToggle={data.toggleExpanded}
           onCreateCategory={data.createCategory}
           onCreateSubcategory={data.createSubcategory}
+          onRenameFolder={data.renameFolder}
+          onDeleteFolder={data.deleteFolder}
           onDrop={data.handleDrop}
           uncatCount={data.uncatCount}
           totalCount={data.documents.length + data.videos.length}
